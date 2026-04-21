@@ -13,21 +13,41 @@ const formatSignedUsd = (value: number) => `${value >= 0 ? '+' : '-'}$${Math.abs
 const formatSignedPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 
 export function MyInvestmentsHero(props: MyInvestmentsHeroProps) {
+  const pnlTone = props.pnlUsd >= 0 ? 'is-positive' : 'is-negative';
+
   return (
     <section className="mi-hero">
       <div className="mi-hero-copy">
         <p className="mi-label">Invested Fiat</p>
         <h1 className="mi-hero-value">{formatUsd(props.investedFiat)}</h1>
-        <div className="mi-hero-metrics">
-          <span>Current Value {formatUsd(props.currentValue)}</span>
-          <span>Net P&amp;L {formatSignedUsd(props.pnlUsd)} ({formatSignedPercent(props.pnlPercent)})</span>
-          <span>Liquid {formatUsd(props.liquidValue)}</span>
-          <span>Staked {formatUsd(props.stakedValue)}</span>
-        </div>
+        <p className="mi-hero-caption">Historical entry pricing from Ethereum and Base inflows.</p>
       </div>
-      <button type="button" className="mi-planner-button" onClick={props.onOpenPlanner}>
-        Profit Planner
-      </button>
+
+      <div className="mi-hero-side">
+        <div className="mi-hero-metrics">
+          <article className="mi-stat-card">
+            <span className="mi-stat-label">Current Value</span>
+            <strong className="mi-stat-value">{formatUsd(props.currentValue)}</strong>
+          </article>
+          <article className={`mi-stat-card ${pnlTone}`}>
+            <span className="mi-stat-label">Net P&amp;L</span>
+            <strong className="mi-stat-value">{formatSignedUsd(props.pnlUsd)}</strong>
+            <span className="mi-stat-meta">{formatSignedPercent(props.pnlPercent)}</span>
+          </article>
+          <article className="mi-stat-card mi-stat-card--compact">
+            <span className="mi-stat-label">Liquid</span>
+            <strong className="mi-stat-value">{formatUsd(props.liquidValue)}</strong>
+          </article>
+          <article className="mi-stat-card mi-stat-card--compact">
+            <span className="mi-stat-label">Staked</span>
+            <strong className="mi-stat-value">{formatUsd(props.stakedValue)}</strong>
+          </article>
+        </div>
+
+        <button type="button" className="mi-planner-button" onClick={props.onOpenPlanner}>
+          Profit Planner
+        </button>
+      </div>
     </section>
   );
 }

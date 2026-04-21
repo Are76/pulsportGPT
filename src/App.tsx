@@ -74,6 +74,7 @@ import type { HoldingDisplayAsset, HoldingSortField } from './components/Holding
 import { normalizeTransactions } from './utils/normalizeTransactions';
 import { scheduleLocalStorageWrite, resolveBlockscoutBase, resolveEtherscanCompatBase } from './utils/localStorageDebounce';
 import { BRAND_ASSETS } from './branding/brand-assets';
+import { MyInvestmentsPage } from './pages/MyInvestmentsPage';
 
 const ERC20_ABI = [
   {
@@ -6345,311 +6346,43 @@ export default function App() {
         {activeTab === 'pulsechain-official' && (
           <motion.div key="pulsechain-official" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {(() => {
-              const HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
-              const investedRatio = summary.netInvestment > MIN_INVESTMENT_THRESHOLD
-                ? (summary.unifiedPnl / summary.netInvestment) * 100
-                : 0;
-
-              const now = Date.now();
-              const cutoffs: Record<string, number> = {
-                '1w': now - 7 * 24 * 3600 * 1000,
-                '1m': now - 30 * 24 * 3600 * 1000,
-                '1y': now - 365 * 24 * 3600 * 1000,
-                'all': 0,
-              };
-              const cutoff = cutoffs[perfPeriod];
-              const realHistory = (wallets.length > 0 ? history : []).filter(p => p.timestamp >= cutoff);
-              const currentVal = summary.totalValue || 1;
-              const mockLast = MOCK_HISTORY[MOCK_HISTORY.length - 1]?.value || 1;
-              const scale = currentVal / mockLast;
-              const byBucket = new Map<string, { value: number; ts: number }>();
-              realHistory.forEach(p => {
-                const key = perfPeriod === '1w' ? format(p.timestamp, 'yyyy-MM-dd HH') : format(p.timestamp, 'yyyy-MM-dd');
-                byBucket.set(key, { value: p.value, ts: p.timestamp });
-              });
-              const uniquePts = [...byBucket.entries()]
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([, { value, ts }]) => ({ day: fmtLabel(ts), value }));
-              let chartPoints: { day: string; value: number }[];
-              let isSimulated = false;
-              if (uniquePts.length >= 3) {
-                chartPoints = uniquePts;
-              } else {
-                isSimulated = true;
-                const mockCount = perfPeriod === '1w' ? 28 : perfPeriod === '1m' ? 30 : perfPeriod === '1y' ? 52 : 60;
-                chartPoints = MOCK_HISTORY.slice(-mockCount).map(p => ({
-                  day: fmtLabel(p.timestamp),
-                  value: p.value * scale,
+              const investmentRows = currentAssets
+                .filter(asset => asset.value > 0)
+                .sort((a, b) => b.value - a.value)
+                .map(asset => ({
+                  id: asset.id,
+                  symbol: asset.symbol,
+                  name: asset.name,
+                  chain: asset.chain,
+                  amount: asset.balance,
+                  currentPrice: asset.price,
+                  currentValue: asset.value,
+                  costBasis: 0,
+                  pnlUsd: 0,
+                  pnlPercent: 0,
+                  sourceMix: [],
+                  routeSummary: 'Open transactions to inspect bridge and swap history',
+                  thenValue: 0,
+                  nowValue: asset.value,
                 }));
-                if (chartPoints.length > 0) chartPoints[chartPoints.length - 1].value = currentVal;
-              }
-              const periodChange = chartPoints.length >= 2
-                ? ((chartPoints[chartPoints.length - 1].value - chartPoints[0].value) / Math.max(1, chartPoints[0].value)) * 100
-                : 0;
-              const periodLabel: Record<string, string> = { '1w': 'Week', '1m': 'Month', '1y': 'Year', 'all': 'All' };
-              const xTickCount = perfPeriod === '1w' ? 7 : perfPeriod === '1m' ? 6 : 8;
-              const xInterval = Math.max(0, Math.floor(chartPoints.length / xTickCount) - 1);
-              const yMin = Math.min(...chartPoints.map(p => p.value));
-              const yMax = Math.max(...chartPoints.map(p => p.value));
-              const yPad = (yMax - yMin) * 0.1 || yMax * 0.1;
-              const fmtYAxis = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v.toFixed(0)}`;
 
               return (
-                <div className="wallet-page-shell my-investment-page">
-                  <section className="my-investment-hero">
-                    <div className="my-investment-hero-copy">
-                      <span className="my-investment-kicker">Portfolio command</span>
-                      <h1>My Investment</h1>
-                      <p>
-                        One page for invested capital, wallet exposure, allocation, performance, and PulseChain portfolio mix.
-                      </p>
-                      <div className="my-investment-snapshot-grid">
-                        {[
-                          {
-                            label: 'Total Invested',
-                            val: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `$${Math.abs(summary.netInvestment).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '-',
-                            sub: 'ETH + stablecoin inflows',
-                            color: 'var(--fg)',
-                          },
-                          {
-                            label: 'Total P&L',
-                            val: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `${summary.unifiedPnl >= 0 ? '+' : ''}$${Math.abs(summary.unifiedPnl).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '-',
-                            sub: 'Net profit vs invested capital',
-                            color: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? t.green : t.red) : 'var(--fg)',
-                          },
-                          {
-                            label: 'P&L %',
-                            val: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `${summary.unifiedPnl >= 0 ? '+' : ''}${((summary.unifiedPnl / summary.netInvestment) * 100).toFixed(1)}%` : '-',
-                            sub: 'Performance against invested amount',
-                            color: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? t.green : t.red) : 'var(--fg)',
-                          },
-                          {
-                            label: 'Realized',
-                            val: `${summary.realizedPnl >= 0 ? '+' : ''}$${Math.abs(summary.realizedPnl).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
-                            sub: 'Closed trade profit',
-                            color: summary.realizedPnl >= 0 ? t.green : t.red,
-                          },
-                          {
-                            label: "Today's portfolio change",
-                            val: `${summary.pnl24h >= 0 ? '+' : ''}$${Math.abs(summary.pnl24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
-                            sub: '24h move',
-                            color: summary.pnl24h >= 0 ? t.green : t.red,
-                          },
-                        ].map(({ label, val, sub, color }) => (
-                          <div key={label} className="my-investment-snapshot-card">
-                            <div className="my-investment-snapshot-label">{label}</div>
-                            <div className="my-investment-snapshot-value" style={{ color }}>{val}</div>
-                            <div className="my-investment-snapshot-sub">{sub}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="my-investment-hero-actions">
-                        <button className="front-inline-link" onClick={() => setActiveTab('assets')}>
-                          Open wallet <ChevronRight size={14} />
-                        </button>
-                        <button className="front-inline-link" onClick={() => setActiveTab('history')}>
-                          Open transaction <ChevronRight size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section className="tx-module-card my-investment-performance">
-                    <div className="tx-module-header" style={{ borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg)' }}>Portfolio Performance</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: periodChange >= 0 ? t.green : t.red }}>
-                          {periodChange >= 0 ? '+' : ''}{periodChange.toFixed(2)}%
-                        </div>
-                        {isSimulated && <div style={{ fontSize: 10, color: t.textMuted, fontStyle: 'italic' }}>simulated</div>}
-                      </div>
-                      <div style={{ display: 'flex', gap: 2, background: t.cardHigh, border: `1px solid ${t.border}`, borderRadius: 8, padding: 3 }}>
-                        {(['1w','1m','1y','all'] as const).map(p => (
-                          <button key={p} onClick={() => setPerfPeriod(p)}
-                            style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', transition: 'all .12s',
-                              background: perfPeriod === p ? 'var(--accent)' : 'var(--bg-elevated)',
-                              color: perfPeriod === p ? (theme === 'dark' ? '#000' : '#fff') : 'var(--fg-muted)',
-                              boxShadow: perfPeriod === p ? '0 0 10px rgba(0,255,159,0.25)' : 'none' }}>
-                            {periodLabel[p]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ padding: '14px 8px 14px 0' }}>
-                      <div style={{ width: '100%', minWidth: 1, minHeight: 1, height: 290 }}>
-                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} debounce={50}>
-                          <AreaChart data={chartPoints} margin={{ top: 4, right: 18, left: 0, bottom: 0 }}>
-                            <defs>
-                              <linearGradient id="myInvestmentValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.22}/>
-                                <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e1e1e' : '#e8e8e8'} vertical={false} />
-                            <XAxis dataKey="day" stroke={theme === 'dark' ? '#333' : '#ccc'} fontSize={11} tickLine={false} axisLine={false} tick={{ fill: t.textSecondary }} interval={xInterval} />
-                            <YAxis width={54} fontSize={11} tickLine={false} axisLine={false} tick={{ fill: t.textSecondary }} tickFormatter={fmtYAxis} domain={[yMin - yPad, yMax + yPad]} />
-                            <RechartsTooltip
-                              contentStyle={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, color: t.text }}
-                              formatter={(v: any) => [`$${Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`, 'Portfolio Value']}
-                              labelStyle={{ color: t.textSecondary, marginBottom: 4 }}
-                            />
-                            <Area type="monotone" dataKey="value" stroke="var(--accent)" fillOpacity={1} fill="url(#myInvestmentValue)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: 'var(--accent)', strokeWidth: 0 }} />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section className="tx-module-card">
-                    <div className="tx-module-header" style={{ borderBottom: allocWheelOpen ? '1px solid var(--border)' : 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-                        <PieChartIcon size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg)' }}>Portfolio Allocation</span>
-                        <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>By token value</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <button
-                          onClick={() => setAllocWheelOpen(v => !v)}
-                          title={allocWheelOpen ? 'Hide allocation' : 'Show allocation'}
-                          style={{ padding: '6px 8px', borderRadius: 8, border: `1px solid ${allocWheelOpen ? 'var(--accent-border)' : t.border}`,
-                            background: allocWheelOpen ? 'var(--accent-dim)' : t.cardHigh,
-                            color: allocWheelOpen ? 'var(--accent)' : t.textSecondary,
-                            cursor: 'pointer', transition: 'all .12s', display: 'flex', alignItems: 'center' }}>
-                          <PieChartIcon size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    {allocWheelOpen && (() => {
-                      const ALLOC_COLORS_P = ['#00FF9F','#627EEA','#f97316','#a855f7','#f59e0b','#06b6d4','#ec4899'];
-                      const alloc = assetAllocation.length > 0 ? assetAllocation : [];
-                      return (
-                        <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, padding: '16px 20px', display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', transition: 'all .2s ease', margin: 16 }}>
-                          {!allocationCalculatorOpen ? (
-                            <>
-                              <div style={{ width: 146, height: 146, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-                                {alloc.length > 0 ? (
-                                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} debounce={50}>
-                                    <PieChart>
-                                      <Pie data={alloc} cx="50%" cy="50%" innerRadius={43} outerRadius={66} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                                        {alloc.map((_, i) => (
-                                          <Cell key={i} fill={ALLOC_COLORS_P[i % ALLOC_COLORS_P.length]} />
-                                        ))}
-                                      </Pie>
-                                      <RechartsTooltip contentStyle={{ background: 'var(--bg-surface)', border: '1px solid rgba(0,255,159,0.15)', borderRadius: 10, fontSize: 12, color: 'var(--fg)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }} />
-                                    </PieChart>
-                                  </ResponsiveContainer>
-                                ) : (
-                                  <div style={{ width: 112, height: 112, borderRadius: '50%', border: `14px solid ${t.border}`, opacity: 0.8 }} aria-hidden="true" />
-                                )}
-                              </div>
-                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 160 }}>
-                                {alloc.length > 0 ? alloc.map((a, i) => {
-                                  const pct = (a.value / (summary.totalValue || 1)) * 100;
-                                  const valFmt = a.value >= 1e6 ? `$${(a.value/1e6).toFixed(1)}M` : a.value >= 1e3 ? `$${(a.value/1e3).toFixed(0)}K` : `$${a.value.toFixed(0)}`;
-                                  return (
-                                    <div key={a.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                      <div style={{ width: 8, height: 8, borderRadius: 2, background: ALLOC_COLORS_P[i % ALLOC_COLORS_P.length], flexShrink: 0, boxShadow: `0 0 6px ${ALLOC_COLORS_P[i % ALLOC_COLORS_P.length]}66` }} />
-                                      <span style={{ fontSize: 14, color: t.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
-                                      <span style={{ fontSize: 14, fontWeight: 800, color: t.textSecondary, fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'tabular-nums', marginLeft: 4 }}>{pct.toFixed(1)}%</span>
-                                      <span style={{ fontSize: 13, color: t.textMuted, fontFamily: 'JetBrains Mono, monospace', minWidth: 58, textAlign: 'right' }}>{valFmt}</span>
-                                    </div>
-                                  );
-                                }) : (
-                                  <div style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>Add wallets to see allocation</div>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ width: '100%', display: 'grid', gap: 10 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Adjust Allocation</div>
-                                <div style={{ fontSize: 12, color: t.textSecondary }}>
-                                  Total: {allocationCalculatorRows.reduce((sum, r) => sum + r.percent, 0).toFixed(1)}%
-                                </div>
-                              </div>
-                              {allocationCalculatorRows.length > 0 ? allocationCalculatorRows.map((row, i) => (
-                                <div key={row.name} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', alignItems: 'center', gap: 10 }} className="max-sm:grid-cols-1">
-                                  <span style={{ fontSize: 13, color: t.text }}>{row.name}</span>
-                                  <input
-                                    type="range"
-                                    min={0}
-                                    max={100}
-                                    step={0.1}
-                                    value={row.percent}
-                                    onChange={(e) => {
-                                      const next = Number(e.target.value);
-                                      setAllocationDraftPercentages(prev => ({ ...prev, [row.name]: next }));
-                                    }}
-                                    style={{ accentColor: ALLOC_COLORS_P[i % ALLOC_COLORS_P.length] }}
-                                  />
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    step={0.1}
-                                    value={row.percent.toFixed(1)}
-                                    onChange={(e) => {
-                                      const next = Number(e.target.value);
-                                      if (!Number.isFinite(next)) return;
-                                      setAllocationDraftPercentages(prev => ({ ...prev, [row.name]: Math.min(100, Math.max(0, next)) }));
-                                    }}
-                                    style={{ width: '100%', background: t.cardHigh, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}
-                                  />
-                                  <span style={{ fontSize: 12, color: t.textSecondary, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>
-                                    ${row.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                                  </span>
-                                </div>
-                              )) : (
-                                <div style={{ fontSize: 13, color: t.textMuted }}>No holdings available for allocation calculator.</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </section>
-
-                  <section className="front-intel-panel my-investment-card">
-                    <div className="front-section-head">
-                      <span>Portfolio intel</span>
-                      <h2>See where the portfolio is concentrated across chains and modules.</h2>
-                    </div>
-                    <div className="front-chain-stack">
-                      {frontPageChainRows.map(row => {
-                        const pct = summary.totalValue > 0 ? (row.value / summary.totalValue) * 100 : row.value;
-                        const chainColor = CHAIN_COLORS[row.chain] || 'var(--accent)';
-                        return (
-                          <div className="front-chain-row" key={row.chain}>
-                            <div>
-                              <span style={{ background: chainColor }} />
-                              <strong>{row.chain.charAt(0).toUpperCase() + row.chain.slice(1)}</strong>
-                            </div>
-                            <small>{Math.max(0, pct).toFixed(1)}%</small>
-                            <em><i style={{ width: `${Math.min(100, Math.max(4, pct))}%`, background: chainColor }} /></em>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="front-intel-links">
-                      {[
-                        { label: 'HEX stakes', tab: 'stakes' as const, icon: Lock },
-                        { label: 'DeFi positions', tab: 'defi' as const, icon: Droplets },
-                        { label: 'Transaction', tab: 'history' as const, icon: History },
-                        { label: 'Bridge', tab: 'bridge' as const, icon: ArrowLeftRight },
-                      ].map(({ label, tab, icon: Icon }) => (
-                        <button key={label} onClick={() => setActiveTab(tab)}>
-                          <Icon size={15} />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                </div>
+                <MyInvestmentsPage
+                  investedFiat={summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? Math.abs(summary.netInvestment) : 0}
+                  currentValue={summary.totalValue}
+                  liquidValue={summary.liquidValue}
+                  stakedValue={summary.stakingValueUsd}
+                  rows={investmentRows}
+                  onOpenPlanner={() => setProfitPlannerOpen(true)}
+                  onOpenTransactions={(row) => {
+                    setTxAssetFilter(row.symbol);
+                    setActiveTab('history');
+                  }}
+                />
               );
             })()}
           </motion.div>
         )}
-
         {activeTab === 'pulsechain-community' && (
           <motion.div key="pulsechain-community" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <PulseChainCommunityPage />
@@ -7169,3 +6902,4 @@ export default function App() {
     </div>
   );
 }
+
