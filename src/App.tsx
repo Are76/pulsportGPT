@@ -3854,35 +3854,47 @@ export default function App() {
                     </div>
 
                     <div className="front-price-grid">
-                      {frontPageGridTokens.map((token, i) => (
-                        <button
-                          key={`${token.id}-${i}`}
-                          className="front-price-box"
-                          onClick={() => openMarketWatch(token.symbol)}
-                          style={{ animationDelay: `${i * 38}ms` }}
-                        >
-                          <span className="front-price-accent" style={{ background: token.accent }} />
-                          <span className="front-price-topline">
-                            <span className="front-token-logo">
-                              {token.logo ? <img src={token.logo} alt={token.symbol} /> : token.symbol.slice(0, 1)}
+                      {frontPageGridTokens.map((token, i) => {
+                        const changeClass = (token.change24h ?? 0) >= 0 ? 'is-up' : 'is-down';
+                        return (
+                          <button
+                            key={`${token.id}-${i}`}
+                            className="front-price-box"
+                            onClick={() => openMarketWatch(token.symbol)}
+                            style={{ animationDelay: `${i * 38}ms` }}
+                          >
+                            <span className="front-price-accent" style={{ background: token.accent }} />
+                            <span className="front-price-head">
+                              <span className="front-price-topline">
+                                <span className="front-token-logo">
+                                  {token.logo ? <img src={token.logo} alt={token.symbol} /> : token.symbol.slice(0, 1)}
+                                </span>
+                                <span>
+                                  <strong>{token.symbol}</strong>
+                                  <small>{token.name}</small>
+                                </span>
+                              </span>
+                              <small className={`front-price-chip ${changeClass}`}>
+                                {token.change24h == null ? 'Live' : `${token.change24h >= 0 ? '+' : ''}${token.change24h.toFixed(2)}% ${frontMarketPeriod}`}
+                              </small>
                             </span>
-                            <span>
-                              <strong>{token.symbol}</strong>
-                              <small>{token.name}</small>
+                            <span className="front-price-main">
+                              <strong>{fmtPrice(token.price)}</strong>
+                              <small>PulseChain market</small>
                             </span>
-                          </span>
-                          <span className="front-price-main">
-                            <strong>{fmtPrice(token.price)}</strong>
-                            <small className={(token.change24h ?? 0) >= 0 ? 'is-up' : 'is-down'}>
-                              {token.change24h == null ? 'Live' : `${token.change24h >= 0 ? '+' : ''}${token.change24h.toFixed(2)}% ${frontMarketPeriod}`}
-                            </small>
-                          </span>
-                          <span className="front-price-footer">
-                            <span>Vol {fmtMarket(token.volume24h)}</span>
-                            <span>MCap {fmtMarket(token.marketCap)}</span>
-                          </span>
-                        </button>
-                      ))}
+                            <span className="front-price-footer">
+                              <span className="front-price-stat">
+                                <small>Market cap</small>
+                                <strong>{fmtMarket(token.marketCap)}</strong>
+                              </span>
+                              <span className="front-price-stat">
+                                <small>Volume 24h</small>
+                                <strong>{fmtMarket(token.volume24h)}</strong>
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="front-market-actions">
@@ -3897,33 +3909,58 @@ export default function App() {
                   </div>
                 </section>
 
-                <section className="front-section front-section-tight">
-                  <div className="front-section-head">
-                    <span>Market pulse</span>
-                    <h2>Read the chain before you open a wallet.</h2>
+                <section className="front-dashboard-band">
+                  <div className="front-pulse-board">
+                    <div className="front-section-head">
+                      <span>Market pulse</span>
+                      <h2>See the chain, then decide what to open.</h2>
+                    </div>
+                    <div className="front-pulse-grid">
+                      {frontPageMarketStats.map(stat => (
+                        <div className="front-pulse-stat" key={stat.label}>
+                          <span>{stat.label}</span>
+                          <strong>{stat.value}</strong>
+                          <small>{stat.detail}</small>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="front-stat-strip">
-                    {frontPageMarketStats.map(stat => (
-                      <div className="front-stat" key={stat.label}>
-                        <span>{stat.label}</span>
-                        <strong>{stat.value}</strong>
-                        <small>{stat.detail}</small>
-                      </div>
-                    ))}
+
+                  <div className="front-command-panel">
+                    <div className="front-section-head">
+                      <span>Open next</span>
+                      <h2>{wallets.length > 0 ? 'Jump straight into the useful surfaces.' : 'Add one wallet, then open the full dashboard.'}</h2>
+                    </div>
+                    <div className="front-intel-links front-intel-links--command">
+                      {[
+                        { label: 'My Investments', tab: 'pulsechain-official' as const, icon: TrendingUp },
+                        { label: 'HEX Staking', tab: 'stakes' as const, icon: Lock },
+                        { label: 'Transactions', tab: 'history' as const, icon: History },
+                        { label: 'Wallets', tab: 'assets' as const, icon: WalletIcon },
+                      ].map(({ label, tab, icon: Icon }) => (
+                        <button key={label} onClick={() => setActiveTab(tab)}>
+                          <Icon size={15} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </section>
 
-                <section className="front-split-section">
-                  <div className="front-portfolio-preview">
+                <section className="front-dashboard-grid">
+                  <div className="front-holdings-panel">
                     <div className="front-section-head">
-                      <span>Your wallet</span>
-                      <h2>{wallets.length > 0 ? 'Your portfolio is ready.' : 'Track the wallet right from the portfolio view.'}</h2>
+                      <span>Current bag</span>
+                      <h2>{wallets.length > 0 ? 'Your highest-conviction holdings, first.' : 'Paste a wallet and the bag shows up here.'}</h2>
                     </div>
-                    <div className="front-value-row">
+                    <div className="front-value-row front-value-row--dashboard">
                       <div>
                         <span>Total value</span>
                         <strong>${summary.totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}</strong>
-                        {!wallets.length && <small style={{ color: 'var(--fg-muted)', fontSize: 12, lineHeight: 1.5 }}>Paste a wallet. See the full picture.</small>}
+                      </div>
+                      <div>
+                        <span>Invested fiat</span>
+                        <strong>{summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `$${Math.abs(summary.netInvestment).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '-'}</strong>
                       </div>
                       <div>
                         <span>24h move</span>
@@ -3932,20 +3969,25 @@ export default function App() {
                         </strong>
                       </div>
                     </div>
-                    <div className="front-holding-list">
+                    <div className="front-holding-list front-holding-list--dashboard">
                       {frontPagePortfolioRows.map(asset => {
                         const logo = STATIC_LOGOS[(asset as any).address?.toLowerCase?.()] || (asset as any).logoUrl || tokenLogos[(asset as any).address?.toLowerCase?.()] || getTokenLogoUrl(asset);
+                        const dayMove = asset.pnl24h ?? asset.priceChange24h ?? 0;
                         return (
-                          <button key={asset.id} className="front-holding-row" onClick={() => { setActiveTab('assets'); setOverviewTokenSearch(asset.symbol); }}>
+                          <button key={asset.id} className="front-holding-row front-holding-row--dashboard" onClick={() => { setActiveTab('assets'); setOverviewTokenSearch(asset.symbol); }}>
                             <span className="front-holding-logo">{logo ? <img src={logo} alt={asset.symbol} /> : asset.symbol.slice(0, 1)}</span>
-                            <span>
+                            <span className="front-holding-copy">
                               <strong>{asset.symbol}</strong>
+                              <small>{asset.name}</small>
+                            </span>
+                            <span className="front-holding-amount">
+                              <strong>{asset.balance.toLocaleString('en-US', { maximumFractionDigits: asset.balance >= 1000 ? 0 : 2 })}</strong>
                               <small>{asset.chain}</small>
                             </span>
-                            <span>
+                            <span className="front-holding-value">
                               <strong>${asset.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</strong>
-                              <small className={(asset.pnl24h ?? asset.priceChange24h ?? 0) >= 0 ? 'is-up' : 'is-down'}>
-                                {(asset.pnl24h ?? asset.priceChange24h ?? 0) >= 0 ? '+' : ''}{(asset.pnl24h ?? asset.priceChange24h ?? 0).toFixed(2)}%
+                              <small className={dayMove >= 0 ? 'is-up' : 'is-down'}>
+                                {dayMove >= 0 ? '+' : ''}{dayMove.toFixed(2)}%
                               </small>
                             </span>
                           </button>
@@ -3957,10 +3999,10 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="front-intel-panel">
+                  <div className="front-intel-panel front-intel-panel--dashboard">
                     <div className="front-section-head">
                       <span>Portfolio intel</span>
-                      <h2>Holdings, stakes, liquidity, and bridge moves stay connected.</h2>
+                      <h2>Chain exposure and fast routes stay visible.</h2>
                     </div>
                     <div className="front-chain-stack">
                       {frontPageChainRows.map(row => {
@@ -3978,22 +4020,12 @@ export default function App() {
                         );
                       })}
                     </div>
-                    <div className="front-intel-links">
-                      {[
-                        { label: 'HEX stakes', tab: 'stakes' as const, icon: Lock },
-                        { label: 'DeFi positions', tab: 'defi' as const, icon: Droplets },
-                        { label: 'Transaction', tab: 'history' as const, icon: History },
-                        { label: 'Wallets', tab: 'assets' as const, icon: WalletIcon },
-                      ].map(({ label, tab, icon: Icon }) => (
-                        <button key={label} onClick={() => setActiveTab(tab)}>
-                          <Icon size={15} />
-                          {label}
-                        </button>
-                      ))}
+                    <div className="front-mini-callout">
+                      <span>Quick read</span>
+                      <strong>{wallets.length > 0 ? 'Open My Investments for invested fiat vs current value.' : 'Add a wallet to unlock holdings, staking, and transactions.'}</strong>
                     </div>
                   </div>
                 </section>
-
 
               </motion.div>
             )}
