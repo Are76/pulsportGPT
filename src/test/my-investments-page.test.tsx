@@ -1,5 +1,7 @@
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { InvestmentHoldingRow } from '../types';
+import { MyInvestmentsHero } from '../components/my-investments/MyInvestmentsHero';
 
 describe('investment holding row shape', () => {
   it('supports invested fiat and current asset attribution fields', () => {
@@ -25,5 +27,25 @@ describe('investment holding row shape', () => {
 
     expect(row.sourceMix).toHaveLength(2);
     expect(row.routeSummary).toContain('Bridge');
+  });
+});
+
+describe('MyInvestmentsHero', () => {
+  it('renders invested fiat as the dominant headline label', () => {
+    render(
+      <MyInvestmentsHero
+        investedFiat={27465}
+        currentValue={7201}
+        pnlUsd={-20264}
+        pnlPercent={-73.8}
+        liquidValue={5723}
+        stakedValue={1478}
+        onOpenPlanner={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Invested Fiat')).toBeInTheDocument();
+    expect(screen.getByText('$27,465')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /profit planner/i })).toBeInTheDocument();
   });
 });
