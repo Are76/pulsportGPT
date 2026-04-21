@@ -5391,7 +5391,7 @@ export default function App() {
                   <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: 'hidden' }} className="md-elevation-1">
                     <div style={{ padding: '14px 18px', borderBottom: isCollapsed('holdings-txs') ? 'none' : `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Transaction</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Transactions</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>
                           <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
                           PulseChain
@@ -5537,13 +5537,13 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                 <div>
                   <div className="transaction-page-kicker">PulseChain activity</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--fg)', marginBottom: 2 }}>Transaction</div>
-                  <div style={{ fontSize: 13, color: 'var(--fg-muted)' }}>Swaps, received, and sent activity for tracked PulseChain wallets.</div>
+                  <div className="transaction-page-title">Transactions</div>
+                  <div className="transaction-page-subtitle">Swaps, received, and sent activity for tracked PulseChain wallets.</div>
                 </div>
               </div>
             </div>
 
-            <div className="tx-module-card">
+            <div className="tx-module-card tx-module-card--history">
               <div className="tx-module-header" style={{ borderBottom: isCollapsed('holdings-txs') ? 'none' : '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
                   <History size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
