@@ -438,6 +438,7 @@ function WalletSelector({ wallets, activeWallet, onSelect, onAdd, onRemove, wall
 const STATIC_LOGOS: Record<string, string> = {
   '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d': 'https://tokens.app.pulsex.com/images/tokens/0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d.png', // INC
   '0xf6f8db0aba00007681f8faf16a0fda1c9b030b11': 'https://cdn.dexscreener.com/cms/images/ODHYYN7yppDHnd6u?width=64&height=64&fit=crop&quality=95&format=auto', // PRVX
+  '0xe33a5ae21f93acec5cfc0b7b0fdbb65a0f0be5cc': 'https://tokens.app.pulsex.com/images/tokens/0xE33A5AE21F93aceC5CfC0b7b0FDBB65A0f0Be5cC.png', // MOST
   '0xefd766ccb38eaf1dfd701853bfce31359239f305': 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x6B175474E89094C44Da98b954EedeAC495271d0F/logo.png', // pDAI (bridged DAI) - never use golden CoinGecko DAI coin here
   '0x6b175474e89094c44da98b954eedeac495271d0f': 'https://tokens.app.pulsex.com/images/tokens/0x6B175474E89094C44Da98b954EedeAC495271d0F.png', // pDAI system copy (fork of Ethereum DAI) - prevents CoinGecko golden-coin from replacing this on reload
 };
@@ -1905,6 +1906,86 @@ export default function App() {
         }
       });
 
+      const pulseAssetsMissingPrice = Object.values(assetMap).filter(asset =>
+        asset.chain === 'pulsechain'
+        && asset.balance > 0
+        && asset.price === 0
+        && (asset as any).address
+        && (asset as any).address !== 'native'
+      );
+
+      if (pulseAssetsMissingPrice.length > 0) {
+        const fallbackLogos: Record<string, string> = {};
+
+        await Promise.allSettled(pulseAssetsMissingPrice.map(async (asset) => {
+          const rawAddress = (asset as any).address?.toLowerCase?.();
+          if (!rawAddress) return;
+
+          try {
+            const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${rawAddress}`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const pairs: any[] = (data.pairs || []).filter((pair: any) =>
+              pair?.chainId === 'pulsechain'
+              && (
+                pair?.baseToken?.address?.toLowerCase?.() === rawAddress
+                || pair?.quoteToken?.address?.toLowerCase?.() === rawAddress
+              )
+            );
+            if (pairs.length === 0) return;
+
+            const bestPair = [...pairs].sort((a, b) =>
+              Number(b?.liquidity?.usd ?? 0) - Number(a?.liquidity?.usd ?? 0)
+            )[0];
+
+            const matchedBase = bestPair?.baseToken?.address?.toLowerCase?.() === rawAddress;
+            const pairToken = matchedBase ? bestPair?.baseToken : bestPair?.quoteToken;
+            const price = Number(bestPair?.priceUsd ?? 0);
+            if (!(price > 0)) return;
+
+            assetMap[asset.id] = {
+              ...assetMap[asset.id],
+              symbol: pairToken?.symbol || assetMap[asset.id].symbol,
+              name: pairToken?.name || assetMap[asset.id].name,
+              price,
+              value: assetMap[asset.id].balance * price,
+              priceChange24h: Number(bestPair?.priceChange?.h24 ?? assetMap[asset.id].priceChange24h ?? 0),
+              priceChange1h: Number(bestPair?.priceChange?.h1 ?? assetMap[asset.id].priceChange1h ?? 0),
+              pnl24h: Number(bestPair?.priceChange?.h24 ?? assetMap[asset.id].pnl24h ?? 0),
+            };
+
+            if (bestPair?.info?.imageUrl) {
+              fallbackLogos[rawAddress] = bestPair.info.imageUrl;
+              (assetMap[asset.id] as any).logoUrl = bestPair.info.imageUrl;
+            }
+
+            Object.values(walletAssetMap).forEach(walletMap => {
+              const walletAsset = walletMap[asset.id];
+              if (!walletAsset) return;
+
+              walletMap[asset.id] = {
+                ...walletAsset,
+                symbol: pairToken?.symbol || walletAsset.symbol,
+                name: pairToken?.name || walletAsset.name,
+                price,
+                value: walletAsset.balance * price,
+                priceChange24h: Number(bestPair?.priceChange?.h24 ?? walletAsset.priceChange24h ?? 0),
+                priceChange1h: Number(bestPair?.priceChange?.h1 ?? walletAsset.priceChange1h ?? 0),
+                pnl24h: Number(bestPair?.priceChange?.h24 ?? walletAsset.pnl24h ?? 0),
+                ...(bestPair?.info?.imageUrl ? { logoUrl: bestPair.info.imageUrl } : {}),
+              } as any;
+            });
+          } catch {
+            /* ignore */
+          }
+        }));
+
+        if (Object.keys(fallbackLogos).length > 0) {
+          setTokenLogos(prev => ({ ...prev, ...fallbackLogos }));
+        }
+      }
+
       // Auto-clear tokens from spamTokenIds if they now have a real price
       const pricedIds = Object.values(assetMap).filter(a => a.price > 0).map(a => a.id);
       if (pricedIds.length > 0) {
@@ -3319,7 +3400,7 @@ export default function App() {
     return assets
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .slice(0, 8);
   }, [currentAssets]);
 
   const investmentRows = useMemo(() => {
@@ -3518,12 +3599,12 @@ export default function App() {
       {/* -- SIDEBAR -- */}
       <aside style={{
           width: 208, minWidth: 208,
-          background: '#0b0f16',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--bg-surface)',
+          borderRight: '1px solid var(--border)',
         }}
-        className={`app-sidebar flex flex-col sticky top-0 h-screen overflow-y-auto custom-scrollbar${sidebarOpen ? ' open' : ''}`}>
+        className={`app-sidebar app-sidebar-panel flex flex-col sticky top-0 h-screen overflow-y-auto custom-scrollbar${sidebarOpen ? ' open' : ''}`}>
         {/* Logo */}
-        <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }} className="flex items-center gap-2.5">
+        <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid var(--border)' }} className="flex items-center gap-2.5">
           <div style={{
             width: 34, height: 34,
             background: 'rgba(0,214,143,0.08)',
@@ -3570,7 +3651,7 @@ export default function App() {
         </nav>
 
         {/* Wallets section */}
-        <div className="sidebar-wallet-zone" style={{ padding: '8px 8px 0', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="sidebar-wallet-zone" style={{ padding: '8px 8px 0', marginTop: 'auto' }}>
           <button
             onClick={() => setSidebarWalletsOpen(v => !v)}
             style={{
@@ -3695,8 +3776,8 @@ export default function App() {
         <header
           className="glass app-header shrink-0"
           style={{
-            background: 'rgba(10,12,18,0.84)',
-            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            background: 'var(--bg-header)',
+            borderBottom: '1px solid var(--border)',
             position: 'sticky', top: 0, zIndex: 50,
             padding: '10px 16px',
           }}>
@@ -3751,7 +3832,7 @@ export default function App() {
         </header>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pb-16 md:pb-0">
-          <div style={{ maxWidth: 1400, margin: '0 auto' }} className="space-y-5 px-3 py-4 sm:px-5 sm:py-6">
+          <div className="app-content-shell space-y-5">
 
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (
@@ -3774,6 +3855,11 @@ export default function App() {
                               ? `${summary.unifiedPnl >= 0 ? '+' : '-'}$${Math.abs(summary.unifiedPnl).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
                               : '-'}
                           </strong>
+                          {summary.netInvestment > MIN_INVESTMENT_THRESHOLD && (
+                            <small className="premium-home-stat-note">
+                              {summary.unifiedPnl >= 0 ? '+' : '-'}{Math.abs((summary.unifiedPnl / summary.netInvestment) * 100).toFixed(1)}% vs invested
+                            </small>
+                          )}
                         </div>
                         <div>
                           <span>24h move</span>
@@ -3814,7 +3900,7 @@ export default function App() {
                         </button>
                       </div>
                       <div className="premium-home-holding-list">
-                        {frontPagePortfolioRows.slice(0, 6).map(asset => {
+                        {frontPagePortfolioRows.slice(0, 8).map(asset => {
                           const logo = STATIC_LOGOS[(asset as any).address?.toLowerCase?.()] || (asset as any).logoUrl || tokenLogos[(asset as any).address?.toLowerCase?.()] || getTokenLogoUrl(asset);
                           const dayMove = asset.pnl24h ?? asset.priceChange24h ?? 0;
                           return (
@@ -4054,8 +4140,8 @@ export default function App() {
                              {[
                                { label: 'Total Invested', val: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `$${Math.abs(summary.netInvestment).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '-', sub: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? 'ETH + stablecoin inflows' : 'No ETH/stable inflows found', color: t.text,
                                  icon: <TrendingUp size={14} color={t.textMuted} />, iconBg: t.cardHigh, link: true },
-                               { label: 'Total P&L', val: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `${summary.unifiedPnl >= 0 ? '+' : ''}$${Math.abs(summary.unifiedPnl).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '-', sub: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `${summary.unifiedPnl >= 0 ? '+' : ''}${((summary.unifiedPnl / summary.netInvestment) * 100).toFixed(1)}% vs invested` : 'P&L % needs ETH/stable history', color: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? t.green : t.red) : t.text,
-                                 icon: <ArrowUpRight size={14} color={summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? t.green : t.red) : t.textMuted} />, iconBg: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? 'rgba(0,255,159,0.1)' : 'rgba(244,63,94,0.1)') : t.cardHigh, link: false },
+                              { label: 'Total P&L', val: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `${summary.unifiedPnl >= 0 ? '+' : '-'}$${Math.abs(summary.unifiedPnl).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '-', sub: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? `${summary.unifiedPnl >= 0 ? '+' : '-'}${Math.abs((summary.unifiedPnl / summary.netInvestment) * 100).toFixed(1)}% vs invested` : 'P&L % needs ETH/stable history', color: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? t.green : t.red) : t.text,
+                                icon: <ArrowUpRight size={14} color={summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? t.green : t.red) : t.textMuted} />, iconBg: summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? (summary.unifiedPnl >= 0 ? 'rgba(0,255,159,0.1)' : 'rgba(244,63,94,0.1)') : t.cardHigh, link: false },
                              ].map(({ label, val, sub, color, icon, iconBg, link }) => (
                                <div key={label} className="stat-card" onClick={link ? () => setActiveTab('history') : undefined}
                                  style={link ? { cursor: 'pointer' } : undefined}>
@@ -4567,7 +4653,7 @@ export default function App() {
             )}
 
             {activeTab === 'assets' && (
-              <motion.div key="assets" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <motion.div key="assets" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="portfolio-page-shell space-y-4" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {(() => {
                   const selectedScope = selectedWalletAddr === 'all' ? null : wallets.find(w => w.address.toLowerCase() === selectedWalletAddr);
                   const visibleWalletAssets = selectedScope ? (walletAssets[selectedWalletAddr] || []) : currentAssets;
@@ -4591,7 +4677,7 @@ export default function App() {
                   return (<>
 
                 {/* -- Wallet scope + management banner -- */}
-                <div style={{ background: 'var(--bg-elevated)', borderRadius: 16, padding: '24px', border: '1px solid var(--accent-border)' }}>
+                <div className="portfolio-wallet-banner" style={{ background: 'var(--bg-elevated)', borderRadius: 16, padding: '24px', border: '1px solid var(--accent-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
                     <div>
                       <div style={{ fontSize: 13, color: 'var(--fg-muted)', marginBottom: 8 }}>
@@ -4759,7 +4845,7 @@ export default function App() {
                   </div>
                 </div>
                 {/* Token Table */}
-                <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden' }} className="md-elevation-1">
+                <div className="portfolio-holdings-shell md-elevation-1" style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 16px', borderBottom: isCollapsed('assets-table') ? 'none' : `1px solid ${t.borderLight}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>Assets</div>
@@ -6461,7 +6547,7 @@ export default function App() {
         </div>
         <div className="mobile-bottom-nav-inner">
         {mobilePrimaryNavItems.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setActiveTab(id)}
+          <button key={id} onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }}
             className="mobile-nav-tab-btn"
             style={{
               color: activeTab === id ? 'var(--accent)' : 'var(--fg-muted)',

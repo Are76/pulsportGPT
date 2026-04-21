@@ -437,9 +437,9 @@ function SwapDetail({ tx, coinAsset, counterAsset, coinLogo, getLogoUrl, display
     : null;
 
   return (
-    <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+    <div className="tx-swap-detail" style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
       {/* Context line */}
-      <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 10, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+      <div className="tx-detail-context" style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 10, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <span>
           Swap from{' '}
           <strong style={{ color: isOwn(tx.from) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.from)}</strong>
@@ -458,7 +458,7 @@ function SwapDetail({ tx, coinAsset, counterAsset, coinLogo, getLogoUrl, display
 
       {/* P&L card */}
       {dollarPnl !== null && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <div className="tx-pnl-grid" style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <div
             className="tx-pnl-card"
             style={{
@@ -483,7 +483,7 @@ function SwapDetail({ tx, coinAsset, counterAsset, coinLogo, getLogoUrl, display
       )}
 
       {/* Received leg */}
-      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.55px', marginBottom: 5 }}>
+      <div className="tx-token-leg-kicker" style={{ fontSize: 10, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.55px', marginBottom: 5 }}>
         Got
       </div>
       <TokenLeg
@@ -501,7 +501,7 @@ function SwapDetail({ tx, coinAsset, counterAsset, coinLogo, getLogoUrl, display
       {/* Spent leg */}
       {tx.counterAsset != null && tx.counterAmount != null && (
         <div style={{ marginTop: 6 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.55px', marginBottom: 5 }}>
+          <div className="tx-token-leg-kicker" style={{ fontSize: 10, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.55px', marginBottom: 5 }}>
             Paid
           </div>
           <TokenLeg
@@ -635,9 +635,9 @@ function TransferDetail({ tx, isDeposit, coinAsset, displayAddr, isOwn, explorer
   ];
 
   return (
-    <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+    <div className="tx-transfer-detail" style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
       {/* Context line */}
-      <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 10 }}>
+      <div className="tx-detail-context" style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 10 }}>
         {isDeposit
           ? <>Received from <strong style={{ color: isOwn(tx.from) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.from)}</strong></>
           : <>Sent to <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.to)}</strong></>}
@@ -647,9 +647,9 @@ function TransferDetail({ tx, isDeposit, coinAsset, displayAddr, isOwn, explorer
       </div>
 
       {/* Stats grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+      <div className="tx-transfer-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
         {stats.map(({ label, val, sub, color }) => (
-          <div key={label} style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>
+          <div key={label} className="tx-transfer-stat" style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>{label}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: color ?? 'var(--fg)' }}>{val}</div>
             <div style={{ fontSize: 12, color: 'var(--fg-subtle)', marginTop: 1 }}>{sub}</div>

@@ -162,7 +162,7 @@ export function HoldingsTable({
                   userSelect: 'none',
                 }}
               >
-                {label}{field && sortField === field ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+                {label}{field && sortField === field ? (sortDir === 'desc' ? ' v' : ' ^') : ''}
               </th>
             ))}
           </tr>
@@ -214,10 +214,9 @@ export function HoldingsTable({
             return (
               <React.Fragment key={asset.id}>
                 <tr
-                  style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border)', borderLeft: `3px solid ${chainColors[asset.chain] || '#333'}`, transition: 'background .1s', cursor: 'pointer' }}
+                  className={`holding-row${isExpanded ? ' is-expanded' : ''}`}
+                  style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border)', borderLeft: `3px solid ${chainColors[asset.chain] || '#333'}`, cursor: 'pointer' }}
                   onClick={() => onToggleExpanded(asset.id)}
-                  onMouseOver={e => (e.currentTarget.style.background = 'var(--bg-elevated)')}
-                  onMouseOut={e => (e.currentTarget.style.background = isExpanded ? 'var(--bg-elevated)' : 'transparent')}
                 >
                   <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -246,7 +245,7 @@ export function HoldingsTable({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
                           <div style={{ width: 5, height: 5, borderRadius: '50%', background: chainColors[asset.chain] || '#555', flexShrink: 0 }} />
-                          <span style={{ fontSize: 12, color: 'var(--fg-muted)', textTransform: 'lowercase' }}>{asset.symbol} · {asset.chain}</span>
+                          <span style={{ fontSize: 12, color: 'var(--fg-muted)', textTransform: 'lowercase' }}>{asset.symbol} / {asset.chain}</span>
                         </div>
                       </div>
                     </div>
@@ -256,7 +255,7 @@ export function HoldingsTable({
                     <div style={{ fontSize: 12, color: '#f739ff', marginTop: 2 }}>{fmtCompact(asset.pricePls)} PLS</div>
                   </td>
                   <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 700, color: pct >= 0 ? 'var(--accent)' : '#ef4444' }}>
-                    {pct >= 0 ? '▲' : '▼'} {Math.abs(pct).toFixed(2)}%
+                    {pct >= 0 ? '+' : '-'} {Math.abs(pct).toFixed(2)}%
                   </td>
                   <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)' }}>{fmtAmount(asset.balance)}</div>
@@ -284,8 +283,8 @@ export function HoldingsTable({
                       <div style={{ height: '100%', width: `${Math.min(share, 100)}%`, background: 'var(--accent)', borderRadius: 1 }} />
                     </div>
                   </td>
-                  <td style={{ padding: '12px 12px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                  <td className="holding-row-actions" style={{ padding: '12px 12px', textAlign: 'right' }}>
+                    <div className="holding-row-actions-inner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
                       {showActions && (
                         <>
                           <button onClick={e => { e.stopPropagation(); onOpenPnl(asset); }} title="View P&L" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#777' }}>
@@ -305,9 +304,9 @@ export function HoldingsTable({
                   </td>
                 </tr>
                 {isExpanded && (
-                  <tr style={{ borderBottom: '1px solid var(--border)', borderLeft: `3px solid ${chainColors[asset.chain] || '#333'}`, background: 'var(--bg-elevated)' }}>
+                  <tr className="holding-detail-row" style={{ borderBottom: '1px solid var(--border)', borderLeft: `3px solid ${chainColors[asset.chain] || '#333'}`, background: 'var(--bg-elevated)' }}>
                     <td colSpan={9} style={{ padding: '0 16px 14px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, paddingTop: 12 }}>
+                      <div className="asset-detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, paddingTop: 12 }}>
                         <DetailCard title="Price">
                           <DetailRow label="USD" value={fmtPrice(asset.priceUsd)} />
                           <DetailRow label="PLS" value={`${fmtCompact(asset.pricePls)} PLS`} accent />
@@ -393,18 +392,18 @@ export function HoldingsTable({
 
 function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
-      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 8 }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
+    <div className="asset-detail-card" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+      <div className="asset-detail-card-title" style={{ fontSize: 11, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 8 }}>{title}</div>
+      <div className="asset-detail-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
     </div>
   );
 }
 
 function DetailRow({ label, value, accent, valueColor }: { label: string; value: React.ReactNode; accent?: boolean; valueColor?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-      <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color: valueColor || (accent ? '#f739ff' : 'var(--fg)'), textAlign: 'right' }}>{value}</span>
+    <div className="asset-detail-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+      <span className="asset-detail-label" style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>{label}</span>
+      <span className="asset-detail-value" style={{ fontSize: 13, fontWeight: 700, color: valueColor || (accent ? '#f739ff' : 'var(--fg)'), textAlign: 'right' }}>{value}</span>
     </div>
   );
 }

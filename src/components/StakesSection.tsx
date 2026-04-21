@@ -342,13 +342,13 @@ export function StakesSection({
   // -- Empty state -------------------------------------------------------------
   if (stakes.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', gap: 16, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--accent-purple)', border: '1px solid var(--accent-purple-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="stakes-empty">
+        <div className="stakes-empty-icon">
           <Lock size={24} style={{ color: '#a78bfa' }} />
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--fg)', marginBottom: 6 }}>No HEX Stakes Found</div>
-          <div style={{ fontSize: 13, color: 'var(--fg-muted)', maxWidth: 320, lineHeight: 1.6 }}>
+        <div className="stakes-empty-copy">
+          <div className="stakes-empty-title">No HEX Stakes Found</div>
+          <div className="stakes-empty-text">
             Add a wallet with active HEX stakes on PulseChain or Ethereum to see your staking dashboard.
           </div>
         </div>
@@ -357,7 +357,7 @@ export function StakesSection({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="stakes-section">
 
       {/* -- 1. Hero: Daily HEX Yield --------------------------------------- */}
       <div className="stakes-hero-card">
@@ -368,11 +368,11 @@ export function StakesSection({
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="stakes-hero-kicker">HEX staking yield</div>
-            <h1 className="stakes-hero-title">Stake Dashboard</h1>
+            <h1 className="stakes-hero-title">HEX Staking</h1>
           </div>
           </div>
           <p className="stakes-hero-copy">
-            Daily, projected, and maturity estimates across active pHEX and eHEX stakes.
+            Liquid exposure, active yield, and maturity estimates across PulseChain and Ethereum.
           </p>
           <div className="stakes-hero-yield">
             <span className="stakes-hero-yield-label">Daily HEX Yield</span>
@@ -514,17 +514,14 @@ export function StakesSection({
       </div>
 
       {/* -- 5. Individual Stakes Table ------------------------------------- */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+      <div className="stakes-table-card">
 
         {/* Table header + filter pills */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div className="stakes-table-head">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg)' }}>HEX Stakes</span>
-              <span style={{
-                fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 999,
-                background: 'rgba(99,70,255,0.12)', border: '1px solid var(--accent-purple-border)', color: '#a78bfa',
-              }}>
+              <span className="stakes-table-title">HEX Stakes</span>
+              <span className="stakes-table-count">
                 {filteredStakes.length} shown
               </span>
             </div>

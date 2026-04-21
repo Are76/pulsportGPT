@@ -41,6 +41,9 @@ export const FALLBACK_DESCRIPTIONS: Record<string, string> = {
   // PRVX
   '0xf6f8db0aba00007681f8faf16a0fda1c9b030b11':
     'PrivacyX (PRVX) is a privacy-focused token on PulseChain. It aims to provide enhanced transactional privacy features for PulseChain users while remaining interoperable with the broader PulseChain DeFi ecosystem.',
+  // MOST
+  '0xe33a5ae21f93acec5cfc0b7b0fdbb65a0f0be5cc':
+    'MOST is a PulseChain token tracked by PulsePort as a normal market asset. Its value should come from live on-chain or market-pair pricing, not from hardcoded assumptions.',
   // pDAI
   '0xefd766ccb38eaf1dfd701853bfce31359239f305':
     'pDAI is a bridged version of Ethereum DAI on PulseChain. It is not guaranteed to trade at $1 on PulseChain; its live value is determined by on-chain liquidity and market demand.',
@@ -239,6 +242,7 @@ export const TOKENS = {
     { symbol: 'WETH', name: 'WETH (from Ethereum)', address: '0x02dcdd04e3f455d838cd1249292c58f3b79e3c3c', decimals: 18, coinGeckoId: 'ethereum', bridged: true },
     { symbol: 'WBTC', name: 'WBTC (from Ethereum)', address: '0xb17d901469b9208b17d916112988a3fed19b5ca1', decimals: 8, coinGeckoId: 'wrapped-bitcoin', bridged: true },
     { symbol: 'PRVX', address: '0xf6f8db0aba00007681f8faf16a0fda1c9b030b11', decimals: 18, coinGeckoId: 'privacyx' },
+    { symbol: 'MOST', name: 'MOST', address: '0xe33a5AE21F93aceC5CfC0b7b0FDBB65A0f0Be5cC', decimals: 18, coinGeckoId: 'most' },
     { symbol: 'USDT', name: 'USDT (from Ethereum)', address: '0x0cb6f5a34ad42ec934882a05265a7d5f59b51a2f', decimals: 6, coinGeckoId: 'tether', bridged: true },
     { symbol: 'USDC', name: 'USDC (from Ethereum)', address: '0x15d38573d2feeb82e7ad5187ab8c1d52810b1f07', decimals: 6, coinGeckoId: 'usd-coin', bridged: true },
   ],
