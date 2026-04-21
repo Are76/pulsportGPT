@@ -72,6 +72,7 @@ import { TransactionList } from './components/TransactionList';
 import { HoldingsTable } from './components/HoldingsTable';
 import type { HoldingDisplayAsset, HoldingSortField } from './components/HoldingsTable';
 import { normalizeTransactions } from './utils/normalizeTransactions';
+import { buildInvestmentRows } from './utils/buildInvestmentRows';
 import { scheduleLocalStorageWrite, resolveBlockscoutBase, resolveEtherscanCompatBase } from './utils/localStorageDebounce';
 import { BRAND_ASSETS } from './branding/brand-assets';
 import { MyInvestmentsPage } from './pages/MyInvestmentsPage';
@@ -3320,6 +3321,15 @@ export default function App() {
       .slice(0, 5);
   }, [currentAssets]);
 
+  const investmentRows = useMemo(() => {
+    const ethUsdPrice = prices['ethereum']?.usd
+      || prices['ethereum:native']?.usd
+      || prices['pulsechain:0x02dcdd04e3f455d838cd1249292c58f3b79e3c3c']?.usd
+      || 0;
+    return buildInvestmentRows(currentAssets, currentTransactions, ethUsdPrice);
+  }, [currentAssets, currentTransactions, prices]);
+
+
   const frontPageChainRows = useMemo(() => {
     const entries = Object.entries(summary.chainDistribution)
       .map(([chain, value]) => ({ chain, value: value as number }))
@@ -6370,49 +6380,24 @@ export default function App() {
                 </div>
                 );
               })()}
-
             </motion.div>
           );
         })()}
 
         {activeTab === 'pulsechain-official' && (
-          <motion.div key="pulsechain-official" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {(() => {
-              const investmentRows = currentAssets
-                .filter(asset => asset.value > 0)
-                .sort((a, b) => b.value - a.value)
-                .map(asset => ({
-                  id: asset.id,
-                  symbol: asset.symbol,
-                  name: asset.name,
-                  chain: asset.chain,
-                  amount: asset.balance,
-                  currentPrice: asset.price,
-                  currentValue: asset.value,
-                  costBasis: 0,
-                  pnlUsd: 0,
-                  pnlPercent: 0,
-                  sourceMix: [],
-                  routeSummary: 'Open transactions to inspect bridge and swap history',
-                  thenValue: 0,
-                  nowValue: asset.value,
-                }));
-
-              return (
-                <MyInvestmentsPage
-                  investedFiat={summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? Math.abs(summary.netInvestment) : 0}
-                  currentValue={summary.totalValue}
-                  liquidValue={summary.liquidValue}
-                  stakedValue={summary.stakingValueUsd}
-                  rows={investmentRows}
-                  onOpenPlanner={() => setProfitPlannerOpen(true)}
-                  onOpenTransactions={(row) => {
-                    setTxAssetFilter(row.symbol);
-                    setActiveTab('history');
-                  }}
-                />
-              );
-            })()}
+          <motion.div key='pulsechain-official' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <MyInvestmentsPage
+              investedFiat={summary.netInvestment > MIN_INVESTMENT_THRESHOLD ? Math.abs(summary.netInvestment) : 0}
+              currentValue={summary.totalValue}
+              liquidValue={summary.liquidValue}
+              stakedValue={summary.stakingValueUsd}
+              rows={investmentRows}
+              onOpenPlanner={() => setProfitPlannerOpen(true)}
+              onOpenTransactions={(row) => {
+                setTxAssetFilter(row.symbol);
+                setActiveTab('history');
+              }}
+            />
           </motion.div>
         )}
         {activeTab === 'pulsechain-community' && (
@@ -6934,4 +6919,5 @@ export default function App() {
     </div>
   );
 }
+
 
