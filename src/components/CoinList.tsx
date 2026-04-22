@@ -157,6 +157,7 @@ export function CoinList({
                 className="coin-list-row-main"
                 role="button"
                 tabIndex={0}
+                aria-expanded={canExpand ? isExpanded : undefined}
                 onClick={() => canExpand ? onToggleExpanded(item.id) : onRowClick?.(item)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -210,7 +211,7 @@ export function CoinList({
                     </div>
                     <div className="coin-list-cell coin-list-cell--actions">
                       {item.contractAddress ? (
-                        <button type="button" className="coin-list-icon" title="Copy contract" onClick={(event) => {
+                        <button type="button" className="coin-list-icon" title="Copy contract" aria-label={`Copy ${item.symbol} contract`} onClick={(event) => {
                           event.stopPropagation();
                           if (onCopyContract) onCopyContract(item);
                           else navigator.clipboard.writeText(item.contractAddress!);
@@ -218,21 +219,21 @@ export function CoinList({
                           <Copy size={12} />
                         </button>
                       ) : null}
-                      <button type="button" className="coin-list-icon" title="Open detail" onClick={(event) => { event.stopPropagation(); onOpenExternal ? onOpenExternal(item) : onRowClick?.(item); }}>
+                      <button type="button" className="coin-list-icon" title="Open detail" aria-label={`Open ${item.symbol} detail`} onClick={(event) => { event.stopPropagation(); onOpenExternal ? onOpenExternal(item) : onRowClick?.(item); }}>
                         <ExternalLink size={12} />
                       </button>
                       {onCalculator ? (
-                        <button type="button" className="coin-list-icon" title="Calculator" onClick={(event) => { event.stopPropagation(); onCalculator(item); }}>
+                        <button type="button" className="coin-list-icon" title="Calculator" aria-label={`Open ${item.symbol} calculator`} onClick={(event) => { event.stopPropagation(); onCalculator(item); }}>
                           <Calculator size={12} />
                         </button>
                       ) : null}
                       {onAdd ? (
-                        <button type="button" className="coin-list-icon" title="Add" onClick={(event) => { event.stopPropagation(); onAdd(item); }}>
+                        <button type="button" className="coin-list-icon" title="Add" aria-label={`Add ${item.symbol}`} onClick={(event) => { event.stopPropagation(); onAdd(item); }}>
                           <PlusCircle size={12} />
                         </button>
                       ) : null}
                       {onRemove ? (
-                        <button type="button" className="coin-list-icon" title="Remove" onClick={(event) => { event.stopPropagation(); onRemove(item); }}>
+                        <button type="button" className="coin-list-icon" title="Remove" aria-label={`Remove ${item.symbol}`} onClick={(event) => { event.stopPropagation(); onRemove(item); }}>
                           <MinusCircle size={12} />
                         </button>
                       ) : null}

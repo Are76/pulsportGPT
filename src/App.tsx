@@ -3830,7 +3830,7 @@ export default function App() {
               <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: 180, padding: '2px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {wallets.map((w, wIdx) => {
                   const dotColors = ['#00FF9F','#f739ff','#627EEA','#f97316','#a855f7','#f59e0b'];
-                  const isActive = selectedWalletAddr === w.address.toLowerCase() && activeTab === 'assets';
+                  const isActive = selectedWalletAddr === w.address.toLowerCase() && activeTab === 'overview';
                   const walletKey = w.address.toLowerCase();
                   const walletValue = (walletAssets[walletKey] || []).reduce((sum, asset) => sum + asset.value, 0);
                   return (
@@ -4659,15 +4659,6 @@ export default function App() {
                       />
                     </div>
                   </div>
-
-                <MyInvestmentsUtilityStrip
-                  swapPnl24hUsd={swapPnl24hUsd}
-                  swapCount24h={swapTransactions24h.length}
-                  trackedMarkets={trackedMarketCount}
-                  onOpenMarketWatch={() => openMarketWatch('')}
-                  onOpenPlanner={() => setProfitPlannerOpen(true)}
-                  onOpenTransactions={() => setActiveTab('history')}
-                />
 
                 {/* -- PORTFOLIO PERFORMANCE -- */}
                 {(() => {
@@ -6757,81 +6748,96 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', damping: 20, stiffness: 90 }}
-              style={{
-                position: 'relative', width: '100%', maxWidth: 480,
-                background: t.card, border: `1px solid ${t.border}`,
-                borderRadius: '20px 20px 0 0', padding: 28,
-              }}
-              className="sm:rounded-[20px]"
+              className="wallet-modal-panel sm:rounded-[20px]"
             >
               {/* Drag handle (mobile) */}
               <div className="sm:hidden" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
                 <div style={{ width: 36, height: 4, borderRadius: 2, background: t.border }} />
               </div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 20 }}>Add New Wallet</h2>
-              <div className="space-y-4">
+              <div className="wallet-modal-head">
+                <span>Wallet Intake</span>
+                <h2>Track A New Wallet</h2>
+                <p>Paste any public EVM address once. PulsePort reads balances, transactions, and attribution without ever touching private keys.</p>
+              </div>
+              <div className="wallet-modal-info-grid" aria-hidden="true">
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+                  <strong>Networks</strong>
+                  <span>PulseChain, Ethereum, and Base sync from the same address.</span>
+                </div>
+                <div>
+                  <strong>Best Result</strong>
+                  <span>Add an Etherscan key later if you want stronger Ethereum history and invested fiat attribution.</span>
+                </div>
+              </div>
+              <div className="wallet-modal-fields">
+                <div className="wallet-modal-field">
+                  <label htmlFor="wallet-address-input">
                     Wallet Address
                   </label>
                   <input
+                    id="wallet-address-input"
                     type="text"
-                    placeholder="0x..."
+                    name="wallet-address"
+                    placeholder="0xABCD…"
                     inputMode="text"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    aria-invalid={walletFormError ? true : undefined}
+                    aria-describedby="wallet-address-helper"
                     value={newWalletAddress}
                     onChange={(e) => {
                       setNewWalletAddress(e.target.value);
                       if (walletFormError) setWalletFormError('');
                     }}
                     onKeyDown={e => { if (e.key === 'Enter') addWallet(); }}
-                    style={{ width: '100%', background: t.cardHigh, border: `1px solid ${t.border}`,
-                      borderRadius: 10, color: t.text, fontSize: 14, padding: '11px 14px',
-                      outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em', transition: 'border-color .15s' }}
-                    onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                    onBlur={e => (e.currentTarget.style.borderColor = t.border)}
+                    className="wallet-modal-input wallet-modal-input--mono"
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+                <div id="wallet-address-helper" className="wallet-modal-helper">
+                  Use the public address only. One wallet can surface all tracked chains inside the app.
+                </div>
+                <div className="wallet-modal-field">
+                  <label htmlFor="wallet-name-input">
                     Wallet Name <span style={{ color: t.textMuted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
                   </label>
                   <input
+                    id="wallet-name-input"
                     type="text"
-                    placeholder="My Main Wallet"
+                    name="wallet-name"
+                    placeholder="Main Wallet"
+                    autoComplete="off"
                     value={newWalletName}
                     onChange={(e) => {
                       setNewWalletName(e.target.value);
                       if (walletFormError) setWalletFormError('');
                     }}
                     onKeyDown={e => { if (e.key === 'Enter') addWallet(); }}
-                    style={{ width: '100%', background: t.cardHigh, border: `1px solid ${t.border}`,
-                      borderRadius: 10, color: t.text, fontSize: 14, padding: '11px 14px',
-                      outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s' }}
-                    onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                    onBlur={e => (e.currentTarget.style.borderColor = t.border)}
+                    className="wallet-modal-input"
                   />
                 </div>
-                <div style={{ fontSize: 12, color: walletFormError ? 'var(--negative)' : t.textMuted, minHeight: 18 }}>
-                  {walletFormError || 'Tip: Wallets are read-only. PulsePort never requests private keys.'}
+                <div className={`wallet-modal-status${walletFormError ? ' is-error' : ''}`} aria-live="polite">
+                  {walletFormError || 'Wallets are read-only. PulsePort never requests private keys or signatures for portfolio tracking.'}
                 </div>
-                <div style={{ paddingTop: 8, display: 'flex', gap: 10 }}>
+                <div className="wallet-modal-actions">
                   <button
+                    type="button"
                     onClick={() => {
                       setIsAddingWallet(false);
                       setWalletFormError('');
                     }}
-                    style={{ flex: 1, minHeight: 44, borderRadius: 10, background: t.cardHigh,
-                      border: `1px solid ${t.border}`, color: t.text, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                    className="wallet-modal-secondary"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={addWallet}
                     disabled={!newWalletAddress.trim()}
-                    style={{ flex: 1, minHeight: 44, borderRadius: 10, background: newWalletAddress.trim() ? 'var(--accent)' : 'var(--border)',
-                      border: 'none', color: newWalletAddress.trim() ? '#000' : 'var(--fg-subtle)', fontWeight: 700, fontSize: 13, cursor: newWalletAddress.trim() ? 'pointer' : 'not-allowed' }}
+                    className="wallet-modal-primary"
                   >
-                    Add Wallet
+                    Track Wallet
                   </button>
                 </div>
               </div>
@@ -6856,12 +6862,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', damping: 20, stiffness: 90 }}
-              style={{
-                position: 'relative', width: '100%', maxWidth: 480,
-                background: t.card, border: `1px solid ${t.border}`,
-                borderRadius: '20px 20px 0 0', padding: 24,
-              }}
-              className="sm:rounded-[20px]"
+              className="wallet-modal-panel wallet-modal-panel--compact sm:rounded-[20px]"
             >
               {/* Drag handle (mobile) */}
               <div className="sm:hidden" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
@@ -6871,35 +6872,31 @@ export default function App() {
                 <Pencil size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>Rename Wallet</span>
               </div>
-              <div style={{ fontSize: 12, color: t.textMuted, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em', marginBottom: 16, padding: '6px 10px', background: t.cardHigh, borderRadius: 6 }}>
+              <div className="wallet-modal-address-chip">
                 {editingWalletAddress}
               </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+              <div className="wallet-modal-field" style={{ marginBottom: 20 }}>
+                <label htmlFor="wallet-rename-input">
                   Wallet Name
                 </label>
                 <input
+                  id="wallet-rename-input"
                   type="text"
+                  name="wallet-rename"
                   value={editWalletName}
                   onChange={e => setEditWalletName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') renameWallet(editingWalletAddress, editWalletName); }}
-                  autoFocus
-                  style={{ width: '100%', background: t.cardHigh, border: `1px solid ${t.border}`,
-                    borderRadius: 10, color: t.text, fontSize: 14, padding: '11px 14px',
-                    outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s' }}
-                  onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onBlur={e => (e.currentTarget.style.borderColor = t.border)}
+                  autoComplete="off"
+                  className="wallet-modal-input"
                 />
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setEditingWalletAddress(null)}
-                  style={{ flex: 1, padding: '11px 0', borderRadius: 10, background: t.cardHigh,
-                    border: `1px solid ${t.border}`, color: t.text, fontWeight: 600, fontSize: 13, cursor: 'pointer', minHeight: 44 }}>
+              <div className="wallet-modal-actions">
+                <button type="button" onClick={() => setEditingWalletAddress(null)}
+                  className="wallet-modal-secondary">
                   Cancel
                 </button>
-                <button onClick={() => renameWallet(editingWalletAddress, editWalletName)}
-                  style={{ flex: 1, padding: '11px 0', borderRadius: 10, background: 'var(--accent)',
-                    border: 'none', color: '#000', fontWeight: 700, fontSize: 13, cursor: 'pointer', minHeight: 44 }}>
+                <button type="button" onClick={() => renameWallet(editingWalletAddress, editWalletName)}
+                  className="wallet-modal-primary">
                   Save
                 </button>
               </div>
@@ -7044,8 +7041,9 @@ export default function App() {
               </a>
               <label className="api-key-input-label">
                 Etherscan API key
-                <input type="text" placeholder="Paste your Etherscan API key..."
+                <input type="text" id="etherscan-api-key-input" name="etherscan-api-key" placeholder="Paste your Etherscan API key…"
                 value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)}
+                autoComplete="off"
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}

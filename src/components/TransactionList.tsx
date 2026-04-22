@@ -398,6 +398,7 @@ export function TransactionList({
                   <button
                     onClick={e => { e.stopPropagation(); onFilterByAsset(tx.asset); }}
                     title={`Filter by ${tx.asset}`}
+                    aria-label={`Filter transactions by ${tx.asset}`}
                     style={{
                       width: 22, height: 22, minWidth: 22, minHeight: 22,
                       borderRadius: '50%', overflow: 'hidden',
@@ -417,6 +418,7 @@ export function TransactionList({
                 {onToggleHide && (
                   <button
                     title={isHidden ? 'Unhide' : 'Hide'}
+                    aria-label={isHidden ? `Unhide transaction ${tx.hash}` : `Hide transaction ${tx.hash}`}
                     onClick={e => { e.stopPropagation(); onToggleHide(tx.id); }}
                     className="tx-card__hide-btn"
                   >
