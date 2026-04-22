@@ -4186,10 +4186,10 @@ export default function App() {
 
                 {/* -- ONBOARDING -- */}
                 {wallets.length === 0 && (
-                  <div className={theme === 'dark' ? 'hero-bg-dark' : 'hero-bg-light'} style={{ border: '1px solid rgba(0,255,159,0.12)', borderRadius: 20, padding: '40px 32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 0%, rgba(0,255,159,.10) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(99,70,255,.06) 0%, transparent 50%)', pointerEvents: 'none' }} />
-                    <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(0,255,159,0.1)', border: '1px solid rgba(0,255,159,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 0 24px rgba(0,255,159,0.12)' }}>
-                      <WalletIcon size={24} color="#00FF9F" />
+                  <div className={theme === 'dark' ? 'hero-bg-dark' : 'hero-bg-light'} style={{ border: '1px solid var(--accent-border)', borderRadius: 20, padding: '40px 32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(99,70,255,.06) 0%, transparent 50%)', pointerEvents: 'none' }} />
+                    <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 0 24px var(--accent-glow)' }}>
+                      <WalletIcon size={24} color="var(--accent)" />
                     </div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--fg)', marginBottom: 8, letterSpacing: '-0.02em' }}>Welcome to PulsePort</div>
                     <div style={{ fontSize: 14, color: 'var(--fg-muted)', marginBottom: 32, maxWidth: 400, margin: '0 auto 32px' }}>
@@ -6236,7 +6236,7 @@ export default function App() {
                                           {asset.balance >= 1e6 ? `${(asset.balance/1e6).toFixed(2)}M` : asset.balance >= 1e3 ? `${(asset.balance/1e3).toFixed(2)}K` : asset.balance.toLocaleString('en-US', { maximumFractionDigits: 4 })} {asset.symbol}
                                         </div>
                                         <div style={{ fontSize: 13, color: 'var(--fg-muted)', marginTop: 4 }}>${asset.value.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                                        {wCurrentPlsValue > 0 && <div style={{ fontSize: 12, color: '#f739ff', marginTop: 2 }}>{wCurrentPlsValue >= 1e6 ? `${(wCurrentPlsValue/1e6).toFixed(2)}M` : wCurrentPlsValue >= 1e3 ? `${(wCurrentPlsValue/1e3).toFixed(2)}K` : wCurrentPlsValue.toFixed(0)} PLS</div>}
+                                        {wCurrentPlsValue > 0 && <div style={{ fontSize: 12, color: 'var(--chain-pulse)', marginTop: 2, fontFamily: 'var(--font-shell-display)', fontWeight: 700, letterSpacing: '-0.01em' }}>{wCurrentPlsValue >= 1e6 ? `${(wCurrentPlsValue/1e6).toFixed(2)}M` : wCurrentPlsValue >= 1e3 ? `${(wCurrentPlsValue/1e3).toFixed(2)}K` : wCurrentPlsValue.toFixed(0)} PLS</div>}
                                       </div>
                                       {/* P&L card */}
                                       <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '12px 14px' }}>
@@ -6786,7 +6786,7 @@ export default function App() {
                     onKeyDown={e => { if (e.key === 'Enter') addWallet(); }}
                     style={{ width: '100%', background: t.cardHigh, border: `1px solid ${t.border}`,
                       borderRadius: 10, color: t.text, fontSize: 14, padding: '11px 14px',
-                      outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace', transition: 'border-color .15s' }}
+                      outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em', transition: 'border-color .15s' }}
                     onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
                     onBlur={e => (e.currentTarget.style.borderColor = t.border)}
                   />
@@ -6871,7 +6871,7 @@ export default function App() {
                 <Pencil size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>Rename Wallet</span>
               </div>
-              <div style={{ fontSize: 12, color: t.textMuted, fontFamily: 'monospace', marginBottom: 16, padding: '6px 10px', background: t.cardHigh, borderRadius: 6 }}>
+              <div style={{ fontSize: 12, color: t.textMuted, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em', marginBottom: 16, padding: '6px 10px', background: t.cardHigh, borderRadius: 6 }}>
                 {editingWalletAddress}
               </div>
               <div style={{ marginBottom: 20 }}>

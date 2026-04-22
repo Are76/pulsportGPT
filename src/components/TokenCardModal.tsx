@@ -36,14 +36,14 @@ function ChangeRow({ label, pct, theme }: { label: string; pct: number | null | 
       </div>
     );
   }
-  const green = theme === 'dark' ? '#00FF9F' : '#059669';
+  const green = theme === 'dark' ? 'var(--accent)' : '#059669';
   const red   = theme === 'dark' ? '#f43f5e' : '#dc2626';
   const color = pct >= 0 ? green : red;
   const Icon  = pct >= 0 ? TrendingUp : TrendingDown;
   return (
     <div className="tcm-change-row">
       <span className="tcm-change-label">{label}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, fontSize: 13, color, fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, fontSize: 13, color, fontFamily: 'var(--font-shell-display)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
         <Icon size={12} />
         {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
       </span>
@@ -189,7 +189,7 @@ export function TokenCardModal({
         {/* -- CA / LINKS -- */}
         {shortAddr && (
           <div className="tcm-ca-row">
-            <span style={{ fontSize: 12, color: 'var(--fg-subtle)', fontFamily: 'JetBrains Mono, monospace' }}>{shortAddr}</span>
+            <span style={{ fontSize: 12, color: 'var(--fg-subtle)', fontFamily: 'var(--font-shell-display)', fontWeight: 700, letterSpacing: '-0.01em' }}>{shortAddr}</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="tcm-icon-btn" onClick={copyAddr} title="Copy contract address">
                 {copied
@@ -218,7 +218,7 @@ export function TokenCardModal({
             <div className="tcm-price-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 4 }}>Current Price</div>
-                <div className="tcm-price-number" style={{ fontSize: 30, fontWeight: 800, color: 'var(--fg)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                <div className="tcm-price-number" style={{ fontSize: 30, fontWeight: 800, color: 'var(--fg)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.03em', lineHeight: 1 }}>
                   {fmtPrice(asset.price)}
                 </div>
               </div>
@@ -226,7 +226,7 @@ export function TokenCardModal({
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.7px', marginBottom: 4 }}>24h Change</div>
                 <div className="tcm-change-number" style={{
                   fontSize: 22, fontWeight: 800, color: changeColor,
-                  fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
+                  fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em',
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}>
                   {pct24h >= 0 ? '▲' : '▼'} {Math.abs(pct24h).toFixed(2)}%
@@ -265,7 +265,7 @@ export function TokenCardModal({
             <div className="tcm-holdings-grid">
               <div className="tcm-stat-cell">
                 <div className="tcm-stat-label">Held</div>
-                <div className="tcm-stat-value" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                <div className="tcm-stat-value" style={{ fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em' }}>
                   {fmtBalance(asset.balance)}
                   <span style={{ fontSize: 11, color: 'var(--fg-subtle)', marginLeft: 4 }}>{asset.symbol}</span>
                 </div>
@@ -280,7 +280,7 @@ export function TokenCardModal({
               </div>
               <div className="tcm-stat-cell">
                 <div className="tcm-stat-label">Price x Qty</div>
-                <div className="tcm-stat-value" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                <div className="tcm-stat-value" style={{ fontFamily: 'var(--font-shell-display)', fontSize: 12, letterSpacing: '-0.01em' }}>
                   {fmtPrice(asset.price)} x {fmtBalance(asset.balance)}
                 </div>
               </div>
@@ -333,7 +333,7 @@ export function TokenCardModal({
               {marketData?.nativePriceUsd && (
                 <div className="tcm-stat-cell">
                   <div className="tcm-stat-label">Price in PLS</div>
-                  <div className="tcm-stat-value" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                  <div className="tcm-stat-value" style={{ fontFamily: 'var(--font-shell-display)', fontSize: 12, letterSpacing: '-0.01em' }}>
                     {parseFloat(marketData.nativePriceUsd).toLocaleString('en-US', { maximumSignificantDigits: 5 })} PLS
                   </div>
                 </div>

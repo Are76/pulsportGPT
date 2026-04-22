@@ -44,7 +44,7 @@ const QUICK_LINKS = [
 
 const NETWORK_SNAPSHOT = [
   { label: 'Chain ID', value: '369', detail: 'EVM compatible', icon: Cpu, color: 'var(--accent)' },
-  { label: 'Native gas', value: 'PLS', detail: 'Gas and base unit', icon: Zap, color: '#f739ff' },
+  { label: 'Native gas', value: 'PLS', detail: 'Gas and base unit', icon: Zap, color: 'var(--chain-pulse)' },
   { label: 'Block time', value: '~10s', detail: 'Proof of Stake', icon: Layers, color: '#627EEA' },
   { label: 'Asset rule', value: 'Verify', detail: 'Contracts and prices', icon: Shield, color: '#22d3ee' },
 ];
@@ -91,7 +91,7 @@ const LANES: Lane[] = [
     items: [
       { name: 'PulseChainStats', tag: 'Analytics', url: 'https://pulsechainstats.com', color: 'var(--accent)', desc: 'Token intel, bridge stats, validators, and DEX volume.' },
       { name: 'DexScreener', tag: 'Charts', url: 'https://dexscreener.com/pulsechain', color: '#22d3ee', desc: 'Pair charts, liquidity, volume, and token search.' },
-      { name: 'PulseCoinList', tag: 'Directory', url: 'https://pulsecoinlist.com', color: '#f739ff', desc: 'Broad project directory and discovery map.' },
+      { name: 'PulseCoinList', tag: 'Directory', url: 'https://pulsecoinlist.com', color: 'var(--chain-pulse)', desc: 'Broad project directory and discovery map.' },
       { name: 'PLSFolio', tag: 'Portfolio', url: 'https://plsfolio.com/ecosystem/', color: '#627EEA', desc: 'Portfolio-oriented ecosystem resources.' },
     ],
   },

@@ -39,7 +39,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, background: 'var(--bg-elevated)' }}>
       <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 7 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--fg)', fontFamily: 'JetBrains Mono, monospace' }}>{value}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--fg)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 4 }}>{sub}</div>}
     </div>
   );
@@ -86,7 +86,7 @@ export default function PulseChainOfficialPage() {
               <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', background: 'var(--bg-elevated)' }}>
                 <span style={{ color: 'var(--fg-muted)', fontSize: 12, fontWeight: 800 }}>{label}</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <code style={{ color: 'var(--fg)', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', overflowWrap: 'anywhere' }}>{value}</code>
+                  <code style={{ color: 'var(--fg)', fontSize: 12, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em', overflowWrap: 'anywhere' }}>{value}</code>
                   <CopyButton text={value} />
                 </span>
               </div>

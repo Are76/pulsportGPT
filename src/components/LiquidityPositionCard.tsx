@@ -76,7 +76,7 @@ function ILBadge({ il }: { il: number | null }) {
     return (
       <span style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
-        fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
+        fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-shell-display)',
         color: 'var(--fg-subtle)', background: 'var(--bg-inset)',
         padding: '3px 9px', borderRadius: 100,
         border: '1px solid var(--border-inset)',
@@ -90,11 +90,11 @@ function ILBadge({ il }: { il: number | null }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 3,
-      fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
+      fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-shell-display)',
       color: isPos ? 'var(--positive)' : 'var(--negative)',
-      background: isPos ? 'rgba(0,255,159,0.08)' : 'rgba(244,63,94,0.08)',
+      background: isPos ? 'var(--accent-dim)' : 'rgba(244,63,94,0.08)',
       padding: '3px 9px', borderRadius: 100,
-      border: `1px solid ${isPos ? 'rgba(0,255,159,0.22)' : 'rgba(244,63,94,0.22)'}`,
+      border: `1px solid ${isPos ? 'var(--accent-border)' : 'rgba(244,63,94,0.22)'}`,
       letterSpacing: '.01em',
     }}>
       IL: {il >= 0 ? '+' : ''}{il.toFixed(2)}%
@@ -111,7 +111,7 @@ function Sparkline({ data, w, h, id }: {
 }) {
   const gradId = `lp-grad-${id}`;
   const isPositive = data.length < 2 || data[data.length - 1].v >= data[0].v;
-  const color = isPositive ? '#00FF9F' : '#f43f5e';
+  const color = isPositive ? 'var(--accent)' : '#f43f5e';
   return (
     <div style={{ width: w ?? '100%', height: h, flexShrink: 0 }}>
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
@@ -156,7 +156,7 @@ function TokenBox({ address, symbol, amount, usd, weightPct, priceUsd }: TokenBo
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <TokenLogo address={address} symbol={symbol} size={24} />
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', flex: 1 }}>{symbol}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-subtle)', fontFamily: 'JetBrains Mono, monospace' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-subtle)', fontFamily: 'var(--font-shell-display)' }}>
           {weightPct.toFixed(1)}%
         </span>
       </div>
@@ -174,16 +174,16 @@ function TokenBox({ address, symbol, amount, usd, weightPct, priceUsd }: TokenBo
       <div>
         <div style={{
           fontSize: 14, fontWeight: 700, color: 'var(--fg)',
-          fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
+          fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em',
         }}>
           {fmtTok(amount)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-          <span style={{ fontSize: 12, color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+          <span style={{ fontSize: 12, color: 'var(--fg-muted)', fontFamily: 'var(--font-shell-display)' }}>
             {fmtUsd(usd)}
           </span>
           {priceUsd > 0 && (
-            <span style={{ fontSize: 10, color: 'var(--fg-subtle)', fontFamily: 'JetBrains Mono, monospace' }}>
+            <span style={{ fontSize: 10, color: 'var(--fg-subtle)', fontFamily: 'var(--font-shell-display)' }}>
               @ {priceUsd < 0.001 ? priceUsd.toExponential(2) : fmtUsd(priceUsd, 4)}
             </span>
           )}
@@ -210,7 +210,7 @@ function StatPill({ label, value, color, bg, border }: {
       <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px' }}>
         {label}
       </span>
-      <span style={{ fontSize: 14, fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em' }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em' }}>
         {value}
       </span>
     </div>
@@ -267,13 +267,13 @@ function LiquidityPositionCardFull({ pos }: { pos: LpPositionEnriched }) {
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{
             fontSize: 22, fontWeight: 800, color: 'var(--fg)',
-            fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.04em', lineHeight: 1,
+            fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.04em', lineHeight: 1,
           }}>
             {fmtUsd(totalUsd)}
           </div>
           <div style={{
             fontSize: 11, color: 'var(--fg-subtle)', marginTop: 4,
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: 'var(--font-shell-display)',
           }}>
             {pos.ownershipPct.toFixed(4)}% of pool
           </div>
@@ -305,12 +305,12 @@ function LiquidityPositionCardFull({ pos }: { pos: LpPositionEnriched }) {
           background: pos.ilEstimate === null
             ? 'var(--bg-inset)'
             : pos.ilEstimate >= 0
-              ? 'rgba(0,255,159,0.06)' : 'rgba(244,63,94,0.06)',
+              ? 'var(--accent-dim)' : 'rgba(244,63,94,0.06)',
           border: `1px solid ${
             pos.ilEstimate === null
               ? 'var(--border-inset)'
               : pos.ilEstimate >= 0
-                ? 'rgba(0,255,159,0.18)' : 'rgba(244,63,94,0.18)'}`,
+                ? 'var(--accent-border)' : 'rgba(244,63,94,0.18)'}`,
           borderRadius: 10, padding: '8px 12px', flex: 1, minWidth: 80,
         }}>
           <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px' }}>
@@ -318,7 +318,7 @@ function LiquidityPositionCardFull({ pos }: { pos: LpPositionEnriched }) {
           </span>
           <span style={{
             fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em',
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: 'var(--font-shell-display)',
             color: pos.ilEstimate === null
               ? 'var(--fg-subtle)'
               : pos.ilEstimate >= 0 ? 'var(--positive)' : 'var(--negative)',
@@ -331,8 +331,8 @@ function LiquidityPositionCardFull({ pos }: { pos: LpPositionEnriched }) {
           label="Fees 24h"
           value={pos.fees24hUsd != null && pos.fees24hUsd > 0 ? `+${fmtUsd(pos.fees24hUsd)}` : '-'}
           color={pos.fees24hUsd != null && pos.fees24hUsd > 0 ? 'var(--positive)' : 'var(--fg-subtle)'}
-          bg={pos.fees24hUsd != null && pos.fees24hUsd > 0 ? 'rgba(0,255,159,0.06)' : 'var(--bg-inset)'}
-          border={pos.fees24hUsd != null && pos.fees24hUsd > 0 ? 'rgba(0,255,159,0.18)' : 'var(--border-inset)'}
+          bg={pos.fees24hUsd != null && pos.fees24hUsd > 0 ? 'var(--accent-dim)' : 'var(--bg-inset)'}
+          border={pos.fees24hUsd != null && pos.fees24hUsd > 0 ? 'var(--accent-border)' : 'var(--border-inset)'}
         />
 
         {pos.volume24hUsd != null && (
@@ -368,7 +368,7 @@ function LiquidityPositionCardFull({ pos }: { pos: LpPositionEnriched }) {
       }}>
         <span style={{
           fontSize: 11, color: 'var(--fg-subtle)',
-          fontFamily: 'JetBrains Mono, monospace',
+          fontFamily: 'var(--font-shell-display)',
         }}>
           {pos.walletLpBalance > 0 && pos.stakedLpBalance > 0 ? (
             <>
@@ -478,7 +478,7 @@ function LiquidityPositionCardCompact({ pos, onClick }: {
         </div>
         <div style={{
           fontSize: 11, color: 'var(--fg-muted)',
-          fontFamily: 'JetBrains Mono, monospace',
+          fontFamily: 'var(--font-shell-display)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           marginTop: 2,
         }}>
@@ -495,14 +495,14 @@ function LiquidityPositionCardCompact({ pos, onClick }: {
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{
           fontSize: 14, fontWeight: 800, color: 'var(--fg)',
-          fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
+          fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em',
         }}>
           {fmtUsd(pos.totalUsd)}
         </div>
         {pos.ilEstimate !== null && (
           <div style={{
             fontSize: 10, fontWeight: 700, marginTop: 2,
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: 'var(--font-shell-display)',
             color: pos.ilEstimate >= 0 ? 'var(--positive)' : 'var(--negative)',
           }}>
             IL {pos.ilEstimate >= 0 ? '+' : ''}{pos.ilEstimate.toFixed(2)}%
@@ -528,3 +528,4 @@ export function LiquidityPositionCard({ pos, compact = false, onClick }: Liquidi
   if (compact) return <LiquidityPositionCardCompact pos={pos} onClick={onClick} />;
   return <LiquidityPositionCardFull pos={pos} />;
 }
+

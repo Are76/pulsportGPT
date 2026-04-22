@@ -69,7 +69,7 @@ function StatRow({
       <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.55px' }}>
         {label}
       </span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: valueColor ?? 'var(--fg)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em' }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: valueColor ?? 'var(--fg)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em' }}>
         {value}
       </span>
       {sub && <span style={{ fontSize: 11, color: 'var(--fg-muted)' }}>{sub}</span>}
@@ -293,7 +293,7 @@ export function TokenPnLCard({
             </div>
             <div style={{
               fontSize: 'clamp(16px, 4.5vw, 22px)', fontWeight: 800, color: totalPnlColor,
-              fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.04em',
+              fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.04em',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
               {totalPnl >= 0
@@ -302,7 +302,7 @@ export function TokenPnLCard({
               {formatSign(totalPnl)}{fmtUsd(totalPnl)}
             </div>
             {realPct !== null && (
-              <div style={{ fontSize: 11, color: totalPnlColor, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', marginTop: 1 }}>
+              <div style={{ fontSize: 11, color: totalPnlColor, fontFamily: 'var(--font-shell-display)', fontWeight: 700, letterSpacing: '-0.01em', textAlign: 'right', marginTop: 1 }}>
                 {formatSign(realPct)}{Math.abs(realPct).toFixed(1)}% on cost
               </div>
             )}
@@ -423,7 +423,7 @@ export function TokenPnLCard({
                 </span>
                 <span style={{
                   fontSize: 15, fontWeight: 800, color: realPnlColor,
-                  fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.03em',
+                  fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.03em',
                 }}>
                   {formatSign(realizedPnl)}{fmtUsd(Math.abs(realizedPnl))}
                 </span>
@@ -483,7 +483,7 @@ export function TokenPnLCard({
                 </span>
                 <span style={{
                   fontSize: 15, fontWeight: 800, color: pnl.unrealized >= 0 ? 'var(--positive)' : 'var(--negative)',
-                  fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.03em',
+                  fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.03em',
                 }}>
                   {formatSign(pnl.unrealized)}{fmtUsd(Math.abs(pnl.unrealized))}
                 </span>
@@ -504,11 +504,11 @@ export function TokenPnLCard({
                   <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px' }}>
                     Gas:
                   </span>
-                  <span style={{ fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: 'var(--fg-muted)', fontWeight: 600 }}>
+                  <span style={{ fontSize: 12, fontFamily: 'var(--font-shell-display)', color: 'var(--fg-muted)', fontWeight: 700, letterSpacing: '-0.01em' }}>
                     {fmtTok(gasFeePls)} PLS
                   </span>
                   {plsPriceUsd > 0 && (
-                    <span style={{ fontSize: 12, color: 'var(--fg-subtle)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ fontSize: 12, color: 'var(--fg-subtle)', fontFamily: 'var(--font-shell-display)', fontWeight: 700, letterSpacing: '-0.01em' }}>
                       ({fmtUsd(gasFeePls * plsPriceUsd, 4)})
                     </span>
                   )}

@@ -3322,9 +3322,9 @@ td {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-shell-display);
   background: rgba(0,255,159,0.12);
-  color: #00FF9F;
+  color: var(--positive);
   border: 1px solid rgba(0,255,159,0.22);
   letter-spacing: 0.01em;
 }
@@ -3336,9 +3336,9 @@ td {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-shell-display);
   background: rgba(244,63,94,0.12);
-  color: #f43f5e;
+  color: var(--negative);
   border: 1px solid rgba(244,63,94,0.22);
   letter-spacing: 0.01em;
 }
@@ -4737,8 +4737,9 @@ td {
   font-size: 12px;
   font-weight: 700;
   color: var(--fg-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-shell-display);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4750,8 +4751,9 @@ td {
   border-radius: 999px;
   font-size: 10px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-shell-display);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -11793,7 +11795,7 @@ body,
   padding: 2px 6px;
   border-radius: 999px;
   background: rgba(247,57,255,0.12);
-  color: #f739ff;
+  color: var(--chain-pulse);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -11816,7 +11818,7 @@ body,
 }
 
 .coin-list-subvalue--accent {
-  color: #f739ff;
+  color: var(--chain-pulse);
 }
 
 .coin-list-icon,

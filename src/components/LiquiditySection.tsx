@@ -165,7 +165,7 @@ function FarmingRewardsBanner({ stakedPositions, incPrice }: FarmingRewardsBanne
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>
                 Staked LP Value
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--fg)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.04em' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--fg)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.04em' }}>
                 {fmtUsd(totalLpUsd)}
               </div>
             </div>
@@ -175,10 +175,10 @@ function FarmingRewardsBanner({ stakedPositions, incPrice }: FarmingRewardsBanne
                 Pending INC
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--chain-pulse)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.04em' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--chain-pulse)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.04em' }}>
                   {fmtTok(totalPendingInc)}
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                <div style={{ fontSize: 13, color: 'var(--fg-muted)', fontFamily: 'var(--font-shell-display)' }}>
                   INC
                 </div>
               </div>
@@ -188,7 +188,7 @@ function FarmingRewardsBanner({ stakedPositions, incPrice }: FarmingRewardsBanne
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>
                 Reward Value
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--positive)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.04em' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--positive)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.04em' }}>
                 {fmtUsd(totalPendingUsd)}
               </div>
             </div>
@@ -252,7 +252,7 @@ function FarmingRewardsBanner({ stakedPositions, incPrice }: FarmingRewardsBanne
                     <span style={{
                       fontSize: 10, fontWeight: 700, color: 'var(--fg-subtle)',
                       background: 'var(--bg-inset)', padding: '2px 7px', borderRadius: 100,
-                      fontFamily: 'JetBrains Mono, monospace',
+                      fontFamily: 'var(--font-shell-display)',
                     }}>
                       Pool #{pos.poolId}
                     </span>
@@ -265,21 +265,21 @@ function FarmingRewardsBanner({ stakedPositions, incPrice }: FarmingRewardsBanne
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>Staked LP</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', fontFamily: 'var(--font-shell-display)' }}>
                       {fmtUsd(pos.totalUsd)}
                     </div>
                   </div>
                   <div style={{ width: 1, height: 28, background: 'var(--border)' }} />
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>Pending INC</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--chain-pulse)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--chain-pulse)', fontFamily: 'var(--font-shell-display)' }}>
                       {fmtTok(pendingInc)} INC
                     </div>
                   </div>
                   <div style={{ width: 1, height: 28, background: 'var(--border)' }} />
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>Value</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--positive)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--positive)', fontFamily: 'var(--font-shell-display)' }}>
                       {fmtUsd(pos.pendingIncUsd ?? 0)}
                     </div>
                   </div>
@@ -347,7 +347,7 @@ function LpSummaryStats({ positions }: { positions: LpPositionEnriched[] }) {
               {s.label}
             </span>
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: s.color, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.03em' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: s.color, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.03em' }}>
             {s.value}
           </div>
         </div>
@@ -396,7 +396,7 @@ function SectionHeader({ positions, loading, onRefetch, onViewAll }: SectionHead
             )}
           </div>
           {positions.length > 0 && (
-            <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
+            <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 2, fontFamily: 'var(--font-shell-display)' }}>
               {fmtUsd(totalUsd)} total value
             </div>
           )}
@@ -791,3 +791,4 @@ export function LiquiditySection({ walletAddresses, tokenPrices }: LiquiditySect
     </div>
   );
 }
+

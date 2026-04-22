@@ -263,13 +263,13 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
                   : <TrendingDown size={14} style={{ color: pnlColor(totalPnl), flexShrink: 0 }} />}
                 <span style={{
                   fontSize: 20, fontWeight: 800, color: pnlColor(totalPnl),
-                  fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.03em',
+                  fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.03em',
                 }}>
                   {sign(totalPnl)}{fmtD(Math.abs(totalPnl))}
                 </span>
               </div>
               {realPct !== null && (
-                <div style={{ fontSize: 11, color: pnlColor(realizedPnl), fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', marginTop: 1 }}>
+                <div style={{ fontSize: 11, color: pnlColor(realizedPnl), fontFamily: 'var(--font-shell-display)', textAlign: 'right', marginTop: 1 }}>
                   {sign(realPct)}{Math.abs(realPct).toFixed(1)}% on cost
                 </div>
               )}
@@ -361,7 +361,7 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
                 width: 66, padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                 background: 'var(--bg-elevated)', border: '1px solid rgba(139,92,246,0.25)',
                 color: swapInput ? '#a78bfa' : 'var(--fg-subtle)', outline: 'none',
-                fontFamily: 'JetBrains Mono, monospace',
+                fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em',
               }}
             />
           </div>
@@ -384,20 +384,20 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Cost basis</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--negative)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--negative)', fontFamily: 'var(--font-shell-display)' }}>
                     −{fmtD(realizedCostUsd)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Proceeds</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--positive)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--positive)', fontFamily: 'var(--font-shell-display)' }}>
                     +{fmtD(proceedsUsd)}
                   </span>
                 </div>
                 <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Net P&amp;L</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: pnlColor(realizedPnl), fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em' }}>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: pnlColor(realizedPnl), fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em' }}>
                     {sign(realizedPnl)}{fmtD(Math.abs(realizedPnl))}
                   </span>
                 </div>
@@ -406,13 +406,13 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>Bought</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', fontFamily: 'var(--font-shell-display)' }}>
                     {fmtT(totalBought)} {sym}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>Sold</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', fontFamily: 'var(--font-shell-display)' }}>
                     {fmtT(totalSold)} {sym}
                   </div>
                 </div>
@@ -430,26 +430,26 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Balance</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', fontFamily: 'var(--font-shell-display)' }}>
                     {fmtT(holdingsBal)} {sym}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Current value</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)', fontFamily: 'var(--font-shell-display)' }}>
                     {fmtD(holdingsUsd)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Price</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg-muted)', fontFamily: 'var(--font-shell-display)' }}>
                     {asset.price < 0.001 ? asset.price.toExponential(3) : asset.price < 1 ? `$${asset.price.toFixed(6)}` : fmtD(asset.price, 4)}
                   </span>
                 </div>
                 <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Unrealized</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: holdingsUsd > 0 ? '#a78bfa' : 'var(--fg-subtle)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em' }}>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: holdingsUsd > 0 ? '#a78bfa' : 'var(--fg-subtle)', fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em' }}>
                     {holdingsUsd > 0 ? `+${fmtD(holdingsUsd)}` : '-'}
                   </span>
                 </div>
@@ -458,7 +458,7 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
               {gasNative > 0 && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>⛽ Gas paid</span>
-                  <span style={{ fontSize: 12, color: 'var(--fg-muted)', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span style={{ fontSize: 12, color: 'var(--fg-muted)', fontWeight: 600, fontFamily: 'var(--font-shell-display)' }}>
                     {fmtT(gasNative)} {chainKey === 'ethereum' ? 'ETH' : 'PLS'} <span style={{ color: 'var(--fg-subtle)' }}>({fmtD(gasUsd)})</span>
                   </span>
                 </div>
@@ -529,7 +529,7 @@ export function PnLModal({ asset, transactions, prices, logoUrl, onClose, wallet
 
                       {/* Value + date */}
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-muted)', fontFamily: 'var(--font-shell-display)' }}>
                           {fmtD(tx.valueUsd ?? 0)}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>{date}</div>

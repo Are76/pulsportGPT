@@ -531,7 +531,7 @@ export function MarketWatchModal({ theme, onClose, initialSearch = '' }: Props) 
     const color = val >= 0 ? green : red;
     const Icon  = val >= 0 ? TrendingUp : TrendingDown;
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color, fontWeight: 700, fontFamily: 'var(--font-shell-display)' }}>
         <Icon size={11} />
         {val >= 0 ? '+' : ''}{val.toFixed(2)}%
       </span>

@@ -101,7 +101,7 @@ function StatBox({ label, value, sub, color = 'var(--accent)', mono = false }: {
       borderBottom: `2px solid ${color}`, borderRadius: 10, padding: '14px 16px',
     }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: '-0.5px', fontFamily: mono ? 'JetBrains Mono, monospace' : 'inherit' }}>{value}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: '-0.5px', fontFamily: 'var(--font-shell-display)' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 4 }}>{sub}</div>}
     </div>
   );
@@ -203,7 +203,7 @@ export default function BridgeDashboardPage({ afterOfficialBridge }: { afterOffi
         }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 4 }}>Total Bridged Value Locked</div>
-            <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-1px', fontFamily: 'JetBrains Mono, monospace' }}>
+            <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-1px', fontFamily: 'var(--font-shell-display)' }}>
               {loading && !knownTvl ? '-' : knownTvl ? fmt(totalTvl) : '-'}
             </div>
           </div>
@@ -237,19 +237,19 @@ export default function BridgeDashboardPage({ afterOfficialBridge }: { afterOffi
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '11px 12px', color: 'var(--fg)', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>
+                  <td style={{ padding: '11px 12px', color: 'var(--fg)', fontWeight: 700, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em' }}>
                     {t.supply != null ? fmtAmount(t.supply) : <span style={{ color: 'var(--fg-subtle)' }}>-</span>}
                   </td>
-                  <td style={{ padding: '11px 12px', color: 'var(--fg-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <td style={{ padding: '11px 12px', color: 'var(--fg-muted)', fontWeight: 700, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.01em' }}>
                     {t.price != null ? (t.price < 0.001 ? `$${t.price.toFixed(8)}` : t.price < 1 ? `$${t.price.toFixed(6)}` : `$${t.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`) : '-'}
                   </td>
-                  <td style={{ padding: '11px 12px', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: t.tvl != null ? 'var(--fg)' : 'var(--fg-subtle)' }}>
+                  <td style={{ padding: '11px 12px', fontWeight: 800, fontFamily: 'var(--font-shell-display)', letterSpacing: '-0.02em', color: t.tvl != null ? 'var(--fg)' : 'var(--fg-subtle)' }}>
                     {t.tvl != null ? fmt(t.tvl) : '-'}
                   </td>
                   <td style={{ padding: '11px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <a href={`https://scan.pulsechain.com/token/${t.address}`} target="_blank" rel="noopener noreferrer"
-                        style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>
+                        style={{ fontFamily: 'var(--font-shell-display)', fontSize: 11, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--accent)', textDecoration: 'none' }}>
                         {t.address.slice(0, 6)}...{t.address.slice(-4)}
                       </a>
                       <CopyBtn text={t.address} />
@@ -294,7 +294,7 @@ export default function BridgeDashboardPage({ afterOfficialBridge }: { afterOffi
               <span style={{ fontSize: 12, color: 'var(--fg-muted)', minWidth: 180 }}>{label}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <a href={`https://scan.pulsechain.com/address/${address}`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#627EEA', textDecoration: 'none' }}>
+                  style={{ fontFamily: 'var(--font-shell-display)', fontSize: 11, letterSpacing: '-0.01em', color: '#627EEA', textDecoration: 'none' }}>
                   {address.slice(0, 10)}...{address.slice(-6)}
                 </a>
                 <CopyBtn text={address} />
@@ -349,7 +349,7 @@ export default function BridgeDashboardPage({ afterOfficialBridge }: { afterOffi
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 6 }}>{'Router Contract (Base -> PulseChain)'}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <a href="https://basescan.org/address/0xcf3d89aedd07ee94e5c45037581744e2d9f0b9fc" target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#a855f7', textDecoration: 'none' }}>
+              style={{ fontFamily: 'var(--font-shell-display)', fontSize: 12, letterSpacing: '-0.01em', color: '#a855f7', textDecoration: 'none' }}>
               0xcf3d89aedd07ee94e5c45037581744e2d9f0b9fc
             </a>
             <CopyBtn text="0xcf3d89aedd07ee94e5c45037581744e2d9f0b9fc" />
