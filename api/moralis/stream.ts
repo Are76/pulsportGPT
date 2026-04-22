@@ -1,3 +1,9 @@
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 type MoralisStreamRequest = {
   method?: string;
   body?: unknown;
@@ -60,7 +66,9 @@ export default async function handler(req: MoralisStreamRequest, res: MoralisStr
   try {
     const rawBody = req.body;
     const body =
-      rawBody && typeof rawBody === 'object' ? (rawBody as MoralisStreamBody) : {};
+      rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)
+        ? (rawBody as MoralisStreamBody)
+        : {};
 
     const summary = summarizePayload(body);
 
@@ -68,7 +76,6 @@ export default async function handler(req: MoralisStreamRequest, res: MoralisStr
       headers: req.headers ?? {},
       bodyType: typeof rawBody,
       summary,
-      rawBody,
     });
 
     return res.status(200).json({
