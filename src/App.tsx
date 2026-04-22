@@ -5712,6 +5712,74 @@ export default function App() {
 
         {activeTab === 'history' && (
             <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="transaction-page-shell transaction-page-shell--reset space-y-4">
+            <div className="transaction-page-head transaction-page-head--premium">
+              <div className="transaction-page-head-main">
+                <span className="transaction-page-kicker">Transactions</span>
+                <h1 className="transaction-page-title">
+                  {txAssetFilter === 'all' ? 'PulseChain Swap Ledger' : `${txAssetFilter} Swap Ledger`}
+                </h1>
+                <p className="transaction-page-subtitle">
+                  Review every routed swap, isolate token-specific execution, and read realized performance without leaving the ledger.
+                </p>
+                <div className="transaction-page-chip-row">
+                  <span className="tx-band-chip tx-band-chip--accent">Swaps only</span>
+                  <span className="tx-band-chip">{selectedWalletAddr === 'all' ? 'All wallets' : shortenAddr(selectedWalletAddr)}</span>
+                  <span className="tx-band-chip">{txYearFilter === 'all' ? 'All years' : txYearFilter}</span>
+                  <span className="tx-band-chip">{txCoinCategory === 'all' ? 'All coin families' : txCoinCategory === 'stablecoins' ? 'Stablecoins' : txCoinCategory === 'eth_weth' ? 'ETH/WETH' : txCoinCategory === 'hex' ? 'HEX/eHEX' : txCoinCategory === 'pls_wpls' ? 'PLS/WPLS' : 'Bridged'}</span>
+                </div>
+              </div>
+              <div className="transaction-page-head-side">
+                <div className="transaction-page-stats">
+                  <div className="transaction-page-stat">
+                    <span>Tracked swaps</span>
+                    <strong>{filteredTransactions.length}</strong>
+                  </div>
+                  <div className="transaction-page-stat">
+                    <span>Realized P&amp;L</span>
+                    <strong style={{ color: historySummary.realizedPnl >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
+                      {historySummary.realizedPnl >= 0 ? '+' : '-'}${Math.abs(historySummary.realizedPnl).toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+                  <div className="transaction-page-stat">
+                    <span>Holdings value</span>
+                    <strong>${historySummary.holdingsValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</strong>
+                  </div>
+                  <div className="transaction-page-stat">
+                    <span>Gas total</span>
+                    <strong>{historySummary.gasPls.toLocaleString('en-US', { maximumFractionDigits: 4 })} PLS</strong>
+                    <small>${historySummary.gasUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</small>
+                  </div>
+                </div>
+                <div className="transaction-page-head-actions">
+                  <button type="button" className={`filter-pill${viewAsYou ? ' active' : ''}`} aria-pressed={viewAsYou} onClick={() => setViewAsYou(v => !v)}>
+                    View as You
+                  </button>
+                  <button type="button" className={`filter-pill${txCompact ? ' active' : ''}`} aria-pressed={txCompact} onClick={() => setTxCompact(v => !v)}>
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const hdrs = ['Date', 'Asset Out', 'Amount Out', 'Asset In', 'Amount In', 'Value USD', 'Chain', 'Hash'];
+                      const rows = filteredTransactions.map(tx => [
+                        new Date(tx.timestamp).toISOString().slice(0, 10),
+                        tx.counterAsset ?? '',
+                        tx.counterAmount ?? '',
+                        tx.asset,
+                        tx.amount,
+                        tx.valueUsd ?? '',
+                        tx.chain,
+                        tx.hash ?? '',
+                      ]);
+                      exportCSV(`pulseport-swaps-${Date.now()}.csv`, hdrs, rows);
+                    }}
+                    className="history-csv-btn"
+                  >
+                    <Download size={12} /> Export CSV
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {txAssetFilter !== 'all' && (
               <div className="tx-context-strip">
@@ -5789,35 +5857,7 @@ export default function App() {
                     <span>Dense PulseX-style execution history for PulseChain swaps.</span>
                   </div>
                 </div>
-                <div className="transaction-toolbar">
-                  <button type="button" className={`filter-pill${viewAsYou ? ' active' : ''}`} aria-pressed={viewAsYou} onClick={() => setViewAsYou(v => !v)}>
-                    View as You
-                  </button>
-                  <button type="button" className={`filter-pill${txCompact ? ' active' : ''}`} aria-pressed={txCompact} onClick={() => setTxCompact(v => !v)}>
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const hdrs = ['Date', 'Asset Out', 'Amount Out', 'Asset In', 'Amount In', 'Value USD', 'Chain', 'Hash'];
-                      const rows = filteredTransactions.map(tx => [
-                        new Date(tx.timestamp).toISOString().slice(0, 10),
-                        tx.counterAsset ?? '',
-                        tx.counterAmount ?? '',
-                        tx.asset,
-                        tx.amount,
-                        tx.valueUsd ?? '',
-                        tx.chain,
-                        tx.hash ?? '',
-                      ]);
-                      exportCSV(`pulseport-swaps-${Date.now()}.csv`, hdrs, rows);
-                    }}
-                    className="history-csv-btn"
-                    style={{ padding: '5px 10px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 6, cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <Download size={12} /> CSV
-                  </button>
-                </div>
+                <span className="transaction-ledger-badge">PulseChain</span>
               </div>
 
               <div className="transaction-ledger-filters history-filter-row">
@@ -5866,28 +5906,34 @@ export default function App() {
 
             {/* -- PLS Flow Summary (merged from former tracker tab) -- */}
             {plsSwapData.rows.length > 0 && (
-              <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ padding: '14px 18px', borderBottom: isCollapsed('history-pls') ? 'none' : `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>PLS Flow</div>
-                    <div style={{ fontSize: 12, color: t.textSecondary, marginTop: 2 }}>Net PLS movement across all wallets</div>
+              <div className="transaction-flow-panel">
+                <div className={`overview-panel-header ${isCollapsed('history-pls') ? '' : 'overview-panel-header--divided'}`}>
+                  <div className="overview-panel-heading">
+                    <span className="overview-panel-kicker">Native Flow</span>
+                    <div className="overview-section-title">PLS Flow</div>
+                    <div className="transaction-flow-subtitle">Net PLS movement across all tracked wallets.</div>
                   </div>
-                  <button onClick={() => toggleSection('history-pls')} style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: t.textTertiary }} onMouseOver={e => (e.currentTarget.style.color = t.text)} onMouseOut={e => (e.currentTarget.style.color = t.textMuted)}>
+                  <button
+                    onClick={() => toggleSection('history-pls')}
+                    className="overview-panel-toggle"
+                    aria-label={isCollapsed('history-pls') ? 'Expand PLS flow' : 'Collapse PLS flow'}
+                    aria-expanded={!isCollapsed('history-pls')}
+                  >
                     {isCollapsed('history-pls') ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                   </button>
                 </div>
                 {!isCollapsed('history-pls') && (
-                  <div className="stat-grid-4" style={{ padding: '12px 18px' }}>
+                  <div className="transaction-flow-grid stat-grid-4">
                     {[
                       { label: 'PLS Received', val: plsSwapData.totalReceived >= 1e6 ? `${(plsSwapData.totalReceived/1e6).toFixed(2)}M` : plsSwapData.totalReceived.toLocaleString('en-US',{maximumFractionDigits:0}), sub: 'Total inflow', color: t.green },
                       { label: 'PLS Spent', val: plsSwapData.totalSpent >= 1e6 ? `${(plsSwapData.totalSpent/1e6).toFixed(2)}M` : plsSwapData.totalSpent.toLocaleString('en-US',{maximumFractionDigits:0}), sub: 'Total outflow', color: t.red },
                       { label: 'Net PLS', val: `${plsSwapData.totalNet >= 0 ? '+' : ''}${Math.abs(plsSwapData.totalNet) >= 1e6 ? (plsSwapData.totalNet/1e6).toFixed(2)+'M' : plsSwapData.totalNet.toLocaleString('en-US',{maximumFractionDigits:0})}`, sub: 'Net balance', color: plsSwapData.totalNet >= 0 ? t.green : t.red },
                       { label: 'Net USD', val: `${plsSwapData.netUsd >= 0 ? '+' : ''}$${Math.abs(plsSwapData.netUsd).toLocaleString('en-US',{maximumFractionDigits:0})}`, sub: `@ $${(plsSwapData.plsPrice||0).toFixed(6)}/PLS`, color: plsSwapData.netUsd >= 0 ? t.green : t.red },
                     ].map(({ label, val, sub, color }) => (
-                      <div key={label} style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: '12px 14px' }}>
-                        <div style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 6 }}>{label}</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color }}>{val}</div>
-                        <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 2 }}>{sub}</div>
+                      <div key={label} className="transaction-flow-card">
+                        <div className="transaction-flow-label">{label}</div>
+                        <div className="transaction-flow-value" style={{ color }}>{val}</div>
+                        <div className="transaction-flow-copy">{sub}</div>
                       </div>
                     ))}
                   </div>

@@ -9507,6 +9507,77 @@ body,
     linear-gradient(145deg, rgba(11,13,19,.96), rgba(10,12,18,.92));
 }
 
+.transaction-page-head--premium {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.transaction-page-head-main,
+.transaction-page-head-side {
+  min-width: 0;
+}
+
+.transaction-page-head-main {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+}
+
+.transaction-page-chip-row,
+.transaction-page-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transaction-page-head-side {
+  display: grid;
+  gap: 14px;
+  align-content: center;
+  padding-left: 18px;
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+.transaction-page-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.transaction-page-stat {
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.035);
+  display: grid;
+  gap: 5px;
+}
+
+.transaction-page-stat span {
+  color: var(--fg-subtle);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.transaction-page-stat strong {
+  color: var(--fg);
+  font-size: 17px;
+  font-weight: 900;
+  font-family: var(--font-shell-display);
+  letter-spacing: -0.03em;
+}
+
+.transaction-page-stat small {
+  color: var(--fg-subtle);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .transaction-page-title {
   margin-top: 4px;
   color: var(--fg);
@@ -9526,6 +9597,69 @@ body,
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.transaction-ledger-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.transaction-flow-panel {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.008)), var(--bg-surface);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.transaction-flow-subtitle {
+  color: var(--fg-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.transaction-flow-grid {
+  padding: 12px 18px;
+}
+
+.transaction-flow-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.transaction-flow-label {
+  margin-bottom: 6px;
+  color: var(--fg-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.transaction-flow-value {
+  font-size: 16px;
+  font-weight: 800;
+  font-family: var(--font-shell-display);
+  letter-spacing: -0.02em;
+}
+
+.transaction-flow-copy {
+  margin-top: 3px;
+  color: var(--fg-muted);
+  font-size: 11px;
 }
 
 .transaction-page-shell .tx-module-card--history {
@@ -9579,6 +9713,15 @@ body,
     linear-gradient(145deg, #fbfcfd, #f4f7f8);
 }
 
+[data-theme="light"] .transaction-page-head-side {
+  border-left-color: rgba(15,23,42,0.08);
+}
+
+[data-theme="light"] .transaction-page-stat {
+  border-color: rgba(15,23,42,0.08);
+  background: rgba(255,255,255,0.86);
+}
+
 [data-theme="light"] .transaction-page-shell .tx-module-card--history {
   background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,251,0.96));
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
@@ -9587,6 +9730,16 @@ body,
 [data-theme="light"] .transaction-page-shell .tx-module-card--history .tx-card {
   background: #ffffff;
   border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .transaction-flow-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,249,250,0.98));
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255,255,255,0.96);
+}
+
+[data-theme="light"] .transaction-flow-card {
+  background: #ffffff;
+  border-color: rgba(15,23,42,0.08);
 }
 
 .my-investment-page {
@@ -11838,6 +11991,20 @@ body,
 }
 
 @media (max-width: 767px) {
+  .transaction-page-head--premium {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-page-head-side {
+    padding-left: 0;
+    border-left: 0;
+    padding-top: 2px;
+  }
+
+  .transaction-page-stats {
+    grid-template-columns: 1fr;
+  }
+
   .transaction-ledger-toolbar {
     align-items: flex-start;
     flex-direction: column;
