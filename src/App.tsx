@@ -4020,7 +4020,7 @@ export default function App() {
                       <div className="premium-home-panel-head">
                         <div>
                           <span>Coin allocation</span>
-                          <h2>See where the weight really sits.</h2>
+                          <h2>See the bag hierarchy instantly.</h2>
                         </div>
                       </div>
                       {(() => {
@@ -4040,22 +4040,34 @@ export default function App() {
 
                         return (
                           <>
-                            <div className="front-allocation-legend">
+                            {allocationData[0] ? (
+                              <div className="front-allocation-hero">
+                                <div className="front-allocation-hero__copy">
+                                  <span>Largest position</span>
+                                  <strong>{allocationData[0].label}</strong>
+                                  <small>{allocationData[0].detail}</small>
+                                </div>
+                                <div className="front-allocation-hero__value">
+                                  <strong>${allocationData[0].value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</strong>
+                                  <small>{((allocationData[0].value / totalValue) * 100).toFixed(1)}% of net worth</small>
+                                </div>
+                              </div>
+                            ) : null}
+                            <div className="front-allocation-stack">
                               {allocationData.map((entry) => {
                                 const share = totalValue > 0 ? (entry.value / totalValue) * 100 : 0;
                                 return (
-                                  <div className="front-allocation-row" key={entry.label}>
-                                    <div>
-                                      <span style={{ background: entry.color }} />
+                                  <div className="front-allocation-band" key={entry.label}>
+                                    <div className="front-allocation-band__rail">
+                                      <div className="front-allocation-band__fill" style={{ width: `${Math.max(share, 6)}%`, background: entry.color }} />
+                                    </div>
+                                    <div className="front-allocation-band__meta">
                                       <strong>{entry.label}</strong>
                                       <small>{entry.detail}</small>
                                     </div>
-                                    <div>
-                                      <strong>$${entry.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</strong>
+                                    <div className="front-allocation-band__value">
+                                      <strong>${entry.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</strong>
                                       <small>{share.toFixed(1)}%</small>
-                                    </div>
-                                    <div className="front-allocation-bar-track">
-                                      <div className="front-allocation-bar-fill" style={{ width: `${Math.max(share, 4)}%`, background: entry.color }} />
                                     </div>
                                   </div>
                                 );
@@ -4627,29 +4639,26 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="premium-home-panel">
-                    <div className="premium-home-panel-head">
-                      <div>
-                        <span>Recent transactions</span>
-                        <h2>Move fast, then drill in when needed.</h2>
+                    <div className="premium-home-panel premium-home-panel--moves">
+                      <div className="premium-home-panel-head">
+                        <div>
+                          <span>Next moves</span>
+                          <h2>Open the tools that matter right now.</h2>
+                        </div>
+                        <button className="front-inline-link" onClick={() => openMarketWatch('')}>
+                          Open market watch <ChevronRight size={14} />
+                        </button>
                       </div>
-                      <button className="front-inline-link" onClick={() => setActiveTab('history')}>
-                        Open transactions <ChevronRight size={14} />
-                      </button>
+                      <MyInvestmentsUtilityStrip
+                        swapPnl24hUsd={swapPnl24hUsd}
+                        swapCount24h={swapTransactions24h.length}
+                        trackedMarkets={trackedMarketCount}
+                        onOpenMarketWatch={() => openMarketWatch('')}
+                        onOpenPlanner={() => setProfitPlannerOpen(true)}
+                        onOpenTransactions={() => setActiveTab('history')}
+                      />
                     </div>
-                    <TransactionList
-                      transactions={currentTransactions.filter(tx => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly)).slice(0, 4)}
-                      viewAsYou={viewAsYou}
-                      wallets={wallets}
-                      compact
-                      assets={currentAssets}
-                      getTokenLogoUrl={getTokenLogoUrl}
-                      tokenLogos={tokenLogos}
-                      onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('history'); }}
-                      emptyMessage="No transactions yet."
-                    />
                   </div>
-                </div>
 
                 <MyInvestmentsUtilityStrip
                   swapPnl24hUsd={swapPnl24hUsd}
@@ -5062,9 +5071,9 @@ export default function App() {
                               if (!Number.isFinite(next)) return;
                               setAllocationDraftPercentages(prev => ({ ...prev, [row.name]: Math.min(100, Math.max(0, next)) }));
                             }}
-                            style={{ width: '100%', background: t.card, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}
+                            style={{ width: '100%', background: t.card, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'var(--font-shell-display)', fontWeight: 700, letterSpacing: '-0.01em' }}
                           />
-                          <span style={{ fontSize: 12, color: t.textSecondary, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>
+                          <span style={{ fontSize: 12, color: t.textSecondary, textAlign: 'right', fontFamily: 'var(--font-shell-display)', fontWeight: 700, letterSpacing: '-0.01em' }}>
                             ${row.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                           </span>
                         </div>

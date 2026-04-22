@@ -39,6 +39,7 @@ export function MyInvestmentsPage(props: MyInvestmentsPageProps) {
         expandedId={expandedId}
         onToggleRow={(id) => setExpandedId((current) => current === id ? null : id)}
         onOpenAsset={setSelectedAsset}
+        onOpenTransactions={props.onOpenTransactions}
       />
       {selectedAsset ? (
         <MyInvestmentsAssetPanel

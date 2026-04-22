@@ -14,9 +14,10 @@ interface MyInvestmentsTableProps {
   expandedId: string | null;
   onToggleRow: (id: string) => void;
   onOpenAsset: (row: InvestmentHoldingRow) => void;
+  onOpenTransactions?: (row: InvestmentHoldingRow) => void;
 }
 
-export function MyInvestmentsTable({ rows, plsUsdPrice, portfolioValue, expandedId, onToggleRow, onOpenAsset }: MyInvestmentsTableProps) {
+export function MyInvestmentsTable({ rows, plsUsdPrice, portfolioValue, expandedId, onToggleRow, onOpenAsset, onOpenTransactions }: MyInvestmentsTableProps) {
   const items = React.useMemo<CoinListItem[]>(() => rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -26,14 +27,14 @@ export function MyInvestmentsTable({ rows, plsUsdPrice, portfolioValue, expanded
     contractAddress: row.address,
     priceUsd: row.currentPrice,
     pricePls: plsUsdPrice > 0 ? row.currentPrice / plsUsdPrice : undefined,
-    change24h: row.pnlPercent,
+    change24h: row.priceChange24h ?? 0,
     balance: row.amount,
     valueUsd: row.currentValue,
     valuePls: plsUsdPrice > 0 ? row.currentValue / plsUsdPrice : undefined,
     costBasisUsd: row.costBasis,
     pnlUsd: row.pnlUsd,
     pnlPercent: row.pnlPercent,
-    meta: row.chain,
+    meta: undefined,
     tags: row.sourceMix.length > 0 ? row.sourceMix.slice(0, 2).map((source) => source.asset) : undefined,
   })), [rows, plsUsdPrice]);
 
@@ -46,6 +47,14 @@ export function MyInvestmentsTable({ rows, plsUsdPrice, portfolioValue, expanded
       expandedId={expandedId}
       onToggleExpanded={onToggleRow}
       onRowClick={(item) => {
+        const row = rowMap.get(item.id);
+        if (row) onOpenAsset(row);
+      }}
+      onOpenExternal={(item) => {
+        const row = rowMap.get(item.id);
+        if (row && onOpenTransactions) onOpenTransactions(row);
+      }}
+      onCalculator={(item) => {
         const row = rowMap.get(item.id);
         if (row) onOpenAsset(row);
       }}

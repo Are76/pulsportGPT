@@ -263,6 +263,7 @@ export function buildInvestmentRows(
         logoUrl: asset.logoUrl,
         amount: asset.balance,
         currentPrice: asset.price,
+        priceChange24h: asset.priceChange24h ?? asset.pnl24h ?? 0,
         currentValue: asset.value,
         costBasis,
         pnlUsd,

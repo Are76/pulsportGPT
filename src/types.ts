@@ -41,6 +41,7 @@ export interface InvestmentHoldingRow {
   logoUrl?: string;
   amount: number;
   currentPrice: number;
+  priceChange24h?: number;
   currentValue: number;
   costBasis: number;
   pnlUsd: number;

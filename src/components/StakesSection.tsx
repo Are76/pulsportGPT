@@ -138,7 +138,7 @@ function StakingPie({ stakes, hexUsdPrice }: { stakes: HexStake[]; hexUsdPrice: 
               const d = payload[0].payload;
               return (
                 <div className="chart-tooltip" style={{ fontSize: 13 }}>
-                  <div style={{ fontWeight: 700, color: '#00FF9F', marginBottom: 6 }}>{d.label}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>{d.label}</div>
                   <div>T-Shares: {fmtHex(d.tShares)}</div>
                   <div>Value: {fmtUsd(d.totalUsd)}</div>
                 </div>
@@ -190,7 +190,7 @@ function StakingLadder({ stakes }: { stakes: HexStake[] }) {
               const d = payload[0].payload;
               return (
                 <div className="chart-tooltip" style={{ fontSize: 13 }}>
-                  <div style={{ fontWeight: 700, color: '#00FF9F', marginBottom: 6 }}>Days: {d.bucketRange}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Days: {d.bucketRange}</div>
                   <div>T-Shares: {d.totalShares.toFixed(2)}</div>
                   <div>Stakes: {d.stakeCount}</div>
                 </div>

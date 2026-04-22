@@ -61,19 +61,36 @@ const formatCompactUsd = (value?: number) => {
 const formatAmount = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: value >= 1000 ? 0 : 4 });
 const formatPercent = (value = 0) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 const chainAccent = (chain: string) => chain === 'pulsechain' ? '#f739ff' : chain === 'ethereum' ? '#627EEA' : '#0052ff';
+const FALLBACK_LOGOS: Record<string, string> = {
+  PLS: 'https://tokens.app.pulsex.com/images/tokens/0xA1077a294dDE1B09bB078844df40758a5D0f9a27.png',
+  WPLS: 'https://tokens.app.pulsex.com/images/tokens/0xA1077a294dDE1B09bB078844df40758a5D0f9a27.png',
+  PLSX: 'https://tokens.app.pulsex.com/images/tokens/0x95B303987A60C71504D99Aa1b13B4DA07b0790ab.png',
+  INC: 'https://tokens.app.pulsex.com/images/tokens/0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d.png',
+  HEX: 'https://tokens.app.pulsex.com/images/tokens/0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39.png',
+  EHEX: 'https://cdn.dexscreener.com/cms/images/a46bd12940d8501c2aacdd10ad4780e818bdedaba1ec8eb46b52e4d8313d4a93?width=64&height=64&fit=crop&quality=95&format=auto',
+  PRVX: 'https://cdn.dexscreener.com/cms/images/ODHYYN7yppDHnd6u?width=64&height=64&fit=crop&quality=95&format=auto',
+  MOST: 'https://tokens.app.pulsex.com/images/tokens/0xE33A5AE21F93aceC5CfC0b7b0FDBB65A0f0Be5cC.png',
+  PDAI: 'https://tokens.app.pulsex.com/images/tokens/0x6B175474E89094C44Da98b954EedeAC495271d0F.png',
+  ETH: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+};
 
 function CoinListLogo({ logoUrl, symbol }: { logoUrl?: string; symbol: string }) {
   const [broken, setBroken] = React.useState(false);
+  const resolvedLogo = logoUrl || FALLBACK_LOGOS[symbol.toUpperCase()];
 
   return (
     <span className="coin-list-logo">
-      {logoUrl && !broken ? (
-        <img src={logoUrl} alt={symbol} onError={() => setBroken(true)} />
+      {resolvedLogo && !broken ? (
+        <img src={resolvedLogo} alt={symbol} onError={() => setBroken(true)} />
       ) : (
         symbol.slice(0, 1)
       )}
     </span>
   );
+}
+
+function formatChainLabel(chain: string) {
+  return chain.charAt(0).toUpperCase() + chain.slice(1);
 }
 
 export function CoinList({
@@ -157,15 +174,15 @@ export function CoinList({
                     </button>
                     <div className="coin-list-subline">
                       <span className="coin-list-chain-dot" style={{ background: chainAccent(item.chain) }} />
-                      <span>{item.symbol.toLowerCase()} - {item.chain}</span>
+                      <span>{item.symbol.toLowerCase()} · {formatChainLabel(item.chain)}</span>
                       {item.meta ? <span className="coin-list-meta">{item.meta}</span> : null}
                       {item.tags?.map((tag) => <span className="coin-list-tag" key={`${item.id}-${tag}`}>{tag}</span>)}
                     </div>
                     {variant === 'detailed' ? (
                       <div className="coin-list-detailline">
                         {item.pricePls != null ? <span>{item.symbol}: {item.pricePls.toFixed(item.pricePls >= 1 ? 2 : 4)} PLS</span> : null}
-                        <span>Liq {formatCompactUsd(item.liquidityUsd)}</span>
-                        <span>Vol {formatCompactUsd(item.volume24hUsd)}</span>
+                        {item.liquidityUsd != null ? <span>Liq {formatCompactUsd(item.liquidityUsd)}</span> : null}
+                        {item.volume24hUsd != null ? <span>Vol {formatCompactUsd(item.volume24hUsd)}</span> : null}
                       </div>
                     ) : null}
                   </div>
