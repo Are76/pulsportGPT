@@ -25,6 +25,9 @@ const isZeroValueNativeCall = (t: Transaction): boolean =>
 const isOwnAddress = (addr: string | undefined, walletAddrs: Set<string>): boolean =>
   !!addr && walletAddrs.has(addr.toLowerCase());
 
+const normalizeSymbol = (symbol: string | undefined): string =>
+  (symbol ?? '').trim().toUpperCase();
+
 export function normalizeTransactions(
   rawTxs: Transaction[],
   walletAddrs: Set<string>,
@@ -93,6 +96,19 @@ export function normalizeTransactions(
 
         const outTx = pickBest(outs);
         const inTx  = pickBest(ins);
+
+        // Same-asset in/out on one hash is usually a transfer pattern or explorer artifact,
+        // not an economic swap. Keep both legs so history stays truthful.
+        if (normalizeSymbol(outTx.asset) === normalizeSymbol(inTx.asset)) {
+          relevant.forEach(tx => {
+            if (!seen.has(tx.id)) {
+              seen.add(tx.id);
+              result.push(tx);
+            }
+          });
+          return;
+        }
+
         const id = `${hash}-swap`;
 
         if (!seen.has(id)) {
