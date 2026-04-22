@@ -2538,6 +2538,26 @@ export default function App() {
     );
   }, [currentTransactions, matchesHistoryTransactionFilters]);
 
+  const swapAssetFilterOptions = useMemo<[string, string][]>(() => {
+    const symbols = Array.from(new Set<string>(
+      currentTransactions
+        .filter((tx) => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly))
+        .flatMap((tx) => [tx.asset, tx.counterAsset].filter(Boolean) as string[])
+    )).sort((a, b) => a.localeCompare(b));
+    return [['all', 'All Tokens'], ...symbols.map((symbol) => [symbol, symbol] as [string, string])];
+  }, [currentTransactions]);
+
+  const swapYearFilterOptions = useMemo<[string, string][]>(() => {
+    const years = Array.from(new Set(
+      currentTransactions
+        .filter((tx) => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly))
+        .map((tx) => new Date(tx.timestamp).getFullYear().toString())
+    )).sort((a, b) => Number(b) - Number(a));
+    return [['all', 'All Years'], ...years.map((year) => [year, year] as [string, string])];
+  }, [currentTransactions]);
+
+  const hasActiveSwapFilters = txAssetFilter !== 'all' || txYearFilter !== 'all' || txCoinCategory !== 'all';
+
   const swapTransactions24h = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return currentTransactions.filter((tx) => {
@@ -5771,10 +5791,10 @@ export default function App() {
                   </div>
                 </div>
                 <div className="transaction-toolbar">
-                  <button type="button" className={`filter-pill${viewAsYou ? ' active' : ''}`} onClick={() => setViewAsYou(v => !v)}>
+                  <button type="button" className={`filter-pill${viewAsYou ? ' active' : ''}`} aria-pressed={viewAsYou} onClick={() => setViewAsYou(v => !v)}>
                     View as You
                   </button>
-                  <button type="button" className={`filter-pill${txCompact ? ' active' : ''}`} onClick={() => setTxCompact(v => !v)}>
+                  <button type="button" className={`filter-pill${txCompact ? ' active' : ''}`} aria-pressed={txCompact} onClick={() => setTxCompact(v => !v)}>
                     Compact
                   </button>
                   <button
@@ -5803,18 +5823,25 @@ export default function App() {
 
               <div className="transaction-ledger-filters history-filter-row">
                 {([
-                  { value: txAssetFilter, onChange: setTxAssetFilter, options: [['all','All Tokens'], ...Array.from(new Set(currentTransactions.filter(tx => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly)).flatMap(tx => [tx.asset, tx.counterAsset].filter(Boolean) as string[]))).sort().map(a => [a,a])] as [string,string][] },
-                  { value: txYearFilter, onChange: setTxYearFilter, options: [['all','All Years'],['2026','2026'],['2025','2025'],['2024','2024'],['2023','2023'],['2022','2022'],['2021','2021']] as [string,string][] },
-                  { value: txCoinCategory, onChange: setTxCoinCategory, options: [['all','All Coins'],['stablecoins','Stablecoins'],['eth_weth','ETH/WETH'],['hex','HEX/eHEX'],['pls_wpls','PLS/WPLS'],['bridged','Bridged']] as [string,string][] },
-                ]).map(({ value, onChange, options }) => (
-                  <select key={options[0][1]} value={value} onChange={e => onChange(e.target.value)}
-                    className="history-filter-select"
-                    style={{ background: 'var(--bg-elevated)', border: `1px solid ${t.border}`, borderRadius: 6, color: 'var(--fg)', fontSize: 13, padding: '5px 10px', cursor: 'pointer', outline: 'none' }}>
-                    {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
+                  { id: 'asset', label: 'Token Scope', value: txAssetFilter, onChange: setTxAssetFilter, options: swapAssetFilterOptions },
+                  { id: 'year', label: 'Execution Year', value: txYearFilter, onChange: setTxYearFilter, options: swapYearFilterOptions },
+                  { id: 'category', label: 'Coin Family', value: txCoinCategory, onChange: setTxCoinCategory, options: [['all','All Coins'],['stablecoins','Stablecoins'],['eth_weth','ETH/WETH'],['hex','HEX/eHEX'],['pls_wpls','PLS/WPLS'],['bridged','Bridged']] as [string,string][] },
+                ]).map(({ id, label, value, onChange, options }) => (
+                  <label key={id} className="history-filter-control">
+                    <span>{label}</span>
+                    <select value={value} onChange={e => onChange(e.target.value)}
+                      className="history-filter-select"
+                      aria-label={label}>
+                      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </label>
                 ))}
-                <button onClick={() => { setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }}
-                  style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', textDecoration: 'underline' }}>
+                <button
+                  type="button"
+                  onClick={() => { setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }}
+                  className="history-clear-btn"
+                  disabled={!hasActiveSwapFilters}
+                >
                   Clear all
                 </button>
               </div>
@@ -6039,7 +6066,7 @@ export default function App() {
                   onHide={hideToken}
                   onSetEntry={(id, value) => setManualEntries(prev => ({ ...prev, [id]: value }))}
                   onClearEntry={(id) => setManualEntries(prev => { const n = { ...prev }; delete n[id]; return n; })}
-                  onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('overview'); }}
+                  onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('history'); }}
                   footerValueUsd={filteredViewAssets.reduce((sum, asset) => sum + asset.value, 0)}
                   shareBaseUsd={walletUsdValue}
                 />
@@ -6319,13 +6346,13 @@ export default function App() {
                                              assets={currentAssets}
                                              getTokenLogoUrl={getTokenLogoUrl}
                                              tokenLogos={tokenLogos}
-                                             onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('overview'); }}
+                                             onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('history'); }}
                                              emptyMessage="No transactions for this token."
                                            />
                                            {tokenTxs.length > 8 && (
                                              <div style={{ textAlign: 'center', padding: '8px', fontSize: 12, color: 'var(--fg-subtle)' }}>
                                                +{tokenTxs.length - 8} more &mdash;{' '}
-                                               <button onClick={e => { e.stopPropagation(); setTxAssetFilter(asset.symbol); setActiveTab('overview'); }}
+                                              <button onClick={e => { e.stopPropagation(); setTxAssetFilter(asset.symbol); setActiveTab('history'); }}
                                                  style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
                                                  view all in Holdings
                                                </button>
