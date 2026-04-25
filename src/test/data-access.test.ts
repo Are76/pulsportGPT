@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTtlCache } from '../services/cache';
+import { normalizePulsechainTokenSearchResults } from '../services/adapters/pulsechainAdapter';
+import { resolvePriceQuotes } from '../services/priceService';
 
 const tempDir = join(process.cwd(), 'src', 'test', '.tmp-data-access');
 const tempFile = join(tempDir, 'type-check.ts');
@@ -105,5 +107,202 @@ describe('data access foundation', () => {
       getCurrentDirectory: () => process.cwd(),
       getNewLine: () => '\n',
     })).toHaveLength(0);
+  });
+
+  it('keeps the highest-liquidity duplicate for each pair address and sorts by reserveUSD descending', () => {
+    expect(
+      normalizePulsechainTokenSearchResults([
+        {
+          id: ' v2:0xbbb ',
+          pairAddress: ' 0xBBB ',
+          token0: {
+            id: ' 0xTokenB ',
+            symbol: ' zen ',
+            name: ' Zebra ',
+            decimals: '18',
+          },
+          token1: {
+            id: ' 0xwpls ',
+            symbol: ' wpls ',
+            name: ' Wrapped Pulse ',
+            decimals: '18',
+          },
+          reserveUSD: '125.5',
+          version: 'v2',
+        },
+        {
+          id: 'v1:0xaaa',
+          pairAddress: '0xAAA',
+          token0: {
+            id: '0xTokenA',
+            symbol: 'ALPHA',
+            name: ' Alpha Token ',
+            decimals: '18',
+          },
+          token1: {
+            id: '0xwpls',
+            symbol: 'WPLS',
+            name: 'Wrapped Pulse',
+            decimals: '18',
+          },
+          reserveUSD: '5000.25',
+          version: 'v1',
+        },
+        {
+          id: 'v2:0xAAA',
+          pairAddress: '0xAAA',
+          token0: {
+            id: '0xTokenADupe',
+            symbol: 'ALPHA-ALT',
+            name: 'Alternate Alpha',
+            decimals: '18',
+          },
+          token1: {
+            id: '0xwpls',
+            symbol: 'WPLS',
+            name: 'Wrapped Pulse',
+            decimals: '18',
+          },
+          reserveUSD: '999999',
+          version: 'v2',
+        },
+      ]),
+    ).toEqual([
+      {
+        id: 'v2:0xAAA',
+        pairAddress: '0xaaa',
+        token0: {
+          id: '0xtokenadupe',
+          symbol: 'ALPHA-ALT',
+          name: 'Alternate Alpha',
+          decimals: '18',
+        },
+        token1: {
+          id: '0xwpls',
+          symbol: 'WPLS',
+          name: 'Wrapped Pulse',
+          decimals: '18',
+        },
+        reserveUSD: '999999',
+        version: 'v2',
+      },
+      {
+        id: 'v2:0xbbb',
+        pairAddress: '0xbbb',
+        token0: {
+          id: '0xtokenb',
+          symbol: 'ZEN',
+          name: 'Zebra',
+          decimals: '18',
+        },
+        token1: {
+          id: '0xwpls',
+          symbol: 'WPLS',
+          name: 'Wrapped Pulse',
+          decimals: '18',
+        },
+        reserveUSD: '125.5',
+        version: 'v2',
+      },
+    ]);
+  });
+
+  it('uses PulseX prices first, CoinGecko second, and marks unresolved tokens as unpriced', () => {
+    expect(
+      resolvePriceQuotes(
+        [
+          { tokenAddress: '0xAAA', chain: 'pulsechain' },
+          { tokenAddress: '0xBBB', chain: 'pulsechain' },
+          { tokenAddress: '0xCCC', chain: 'pulsechain' },
+        ],
+        {
+          pulseX: {
+            '0xaaa': 1.23,
+          },
+          coinGecko: {
+            '0xbbb': 4.56,
+          },
+        },
+      ),
+    ).toEqual([
+      {
+        tokenAddress: '0xaaa',
+        chain: 'pulsechain',
+        priceUsd: 1.23,
+        source: 'pulsex',
+      },
+      {
+        tokenAddress: '0xbbb',
+        chain: 'pulsechain',
+        priceUsd: 4.56,
+        source: 'coingecko',
+      },
+      {
+        tokenAddress: '0xccc',
+        chain: 'pulsechain',
+        priceUsd: null,
+        source: 'unpriced',
+      },
+    ]);
+  });
+
+  it('falls through invalid quotes and only returns real positive prices', () => {
+    expect(
+      resolvePriceQuotes(
+        [
+          { tokenAddress: '0xAAA', chain: 'pulsechain' },
+          { tokenAddress: '0xBBB', chain: 'pulsechain' },
+          { tokenAddress: '0xCCC', chain: 'pulsechain' },
+          { tokenAddress: '0xDDD', chain: 'pulsechain' },
+          { tokenAddress: '0xEEE', chain: 'pulsechain' },
+        ],
+        {
+          pulseX: {
+            '0xaaa': Number.NaN,
+            '0xbbb': Number.POSITIVE_INFINITY,
+            '0xccc': 0,
+            '0xddd': -2,
+            '0xeee': 7.89,
+          },
+          coinGecko: {
+            '0xaaa': 1.11,
+            '0xbbb': 2.22,
+            '0xccc': Number.NaN,
+            '0xddd': 0,
+          },
+        },
+      ),
+    ).toEqual([
+      {
+        tokenAddress: '0xaaa',
+        chain: 'pulsechain',
+        priceUsd: 1.11,
+        source: 'coingecko',
+      },
+      {
+        tokenAddress: '0xbbb',
+        chain: 'pulsechain',
+        priceUsd: 2.22,
+        source: 'coingecko',
+      },
+      {
+        tokenAddress: '0xccc',
+        chain: 'pulsechain',
+        priceUsd: null,
+        source: 'unpriced',
+      },
+      {
+        tokenAddress: '0xddd',
+        chain: 'pulsechain',
+        priceUsd: null,
+        source: 'unpriced',
+      },
+      {
+        tokenAddress: '0xeee',
+        chain: 'pulsechain',
+        priceUsd: 7.89,
+        source: 'pulsex',
+      },
+    ]);
   });
 });
