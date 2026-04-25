@@ -3,7 +3,11 @@ import { join } from 'node:path';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTtlCache } from '../services/cache';
-import { normalizePulsechainTokenSearchResults } from '../services/adapters/pulsechainAdapter';
+import {
+  normalizePulsechainTokenSearchResults,
+  type PulsechainTokenSearchResult,
+} from '../services/adapters/pulsechainAdapter';
+import { createDataAccess } from '../services/dataAccess';
 import { resolvePriceQuotes } from '../services/priceService';
 
 const tempDir = join(process.cwd(), 'src', 'test', '.tmp-data-access');
@@ -17,6 +21,7 @@ function getTypeDiagnostics() {
     tempFile,
     [
       "import type { Chain, PriceQuote, TokenBalance, Transaction, TransactionQueryResult } from '../../types';",
+      "import type { PulsechainTokenSearchResult } from '../../services/adapters/pulsechainAdapter';",
       '',
       'type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;',
       'type Expect<T extends true> = T;',
@@ -39,6 +44,27 @@ function getTypeDiagnostics() {
       "type ResultImplemented = Expect<Equal<TransactionQueryResult['implemented'], boolean>>;",
       "type ResultTransactions = Expect<Equal<TransactionQueryResult['transactions'], Transaction[]>>;",
       "type ResultNextBlock = Expect<Equal<TransactionQueryResult['nextBlock'], number | undefined>>;",
+      '',
+      "import { createDataAccess } from '../../services/dataAccess';",
+      '',
+      'const dataAccess = createDataAccess({',
+      '  searchPulsechainTokens: async () => [],',
+      '  getPulsechainLPPositions: async () => [],',
+      '  getPulsechainTokenBalances: async () => [],',
+      '  getPulsechainPrices: async () => [],',
+      '});',
+      '',
+      "type DataAccessKeys = Expect<Equal<keyof typeof dataAccess, 'searchTokens' | 'getLPPositions' | 'getTokenBalances' | 'getPrices' | 'getTransactions'>>;",
+      "type SearchTokensArgs = Expect<Equal<Parameters<typeof dataAccess.searchTokens>, [term: string, chain: Chain]>>;",
+      "type GetLPPositionsArgs = Expect<Equal<Parameters<typeof dataAccess.getLPPositions>, [addresses: string[], chain: Chain, tokenPrices: Record<string, number>]>>;",
+      "type TokenBalancesArgs = Expect<Equal<Parameters<typeof dataAccess.getTokenBalances>, [address: string, chain: Chain]>>;",
+      "type PricesArgs = Expect<Equal<Parameters<typeof dataAccess.getPrices>, [tokenAddresses: string[], chain: Chain]>>;",
+      "type TransactionsArgs = Expect<Equal<Parameters<typeof dataAccess.getTransactions>, [address: string, chain: Chain, startBlock?: number]>>;",
+      "type SearchTokensResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.searchTokens>>, PulsechainTokenSearchResult[]>>;",
+      "type GetLPPositionsResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getLPPositions>>, import('../../types').LpPosition[]>>;",
+      "type TokenBalancesResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getTokenBalances>>, TokenBalance[]>>;",
+      "type PricesResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getPrices>>, PriceQuote[]>>;",
+      "type TransactionsResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getTransactions>>, TransactionQueryResult>>;",
       '',
     ].join('\n'),
     'utf8',
@@ -304,5 +330,202 @@ describe('data access foundation', () => {
         source: 'pulsex',
       },
     ]);
+  });
+
+  it('throws for unsupported chains on token balances in Phase 1', async () => {
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+    });
+
+    await expect(dataAccess.getTokenBalances('0xwallet', 'ethereum')).rejects.toThrow(
+      'Unsupported chain for Phase 1 data access: ethereum',
+    );
+  });
+
+  it('throws for unsupported chains on token search in Phase 1', async () => {
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+    });
+
+    await expect(dataAccess.searchTokens('hex', 'ethereum')).rejects.toThrow(
+      'Unsupported chain for Phase 1 data access: ethereum',
+    );
+  });
+
+  it('delegates pulsechain requests through the injected dependencies', async () => {
+    const searchPulsechainTokens = vi.fn(async (term: string): Promise<PulsechainTokenSearchResult[]> => [
+      {
+        id: `v1:${term}`,
+        pairAddress: '0xpair',
+        token0: {
+          id: '0xtoken0',
+          symbol: 'HEX',
+          name: 'HEX',
+          decimals: '8',
+        },
+        token1: {
+          id: '0xtoken1',
+          symbol: 'WPLS',
+          name: 'Wrapped Pulse',
+          decimals: '18',
+        },
+        reserveUSD: '100',
+        version: 'v1',
+      },
+    ]);
+    const getPulsechainLPPositions = vi.fn(async (addresses: string[], tokenPrices: Record<string, number>) => [
+      {
+        pairAddress: '0xpair',
+        pairName: 'HEX/WPLS',
+        token0Address: '0xtoken0',
+        token1Address: '0xtoken1',
+        token0Symbol: 'HEX',
+        token1Symbol: 'WPLS',
+        token0Decimals: 8,
+        token1Decimals: 18,
+        token0Amount: addresses.length,
+        token1Amount: tokenPrices['0xtoken'] ?? 0,
+        token0Usd: 1,
+        token1Usd: 2,
+        totalUsd: 3,
+        lpBalance: 4,
+      },
+    ]);
+    const getPulsechainTokenBalances = vi.fn(async (address: string) => [
+      {
+        address: '0xtoken',
+        symbol: 'PLS',
+        name: 'Pulse',
+        decimals: 18,
+        balance: 1,
+        chain: 'pulsechain' as const,
+      },
+    ]);
+    const getPulsechainPrices = vi.fn(async (tokenAddresses: string[]) => [
+      {
+        tokenAddress: tokenAddresses[0],
+        chain: 'pulsechain' as const,
+        priceUsd: 1,
+        source: 'pulsex' as const,
+      },
+    ]);
+
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens,
+      getPulsechainLPPositions,
+      getPulsechainTokenBalances,
+      getPulsechainPrices,
+    });
+
+    await expect(dataAccess.searchTokens('hex', 'pulsechain')).resolves.toEqual([
+      {
+        id: 'v1:hex',
+        pairAddress: '0xpair',
+        token0: {
+          id: '0xtoken0',
+          symbol: 'HEX',
+          name: 'HEX',
+          decimals: '8',
+        },
+        token1: {
+          id: '0xtoken1',
+          symbol: 'WPLS',
+          name: 'Wrapped Pulse',
+          decimals: '18',
+        },
+        reserveUSD: '100',
+        version: 'v1',
+      },
+    ]);
+    await expect(dataAccess.getLPPositions(['0xwallet'], 'pulsechain', { '0xtoken': 1 })).resolves.toEqual([
+      {
+        pairAddress: '0xpair',
+        pairName: 'HEX/WPLS',
+        token0Address: '0xtoken0',
+        token1Address: '0xtoken1',
+        token0Symbol: 'HEX',
+        token1Symbol: 'WPLS',
+        token0Decimals: 8,
+        token1Decimals: 18,
+        token0Amount: 1,
+        token1Amount: 1,
+        token0Usd: 1,
+        token1Usd: 2,
+        totalUsd: 3,
+        lpBalance: 4,
+      },
+    ]);
+    await expect(dataAccess.getTokenBalances('0xwallet', 'pulsechain')).resolves.toHaveLength(1);
+    await expect(dataAccess.getPrices(['0xtoken'], 'pulsechain')).resolves.toEqual([
+      {
+        tokenAddress: '0xtoken',
+        chain: 'pulsechain',
+        priceUsd: 1,
+        source: 'pulsex',
+      },
+    ]);
+
+    expect(searchPulsechainTokens).toHaveBeenCalledWith('hex');
+    expect(getPulsechainLPPositions).toHaveBeenCalledWith(['0xwallet'], { '0xtoken': 1 });
+    expect(getPulsechainTokenBalances).toHaveBeenCalledWith('0xwallet');
+    expect(getPulsechainPrices).toHaveBeenCalledWith(['0xtoken']);
+  });
+
+  it('throws for unsupported chains on LP positions in Phase 1', async () => {
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+    });
+
+    await expect(dataAccess.getLPPositions(['0xwallet'], 'base', { '0xtoken': 1 })).rejects.toThrow(
+      'Unsupported chain for Phase 1 data access: base',
+    );
+  });
+
+  it('throws for unsupported chains on prices in Phase 1', async () => {
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+    });
+
+    await expect(dataAccess.getPrices(['0xtoken'], 'base')).rejects.toThrow('Unsupported chain for Phase 1 data access: base');
+  });
+
+  it('returns a typed Phase 1 placeholder for transactions', async () => {
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+    });
+
+    await expect(dataAccess.getTransactions('0xwallet', 'pulsechain')).resolves.toEqual({
+      implemented: false,
+      transactions: [],
+      nextBlock: undefined,
+    });
+  });
+
+  it('throws for unsupported chains on transactions in Phase 1', async () => {
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+    });
+
+    await expect(dataAccess.getTransactions('0xwallet', 'ethereum')).rejects.toThrow(
+      'Unsupported chain for Phase 1 data access: ethereum',
+    );
   });
 });
