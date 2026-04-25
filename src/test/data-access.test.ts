@@ -1,8 +1,9 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useLiquidityPositions } from '../hooks/useLiquidityPositions';
 import { useTokenSearch } from '../hooks/useTokenSearch';
 import { createTtlCache } from '../services/cache';
 import {
@@ -11,10 +12,21 @@ import {
 } from '../services/adapters/pulsechainAdapter';
 import { createDataAccess, dataAccess } from '../services/dataAccess';
 import { resolvePriceQuotes } from '../services/priceService';
+import type { LpPositionEnriched } from '../types';
 
 const tempDir = join(process.cwd(), 'src', 'test', '.tmp-data-access');
 const tempFile = join(tempDir, 'type-check.ts');
 const tsconfigPath = join(process.cwd(), 'tsconfig.json');
+const TARGET_LP_PAIR = '0x1b45b9148791d3a104184cd5dfe5ce57193a3ee9';
+const TARGET_LP_WALLET = '0x00000000000000000000000000000000000000aa';
+
+function encodeUint256(value: bigint | number): string {
+  return `0x${BigInt(value).toString(16).padStart(64, '0')}`;
+}
+
+function encodeReserves(reserve0: bigint | number, reserve1: bigint | number): string {
+  return `0x${BigInt(reserve0).toString(16).padStart(64, '0')}${BigInt(reserve1).toString(16).padStart(64, '0')}${'0'.repeat(64)}`;
+}
 
 function getTypeDiagnostics() {
   mkdirSync(tempDir, { recursive: true });
@@ -22,7 +34,7 @@ function getTypeDiagnostics() {
   writeFileSync(
     tempFile,
     [
-      "import type { Chain, PriceQuote, TokenBalance, Transaction, TransactionQueryResult } from '../../types';",
+      "import type { Chain, LpPositionEnriched, PriceQuote, TokenBalance, Transaction, TransactionQueryResult } from '../../types';",
       "import type { PulsechainTokenSearchResult } from '../../services/adapters/pulsechainAdapter';",
       '',
       'type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;',
@@ -63,7 +75,7 @@ function getTypeDiagnostics() {
       "type PricesArgs = Expect<Equal<Parameters<typeof dataAccess.getPrices>, [tokenAddresses: string[], chain: Chain]>>;",
       "type TransactionsArgs = Expect<Equal<Parameters<typeof dataAccess.getTransactions>, [address: string, chain: Chain, startBlock?: number]>>;",
       "type SearchTokensResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.searchTokens>>, PulsechainTokenSearchResult[]>>;",
-      "type GetLPPositionsResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getLPPositions>>, import('../../types').LpPosition[]>>;",
+      "type GetLPPositionsResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getLPPositions>>, LpPositionEnriched[]>>;",
       "type TokenBalancesResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getTokenBalances>>, TokenBalance[]>>;",
       "type PricesResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getPrices>>, PriceQuote[]>>;",
       "type TransactionsResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getTransactions>>, TransactionQueryResult>>;",
@@ -84,7 +96,9 @@ function getTypeDiagnostics() {
 describe('data access foundation', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    localStorage.clear();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -398,6 +412,19 @@ describe('data access foundation', () => {
         token1Usd: 2,
         totalUsd: 3,
         lpBalance: 4,
+        totalSupply: 10,
+        ownershipPct: 40,
+        reserve0: 1,
+        reserve1: 1,
+        token0PriceUsd: 1,
+        token1PriceUsd: 2,
+        ilEstimate: null,
+        fees24hUsd: null,
+        volume24hUsd: null,
+        isStaked: false,
+        walletLpBalance: 4,
+        stakedLpBalance: 0,
+        sparkline: [],
       },
     ]);
     const getPulsechainTokenBalances = vi.fn(async (address: string) => [
@@ -462,6 +489,19 @@ describe('data access foundation', () => {
         token1Usd: 2,
         totalUsd: 3,
         lpBalance: 4,
+        totalSupply: 10,
+        ownershipPct: 40,
+        reserve0: 1,
+        reserve1: 1,
+        token0PriceUsd: 1,
+        token1PriceUsd: 2,
+        ilEstimate: null,
+        fees24hUsd: null,
+        volume24hUsd: null,
+        isStaked: false,
+        walletLpBalance: 4,
+        stakedLpBalance: 0,
+        sparkline: [],
       },
     ]);
     await expect(dataAccess.getTokenBalances('0xwallet', 'pulsechain')).resolves.toHaveLength(1);
@@ -561,6 +601,468 @@ describe('data access foundation', () => {
     ]);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('provides a typed runtime pulsechain LP implementation through the default data access instance', async () => {
+    let primaryRpcAttempts = 0;
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url === 'https://rpc-pulsechain.g4mm4.io') {
+        primaryRpcAttempts += 1;
+
+        if (primaryRpcAttempts === 1) {
+          throw new Error('primary rpc unavailable');
+        }
+      }
+
+      if (url === 'https://rpc-pulsechain.g4mm4.io' || url === 'https://rpc.pulsechain.com') {
+        const body = JSON.parse(String(init?.body)) as Array<{
+          id: number;
+          params: [{ to: string; data: string }, string];
+        }>;
+
+        return {
+          json: async () => body.map(({ id, params: [{ to, data }] }) => {
+            const normalizedTo = to.toLowerCase();
+            const normalizedData = data.toLowerCase();
+
+            if (normalizedTo === TARGET_LP_PAIR && normalizedData === '0x0902f1ac') {
+              return { id, result: encodeReserves(1000n * 10n ** 18n, 2000n * 10n ** 18n) };
+            }
+
+            if (normalizedTo === TARGET_LP_PAIR && normalizedData === '0x18160ddd') {
+              return { id, result: encodeUint256(10n * 10n ** 18n) };
+            }
+
+            if (normalizedTo === TARGET_LP_PAIR && normalizedData.startsWith('0x70a08231')) {
+              return { id, result: encodeUint256(10n ** 18n) };
+            }
+
+            if (normalizedTo === '0xb2ca4a66d3e57a5a9a12043b6bad28249fe302d4' && normalizedData === '0x081e3eda') {
+              return { id, result: encodeUint256(0) };
+            }
+
+            return { id, result: '0x' };
+          }),
+        };
+      }
+
+      if (url === 'https://graph.pulsechain.com/subgraphs/name/pulsechain/pulsex') {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              pairDayDatas: [
+                {
+                  pairAddress: TARGET_LP_PAIR,
+                  dailyVolumeUSD: '1000',
+                },
+              ],
+            },
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const positions = await dataAccess.getLPPositions(
+      [TARGET_LP_WALLET],
+      'pulsechain',
+      { PLSX: 0.5, WPLS: 0.01, INC: 2 },
+    );
+
+    expect(positions).toHaveLength(1);
+    expect(positions[0]).toMatchObject({
+      pairAddress: TARGET_LP_PAIR,
+      pairName: 'PLSX/WPLS',
+      token0Amount: 100,
+      token1Amount: 200,
+      totalUsd: 52,
+      volume24hUsd: 1000,
+      isStaked: false,
+      walletLpBalance: 1,
+      stakedLpBalance: 0,
+    });
+    expect(positions[0].fees24hUsd).toBeCloseTo(0.3);
+    expect(positions[0].sparkline).toHaveLength(7);
+    expect(fetchMock.mock.calls.some(([url]) => String(url) === 'https://rpc.pulsechain.com')).toBe(true);
+  });
+
+  it('does not load liquidity positions on mount until refetch is called', async () => {
+    const position = {
+      pairAddress: TARGET_LP_PAIR,
+      pairName: 'PLSX/WPLS',
+      token0Address: '0x95b303987a60c71504d99aa1b13b4da07b0790ab',
+      token1Address: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+      token0Symbol: 'PLSX',
+      token1Symbol: 'WPLS',
+      token0Decimals: 18,
+      token1Decimals: 18,
+      token0Amount: 100,
+      token1Amount: 200,
+      token0Usd: 50,
+      token1Usd: 2,
+      totalUsd: 52,
+      lpBalance: 1,
+      totalSupply: 10,
+      ownershipPct: 10,
+      reserve0: 1000,
+      reserve1: 2000,
+      token0PriceUsd: 0.5,
+      token1PriceUsd: 0.01,
+      ilEstimate: null,
+      fees24hUsd: 0.3,
+      volume24hUsd: 1000,
+      isStaked: false,
+      walletLpBalance: 1,
+      stakedLpBalance: 0,
+      sparkline: [{ t: 1, v: 52 }],
+    };
+    const getLPPositionsSpy = vi.spyOn(dataAccess, 'getLPPositions').mockResolvedValue([position]);
+    const fetchMock = vi.fn(() => {
+      throw new Error('hook should use data access instead of fetch');
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLiquidityPositions([TARGET_LP_WALLET], { PLSX: 0.5, WPLS: 0.01, INC: 2 }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getLPPositionsSpy).not.toHaveBeenCalled();
+    expect(result.current.positions).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(typeof result.current.refetch).toBe('function');
+
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.positions).toEqual([position]);
+    });
+
+    expect(getLPPositionsSpy).toHaveBeenCalledWith(
+      [TARGET_LP_WALLET],
+      'pulsechain',
+      { PLSX: 0.5, WPLS: 0.01, INC: 2 },
+    );
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not reload liquidity positions when hook dependencies change until refetch is called', async () => {
+    const initialPosition = {
+      pairAddress: TARGET_LP_PAIR,
+      pairName: 'PLSX/WPLS',
+      token0Address: '0x95b303987a60c71504d99aa1b13b4da07b0790ab',
+      token1Address: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+      token0Symbol: 'PLSX',
+      token1Symbol: 'WPLS',
+      token0Decimals: 18,
+      token1Decimals: 18,
+      token0Amount: 100,
+      token1Amount: 200,
+      token0Usd: 50,
+      token1Usd: 2,
+      totalUsd: 52,
+      lpBalance: 1,
+      totalSupply: 10,
+      ownershipPct: 10,
+      reserve0: 1000,
+      reserve1: 2000,
+      token0PriceUsd: 0.5,
+      token1PriceUsd: 0.01,
+      ilEstimate: null,
+      fees24hUsd: 0.3,
+      volume24hUsd: 1000,
+      isStaked: false,
+      walletLpBalance: 1,
+      stakedLpBalance: 0,
+      sparkline: [{ t: 1, v: 52 }],
+    };
+    const updatedPosition = {
+      ...initialPosition,
+      token0Usd: 60,
+      totalUsd: 62,
+      token0PriceUsd: 0.6,
+      sparkline: [{ t: 2, v: 62 }],
+    };
+    const getLPPositionsSpy = vi.spyOn(dataAccess, 'getLPPositions')
+      .mockResolvedValueOnce([initialPosition])
+      .mockResolvedValueOnce([updatedPosition]);
+
+    const { result, rerender } = renderHook(
+      ({ wallets, prices }) => useLiquidityPositions(wallets, prices),
+      {
+        initialProps: {
+          wallets: [TARGET_LP_WALLET],
+          prices: { PLSX: 0.5, WPLS: 0.01, INC: 2 },
+        },
+      },
+    );
+
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.positions).toEqual([initialPosition]);
+    });
+
+    await act(async () => {
+      rerender({
+        wallets: [TARGET_LP_WALLET],
+        prices: { PLSX: 0.6, WPLS: 0.01, INC: 2 },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getLPPositionsSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.positions).toEqual([initialPosition]);
+
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.positions).toEqual([updatedPosition]);
+    });
+
+    expect(getLPPositionsSpy).toHaveBeenNthCalledWith(
+      1,
+      [TARGET_LP_WALLET],
+      'pulsechain',
+      { PLSX: 0.5, WPLS: 0.01, INC: 2 },
+    );
+    expect(getLPPositionsSpy).toHaveBeenNthCalledWith(
+      2,
+      [TARGET_LP_WALLET],
+      'pulsechain',
+      { PLSX: 0.6, WPLS: 0.01, INC: 2 },
+    );
+  });
+
+  it('clears stale positions and loading when wallets become empty', async () => {
+    let resolvePositions: ((positions: LpPositionEnriched[]) => void) | null = null;
+    const position = {
+      pairAddress: TARGET_LP_PAIR,
+      pairName: 'PLSX/WPLS',
+      token0Address: '0x95b303987a60c71504d99aa1b13b4da07b0790ab',
+      token1Address: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+      token0Symbol: 'PLSX',
+      token1Symbol: 'WPLS',
+      token0Decimals: 18,
+      token1Decimals: 18,
+      token0Amount: 100,
+      token1Amount: 200,
+      token0Usd: 50,
+      token1Usd: 2,
+      totalUsd: 52,
+      lpBalance: 1,
+      totalSupply: 10,
+      ownershipPct: 10,
+      reserve0: 1000,
+      reserve1: 2000,
+      token0PriceUsd: 0.5,
+      token1PriceUsd: 0.01,
+      ilEstimate: null,
+      fees24hUsd: 0.3,
+      volume24hUsd: 1000,
+      isStaked: false,
+      walletLpBalance: 1,
+      stakedLpBalance: 0,
+      sparkline: [{ t: 1, v: 52 }],
+    };
+    const getLPPositionsSpy = vi.spyOn(dataAccess, 'getLPPositions')
+      .mockResolvedValueOnce([position])
+      .mockImplementationOnce(() => new Promise<LpPositionEnriched[]>(resolve => {
+        resolvePositions = resolve;
+      }));
+
+    const { result, rerender } = renderHook(
+      ({ wallets }) => useLiquidityPositions(wallets, { PLSX: 0.5, WPLS: 0.01, INC: 2 }),
+      {
+        initialProps: {
+          wallets: [TARGET_LP_WALLET],
+        },
+      },
+    );
+
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.positions).toEqual([position]);
+    });
+
+    await act(async () => {
+      result.current.refetch();
+      await Promise.resolve();
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      rerender({ wallets: [] });
+    });
+
+    expect(result.current.positions).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(getLPPositionsSpy).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolvePositions?.([position]);
+      await Promise.resolve();
+    });
+  });
+
+  it('clears stale errors when wallets become empty', async () => {
+    const getLPPositionsSpy = vi.spyOn(dataAccess, 'getLPPositions')
+      .mockRejectedValueOnce(new Error('boom'));
+
+    const { result, rerender } = renderHook(
+      ({ wallets }) => useLiquidityPositions(wallets, { PLSX: 0.5, WPLS: 0.01, INC: 2 }),
+      {
+        initialProps: {
+          wallets: [TARGET_LP_WALLET],
+        },
+      },
+    );
+
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('boom');
+    });
+
+    await act(async () => {
+      rerender({ wallets: [] });
+    });
+
+    expect(result.current.positions).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(getLPPositionsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks stale non-empty responses after hook dependencies change before the request settles', async () => {
+    let resolveInitial: ((positions: LpPositionEnriched[]) => void) | null = null;
+    const initialPosition = {
+      pairAddress: TARGET_LP_PAIR,
+      pairName: 'PLSX/WPLS',
+      token0Address: '0x95b303987a60c71504d99aa1b13b4da07b0790ab',
+      token1Address: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+      token0Symbol: 'PLSX',
+      token1Symbol: 'WPLS',
+      token0Decimals: 18,
+      token1Decimals: 18,
+      token0Amount: 100,
+      token1Amount: 200,
+      token0Usd: 50,
+      token1Usd: 2,
+      totalUsd: 52,
+      lpBalance: 1,
+      totalSupply: 10,
+      ownershipPct: 10,
+      reserve0: 1000,
+      reserve1: 2000,
+      token0PriceUsd: 0.5,
+      token1PriceUsd: 0.01,
+      ilEstimate: null,
+      fees24hUsd: 0.3,
+      volume24hUsd: 1000,
+      isStaked: false,
+      walletLpBalance: 1,
+      stakedLpBalance: 0,
+      sparkline: [{ t: 1, v: 52 }],
+    };
+    const updatedPosition = {
+      ...initialPosition,
+      token0Usd: 60,
+      totalUsd: 62,
+      token0PriceUsd: 0.6,
+      sparkline: [{ t: 2, v: 62 }],
+    };
+    const getLPPositionsSpy = vi.spyOn(dataAccess, 'getLPPositions')
+      .mockImplementationOnce(() => new Promise<LpPositionEnriched[]>(resolve => {
+        resolveInitial = resolve;
+      }))
+      .mockResolvedValueOnce([updatedPosition]);
+
+    const { result, rerender } = renderHook(
+      ({ wallets, prices }) => useLiquidityPositions(wallets, prices),
+      {
+        initialProps: {
+          wallets: [TARGET_LP_WALLET],
+          prices: { PLSX: 0.5, WPLS: 0.01, INC: 2 },
+        },
+      },
+    );
+
+    await act(async () => {
+      result.current.refetch();
+      await Promise.resolve();
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      rerender({
+        wallets: [TARGET_LP_WALLET],
+        prices: { PLSX: 0.6, WPLS: 0.01, INC: 2 },
+      });
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.positions).toEqual([]);
+
+    await act(async () => {
+      resolveInitial?.([initialPosition]);
+      await Promise.resolve();
+    });
+
+    expect(result.current.positions).toEqual([]);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.positions).toEqual([updatedPosition]);
+    });
+
+    expect(getLPPositionsSpy).toHaveBeenNthCalledWith(
+      1,
+      [TARGET_LP_WALLET],
+      'pulsechain',
+      { PLSX: 0.5, WPLS: 0.01, INC: 2 },
+    );
+    expect(getLPPositionsSpy).toHaveBeenNthCalledWith(
+      2,
+      [TARGET_LP_WALLET],
+      'pulsechain',
+      { PLSX: 0.6, WPLS: 0.01, INC: 2 },
+    );
   });
 
   it('treats a partial subgraph failure with an empty successful result as a valid no-results response', async () => {

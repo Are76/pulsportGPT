@@ -1,9 +1,13 @@
-import { searchPulsechainTokens, type PulsechainTokenSearchResult } from './adapters/pulsechainAdapter';
-import type { Chain, LpPosition, PriceQuote, TokenBalance, TransactionQueryResult } from '../types';
+import {
+  getPulsechainLPPositions,
+  searchPulsechainTokens,
+  type PulsechainTokenSearchResult,
+} from './adapters/pulsechainAdapter';
+import type { Chain, LpPositionEnriched, PriceQuote, TokenBalance, TransactionQueryResult } from '../types';
 
 interface DataAccessDeps {
   searchPulsechainTokens: (term: string) => Promise<PulsechainTokenSearchResult[]>;
-  getPulsechainLPPositions: (addresses: string[], tokenPrices: Record<string, number>) => Promise<LpPosition[]>;
+  getPulsechainLPPositions: (addresses: string[], tokenPrices: Record<string, number>) => Promise<LpPositionEnriched[]>;
   getPulsechainTokenBalances: (address: string) => Promise<TokenBalance[]>;
   getPulsechainPrices: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
 }
@@ -39,7 +43,7 @@ export function createDataAccess(deps: DataAccessDeps) {
       addresses: string[],
       chain: Chain,
       tokenPrices: Record<string, number>,
-    ): Promise<LpPosition[]> {
+    ): Promise<LpPositionEnriched[]> {
       assertPhase1Chain(chain);
       return deps.getPulsechainLPPositions(addresses, tokenPrices);
     },
@@ -93,6 +97,7 @@ export function createScopedTokenSearchDataAccess() {
 
 export const dataAccess = createDataAccess({
   ...createUnwiredRuntimeDeps(),
+  getPulsechainLPPositions,
   searchPulsechainTokens,
 });
 
