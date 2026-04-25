@@ -1,4 +1,4 @@
-import type { PulsechainTokenSearchResult } from './adapters/pulsechainAdapter';
+import { searchPulsechainTokens, type PulsechainTokenSearchResult } from './adapters/pulsechainAdapter';
 import type { Chain, LpPosition, PriceQuote, TokenBalance, TransactionQueryResult } from '../types';
 
 interface DataAccessDeps {
@@ -6,6 +6,20 @@ interface DataAccessDeps {
   getPulsechainLPPositions: (addresses: string[], tokenPrices: Record<string, number>) => Promise<LpPosition[]>;
   getPulsechainTokenBalances: (address: string) => Promise<TokenBalance[]>;
   getPulsechainPrices: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
+}
+
+function createUnwiredRuntimeDeps(): Omit<DataAccessDeps, 'searchPulsechainTokens'> {
+  return {
+    async getPulsechainLPPositions() {
+      throw new Error('Pulsechain LP position runtime access is not wired yet');
+    },
+    async getPulsechainTokenBalances() {
+      throw new Error('Pulsechain token balance runtime access is not wired yet');
+    },
+    async getPulsechainPrices() {
+      throw new Error('Pulsechain price runtime access is not wired yet');
+    },
+  };
 }
 
 function assertPhase1Chain(chain: Chain): void {
@@ -57,3 +71,29 @@ export function createDataAccess(deps: DataAccessDeps) {
     },
   };
 }
+
+export function createScopedTokenSearchDataAccess() {
+  let controller: AbortController | null = null;
+
+  return {
+    dataAccess: createDataAccess({
+      ...createUnwiredRuntimeDeps(),
+      searchPulsechainTokens(term: string) {
+        controller?.abort();
+        controller = new AbortController();
+        return searchPulsechainTokens(term, controller.signal);
+      },
+    }),
+    cancel() {
+      controller?.abort();
+      controller = null;
+    },
+  };
+}
+
+export const dataAccess = createDataAccess({
+  ...createUnwiredRuntimeDeps(),
+  searchPulsechainTokens,
+});
+
+export default dataAccess;

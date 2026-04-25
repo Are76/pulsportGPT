@@ -1,13 +1,15 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { act, renderHook } from '@testing-library/react';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useTokenSearch } from '../hooks/useTokenSearch';
 import { createTtlCache } from '../services/cache';
 import {
   normalizePulsechainTokenSearchResults,
   type PulsechainTokenSearchResult,
 } from '../services/adapters/pulsechainAdapter';
-import { createDataAccess } from '../services/dataAccess';
+import { createDataAccess, dataAccess } from '../services/dataAccess';
 import { resolvePriceQuotes } from '../services/priceService';
 
 const tempDir = join(process.cwd(), 'src', 'test', '.tmp-data-access');
@@ -82,6 +84,7 @@ function getTypeDiagnostics() {
 describe('data access foundation', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -475,6 +478,217 @@ describe('data access foundation', () => {
     expect(getPulsechainLPPositions).toHaveBeenCalledWith(['0xwallet'], { '0xtoken': 1 });
     expect(getPulsechainTokenBalances).toHaveBeenCalledWith('0xwallet');
     expect(getPulsechainPrices).toHaveBeenCalledWith(['0xtoken']);
+  });
+
+  it('provides a runtime pulsechain token search implementation through the default data access instance', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            pairs: [
+              {
+                id: '0xPAIR',
+                token0: {
+                  id: ' 0xToken ',
+                  symbol: ' hex ',
+                  name: ' HEX ',
+                  decimals: '8',
+                },
+                token1: {
+                  id: ' 0xa1077a294dde1b09bb078844df40758a5d0f9a27 ',
+                  symbol: ' wpls ',
+                  name: ' Wrapped Pulse ',
+                  decimals: '18',
+                },
+                reserve0: '1',
+                reserve1: '12000000',
+                reserveUSD: '200',
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            pairs: [
+              {
+                id: '0xpair',
+                token0: {
+                  id: '0xTokenDup',
+                  symbol: 'HEX2',
+                  name: 'Hex Dup',
+                  decimals: '8',
+                },
+                token1: {
+                  id: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+                  symbol: 'WPLS',
+                  name: 'Wrapped Pulse',
+                  decimals: '18',
+                },
+                reserve0: '1',
+                reserve1: '15000000',
+                reserveUSD: '999',
+              },
+            ],
+          },
+        }),
+      });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(dataAccess.searchTokens('hex', 'pulsechain')).resolves.toEqual([
+      {
+        id: 'v2:0xpair',
+        pairAddress: '0xpair',
+        token0: {
+          id: '0xtokendup',
+          symbol: 'HEX2',
+          name: 'Hex Dup',
+          decimals: '8',
+        },
+        token1: {
+          id: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+          symbol: 'WPLS',
+          name: 'Wrapped Pulse',
+          decimals: '18',
+        },
+        reserveUSD: '999',
+        version: 'v2',
+      },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats a partial subgraph failure with an empty successful result as a valid no-results response', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error('v1 failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            pairs: [],
+          },
+        }),
+      });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(dataAccess.searchTokens('hex', 'pulsechain')).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts the superseded token search before starting the next debounced search', async () => {
+    vi.useFakeTimers();
+
+    const signals: AbortSignal[] = [];
+    const fetchMock = vi.fn((_: string, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal;
+      signals.push(signal);
+
+      if (signals.length <= 2) {
+        return new Promise((_, reject) => {
+          signal.addEventListener('abort', () => {
+            const abortError = new Error('Aborted');
+            abortError.name = 'AbortError';
+            reject(abortError);
+          });
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            pairs: [],
+          },
+        }),
+      });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result, rerender } = renderHook(({ term }) => useTokenSearch(term), {
+      initialProps: { term: 'he' },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(signals[0].aborted).toBe(false);
+    expect(signals[1].aborted).toBe(false);
+
+    await act(async () => {
+      rerender({ term: 'hex' });
+      await Promise.resolve();
+    });
+
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isError).toBe(false);
+    expect(result.current.noResults).toBe(true);
+    expect(result.current.data).toEqual([]);
+  });
+
+  it('does not let one hook instance cancel another hook instance search', async () => {
+    vi.useFakeTimers();
+
+    const signals: AbortSignal[] = [];
+    const fetchMock = vi.fn((_: string, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal;
+      signals.push(signal);
+
+      return new Promise((_, reject) => {
+        signal.addEventListener('abort', () => {
+          const abortError = new Error('Aborted');
+          abortError.name = 'AbortError';
+          reject(abortError);
+        });
+      });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderHook(() => useTokenSearch('he'));
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    renderHook(() => useTokenSearch('hex'));
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(signals[0].aborted).toBe(false);
+    expect(signals[1].aborted).toBe(false);
   });
 
   it('throws for unsupported chains on LP positions in Phase 1', async () => {
