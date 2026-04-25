@@ -1,4 +1,7 @@
-import type { LpPositionEnriched } from '../../types';
+import { formatUnits } from 'viem';
+import { PULSEX_LP_PAIRS, TOKENS } from '../../constants';
+import type { LpPositionEnriched, PriceQuote, TokenBalance } from '../../types';
+import { resolvePriceQuotes } from '../priceService';
 
 export interface PulsechainTokenSearchResult {
   id: string;
@@ -117,6 +120,18 @@ interface PulsechainSubgraphResponse {
   errors?: Array<{ message: string }>;
 }
 
+interface RpcBatchResponse {
+  id: number;
+  result?: string;
+}
+
+interface RpcBatchRequest {
+  jsonrpc: '2.0';
+  id: number;
+  method: 'eth_call' | 'eth_getBalance';
+  params: unknown[];
+}
+
 function buildTokenSearchQuery(term: string): string {
   const escapedTerm = term.replace(/[\\'"]/g, '\\$&');
 
@@ -156,22 +171,29 @@ async function batchRPC(
   calls: { to: string; data: string }[],
   rpc: string,
 ): Promise<string[]> {
-  const body = calls.map((c, i) => ({
+  const body: RpcBatchRequest[] = calls.map((c, i) => ({
     jsonrpc: '2.0',
     id: i + 1,
     method: 'eth_call',
     params: [{ to: c.to, data: c.data }, 'latest'],
   }));
+  const json = await batchRpcRequest(body, rpc);
+  return [...json]
+    .sort((a, b) => a.id - b.id)
+    .map(r => r.result ?? '0x');
+}
+
+async function batchRpcRequest(
+  body: RpcBatchRequest[],
+  rpc: string,
+): Promise<RpcBatchResponse[]> {
   const res = await fetch(rpc, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(FETCH_TIMEOUT),
   });
-  const json: { id: number; result?: string }[] = await res.json();
-  return [...json]
-    .sort((a, b) => a.id - b.id)
-    .map(r => r.result ?? '0x');
+  return res.json();
 }
 
 async function batchRPCWithFallback(
@@ -269,6 +291,45 @@ function normalizePairResult(pair: PulsechainTokenSearchResult): PulsechainToken
     reserveUSD: pair.reserveUSD.trim(),
     version: pair.version,
   };
+}
+
+function parseReservePair(hex: string | undefined): [number, number] {
+  if (!hex || hex === '0x') {
+    return [0, 0];
+  }
+
+  const normalized = hex.replace('0x', '').padStart(192, '0');
+  return [
+    Number(BigInt(`0x${normalized.slice(0, 64)}`)),
+    Number(BigInt(`0x${normalized.slice(64, 128)}`)),
+  ];
+}
+
+function parseBigIntResult(hex: string | undefined): bigint {
+  const normalized = (hex ?? '0x0').replace('0x', '') || '0';
+  return BigInt(`0x${normalized}`);
+}
+
+function setDerivedPrice(
+  prices: Record<string, number>,
+  tokenAddress: string,
+  priceUsd: number,
+): void {
+  if (Number.isFinite(priceUsd) && priceUsd > 0) {
+    prices[tokenAddress.toLowerCase()] = priceUsd;
+  }
+}
+
+function getPulsechainTokenName(token: { symbol: string; name?: string }): string {
+  if (token.name) {
+    return token.name;
+  }
+
+  if (token.symbol === 'PLS') {
+    return 'PulseChain';
+  }
+
+  return token.symbol;
 }
 
 export function normalizePulsechainTokenSearchResults(
@@ -605,4 +666,183 @@ export async function getPulsechainLPPositions(
   positions.sort((left, right) => right.totalUsd - left.totalUsd);
 
   return positions;
+}
+
+async function getPulsechainPriceSourceMap(): Promise<Record<string, number>> {
+  const lpKeys = Object.keys(PULSEX_LP_PAIRS) as Array<keyof typeof PULSEX_LP_PAIRS>;
+  const reserveResults = await batchRPC(
+    lpKeys.map(key => ({ to: PULSEX_LP_PAIRS[key], data: '0x0902f1ac' })),
+    PRIMARY_RPC,
+  ).catch(() => batchRPC(
+    lpKeys.map(key => ({ to: PULSEX_LP_PAIRS[key], data: '0x0902f1ac' })),
+    FALLBACK_RPC,
+  ));
+
+  const reserveByKey = lpKeys.reduce<Record<string, string>>((acc, key, index) => {
+    acc[key] = reserveResults[index] ?? '0x';
+    return acc;
+  }, {});
+
+  const [daiR0, daiR1] = parseReservePair(reserveByKey.WPLS_DAI);
+  const [usdcR0, usdcR1] = parseReservePair(reserveByKey.WPLS_USDC);
+  const [usdtR0, usdtR1] = parseReservePair(reserveByKey.WPLS_USDT);
+
+  const wplsFromUsdc = usdcR0 > 0 && usdcR1 > 0 ? (usdcR0 / 1e6) / (usdcR1 / 1e18) : 0;
+  const wplsFromUsdt = usdtR0 > 0 && usdtR1 > 0 ? (usdtR0 / 1e6) / (usdtR1 / 1e18) : 0;
+  const wplsUsd = Math.max(wplsFromUsdc, wplsFromUsdt);
+
+  if (!(wplsUsd > 0)) {
+    return {};
+  }
+
+  const prices: Record<string, number> = {
+    native: wplsUsd,
+    [WPLS_ADDRESS]: wplsUsd,
+  };
+
+  const [plsxR0, plsxR1] = parseReservePair(reserveByKey.PLSX_WPLS);
+  if (plsxR0 > 0 && plsxR1 > 0) {
+    setDerivedPrice(prices, '0x95b303987a60c71504d99aa1b13b4da07b0790ab', (plsxR1 / plsxR0) * wplsUsd);
+  }
+
+  const [incR0, incR1] = parseReservePair(reserveByKey.INC_WPLS);
+  if (incR0 > 0 && incR1 > 0) {
+    setDerivedPrice(prices, '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d', (incR1 / incR0) * wplsUsd);
+  }
+
+  const [hexR0, hexR1] = parseReservePair(reserveByKey.PHEX_WPLS);
+  if (hexR0 > 0 && hexR1 > 0) {
+    setDerivedPrice(prices, '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', ((hexR1 / 1e18) / (hexR0 / 1e8)) * wplsUsd);
+  }
+
+  const [wethR0, wethR1] = parseReservePair(reserveByKey.PWETH_WPLS);
+  if (wethR0 > 0 && wethR1 > 0) {
+    setDerivedPrice(prices, '0x02dcdd04e3f455d838cd1249292c58f3b79e3c3c', (wethR1 / wethR0) * wplsUsd);
+  }
+
+  const [wbtcR0, wbtcR1] = parseReservePair(reserveByKey.PWBTC_WPLS);
+  if (wbtcR0 > 0 && wbtcR1 > 0) {
+    setDerivedPrice(prices, '0xb17d901469b9208b17d916112988a3fed19b5ca1', ((wbtcR0 / 1e18) / (wbtcR1 / 1e8)) * wplsUsd);
+  }
+
+  if (daiR0 > 0 && daiR1 > 0) {
+    setDerivedPrice(prices, '0xefd766ccb38eaf1dfd701853bfce31359239f305', (daiR0 / daiR1) * wplsUsd);
+  }
+
+  if (usdcR0 > 0 && usdcR1 > 0) {
+    setDerivedPrice(prices, '0x15d38573d2feeb82e7ad5187ab8c1d52810b1f07', (usdcR1 / 1e18) / (usdcR0 / 1e6) * wplsUsd);
+  }
+
+  if (usdtR0 > 0 && usdtR1 > 0) {
+    setDerivedPrice(prices, '0x0cb6f5a34ad42ec934882a05265a7d5f59b51a2f', (usdtR1 / 1e18) / (usdtR0 / 1e6) * wplsUsd);
+  }
+
+  const [pdaiSysR0, pdaiSysR1] = parseReservePair(reserveByKey.PDAI_SYS_WPLS);
+  if (pdaiSysR0 > 0 && pdaiSysR1 > 0) {
+    setDerivedPrice(prices, '0x6b175474e89094c44da98b954eedeac495271d0f', (pdaiSysR1 / pdaiSysR0) * wplsUsd);
+  }
+
+  const [prvxUsdcR0, prvxUsdcR1] = parseReservePair(reserveByKey.PRVX_USDC);
+  if (prvxUsdcR0 > 0 && prvxUsdcR1 > 0) {
+    setDerivedPrice(prices, '0xf6f8db0aba00007681f8faf16a0fda1c9b030b11', (prvxUsdcR0 / 1e6) / (prvxUsdcR1 / 1e18));
+  }
+
+  return prices;
+}
+
+async function getCoinGeckoPriceSourceMap(tokenAddresses: string[]): Promise<Record<string, number>> {
+  const requestedAddresses = new Set(tokenAddresses.map(address => address.trim().toLowerCase()));
+  const requestedTokens = TOKENS.pulsechain.filter(token => requestedAddresses.has(token.address.toLowerCase()));
+  const coinGeckoIds = [...new Set(requestedTokens.map(token => token.coinGeckoId))];
+
+  if (coinGeckoIds.length === 0) {
+    return {};
+  }
+
+  const response = await fetch(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoIds.join(',')}&vs_currencies=usd`,
+    { signal: AbortSignal.timeout(FETCH_TIMEOUT) },
+  );
+
+  if (!response.ok) {
+    throw new Error(`CoinGecko HTTP ${response.status}`);
+  }
+
+  const json = await response.json() as Record<string, { usd?: number }>;
+  return requestedTokens.reduce<Record<string, number>>((prices, token) => {
+    const price = json[token.coinGeckoId]?.usd;
+
+    if (Number.isFinite(price) && (price ?? 0) > 0) {
+      prices[token.address.toLowerCase()] = price as number;
+    }
+
+    return prices;
+  }, {});
+}
+
+export async function getPulsechainPrices(tokenAddresses: string[]): Promise<PriceQuote[]> {
+  const requests = tokenAddresses.map(tokenAddress => ({
+    tokenAddress: tokenAddress.trim().toLowerCase(),
+    chain: 'pulsechain' as const,
+  }));
+
+  if (requests.length === 0) {
+    return [];
+  }
+
+  const [pulseXResult, coinGeckoResult] = await Promise.allSettled([
+    getPulsechainPriceSourceMap(),
+    getCoinGeckoPriceSourceMap(requests.map(request => request.tokenAddress)),
+  ]);
+
+  return resolvePriceQuotes(requests, {
+    pulseX: pulseXResult.status === 'fulfilled' ? pulseXResult.value : {},
+    coinGecko: coinGeckoResult.status === 'fulfilled' ? coinGeckoResult.value : {},
+  });
+}
+
+export async function getPulsechainTokenBalances(address: string): Promise<TokenBalance[]> {
+  const requests: RpcBatchRequest[] = [
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_getBalance',
+      params: [address, 'latest'],
+    },
+    ...TOKENS.pulsechain
+      .filter(token => token.address !== 'native')
+      .map((token, index) => ({
+        jsonrpc: '2.0' as const,
+        id: index + 2,
+        method: 'eth_call' as const,
+        params: [{ to: token.address, data: `0x70a08231${padAddress(address.toLowerCase())}` }, 'latest'],
+      })),
+  ];
+
+  const responses = await batchRpcRequest(requests, PRIMARY_RPC).catch(() => batchRpcRequest(requests, FALLBACK_RPC));
+  const resultsById = responses.reduce<Record<number, string>>((acc, response) => {
+    acc[response.id] = response.result ?? '0x';
+    return acc;
+  }, {});
+
+  return TOKENS.pulsechain.reduce<TokenBalance[]>((balances, token, index) => {
+    const resultId = token.address === 'native' ? 1 : index + 1;
+    const rawBalance = parseBigIntResult(resultsById[resultId]);
+    const balance = Number(formatUnits(rawBalance, token.decimals));
+
+    if (!(balance > 0)) {
+      return balances;
+    }
+
+    balances.push({
+      address: token.address.toLowerCase(),
+      symbol: token.symbol,
+      name: getPulsechainTokenName(token),
+      decimals: token.decimals,
+      balance,
+      chain: 'pulsechain',
+    });
+
+    return balances;
+  }, []);
 }

@@ -20,7 +20,9 @@ export function resolvePriceQuotes(
 ): PriceQuote[] {
   return requests.map(request => {
     const tokenAddress = request.tokenAddress.trim().toLowerCase();
-    const pulseXPrice = sources.pulseX?.[tokenAddress];
+    const pulseXPrice = request.chain === 'pulsechain'
+      ? sources.pulseX?.[tokenAddress]
+      : undefined;
 
     if (isValidPrice(pulseXPrice)) {
       return {

@@ -289,6 +289,39 @@ describe('data access foundation', () => {
     ]);
   });
 
+  it('ignores PulseX prices for non-pulsechain requests', () => {
+    expect(
+      resolvePriceQuotes(
+        [
+          { tokenAddress: '0xAAA', chain: 'ethereum' },
+          { tokenAddress: '0xBBB', chain: 'base' },
+        ],
+        {
+          pulseX: {
+            '0xaaa': 1.23,
+            '0xbbb': 4.56,
+          },
+          coinGecko: {
+            '0xaaa': 2.34,
+          },
+        },
+      ),
+    ).toEqual([
+      {
+        tokenAddress: '0xaaa',
+        chain: 'ethereum',
+        priceUsd: 2.34,
+        source: 'coingecko',
+      },
+      {
+        tokenAddress: '0xbbb',
+        chain: 'base',
+        priceUsd: null,
+        source: 'unpriced',
+      },
+    ]);
+  });
+
   it('falls through invalid quotes and only returns real positive prices', () => {
     expect(
       resolvePriceQuotes(
@@ -694,6 +727,125 @@ describe('data access foundation', () => {
     expect(positions[0].fees24hUsd).toBeCloseTo(0.3);
     expect(positions[0].sparkline).toHaveLength(7);
     expect(fetchMock.mock.calls.some(([url]) => String(url) === 'https://rpc.pulsechain.com')).toBe(true);
+  });
+
+  it('provides a live runtime pulsechain token balance implementation through the default data access instance', async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Array<{
+        id: number;
+        method: string;
+        params: Array<{ to: string; data: string } | string>;
+      }>;
+
+      return {
+        json: async () => body.map(({ id, method, params }) => {
+          if (method === 'eth_getBalance') {
+            return { id, result: encodeUint256(2n * 10n ** 18n) };
+          }
+
+          const call = params[0] as { to: string; data: string };
+          const tokenAddress = call.to.toLowerCase();
+
+          if (tokenAddress === '0xa1077a294dde1b09bb078844df40758a5d0f9a27') {
+            return { id, result: encodeUint256(5n * 10n ** 17n) };
+          }
+
+          return { id, result: encodeUint256(0) };
+        }),
+      };
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(dataAccess.getTokenBalances(TARGET_LP_WALLET, 'pulsechain')).resolves.toEqual([
+      {
+        address: 'native',
+        symbol: 'PLS',
+        name: 'PulseChain',
+        decimals: 18,
+        balance: 2,
+        chain: 'pulsechain',
+      },
+      {
+        address: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
+        symbol: 'WPLS',
+        name: 'WPLS',
+        decimals: 18,
+        balance: 0.5,
+        chain: 'pulsechain',
+      },
+    ]);
+  });
+
+  it('provides a live runtime pulsechain price implementation through the default data access instance', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.startsWith('https://api.coingecko.com/api/v3/simple/price')) {
+        return {
+          ok: true,
+          json: async () => ({
+            'wrapped-bitcoin': {
+              usd: 12345,
+            },
+          }),
+        };
+      }
+
+      const body = JSON.parse(String(init?.body)) as Array<{
+        id: number;
+        params: [{ to: string; data: string }, string];
+      }>;
+
+      return {
+        json: async () => body.map(({ id, params: [{ to, data }] }) => {
+          const normalizedTo = to.toLowerCase();
+          const normalizedData = data.toLowerCase();
+
+          if (normalizedData !== '0x0902f1ac') {
+            return { id, result: '0x' };
+          }
+
+          if (normalizedTo === '0x6753560538eca67617a9ce605178f788be7e524e') {
+            return { id, result: encodeReserves(100n * 10n ** 6n, 1000n * 10n ** 18n) };
+          }
+
+          if (normalizedTo === '0x1b45b9148791d3a104184cd5dfe5ce57193a3ee9') {
+            return { id, result: encodeReserves(500n * 10n ** 18n, 100n * 10n ** 18n) };
+          }
+
+          return { id, result: encodeReserves(0n, 0n) };
+        }),
+      };
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const prices = await dataAccess.getPrices(
+      [
+        '0x95B303987A60C71504D99Aa1b13B4DA07b0790ab',
+        '0xb17d901469b9208b17d916112988a3fed19b5ca1',
+      ],
+      'pulsechain',
+    );
+
+    expect(prices).toHaveLength(2);
+    expect(prices[0]).toMatchObject({
+      tokenAddress: '0x95b303987a60c71504d99aa1b13b4da07b0790ab',
+      chain: 'pulsechain',
+      source: 'pulsex',
+    });
+    expect(prices[0].priceUsd).toBeCloseTo(0.02);
+    expect(prices[1]).toEqual({
+      tokenAddress: '0xb17d901469b9208b17d916112988a3fed19b5ca1',
+      chain: 'pulsechain',
+      priceUsd: 12345,
+      source: 'coingecko',
+    });
   });
 
   it('does not load liquidity positions on mount until refetch is called', async () => {

@@ -1,5 +1,7 @@
 import {
   getPulsechainLPPositions,
+  getPulsechainPrices,
+  getPulsechainTokenBalances,
   searchPulsechainTokens,
   type PulsechainTokenSearchResult,
 } from './adapters/pulsechainAdapter';
@@ -96,8 +98,9 @@ export function createScopedTokenSearchDataAccess() {
 }
 
 export const dataAccess = createDataAccess({
-  ...createUnwiredRuntimeDeps(),
   getPulsechainLPPositions,
+  getPulsechainPrices,
+  getPulsechainTokenBalances,
   searchPulsechainTokens,
 });
 
