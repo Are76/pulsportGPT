@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MyInvestmentsAssetPanel } from '../components/my-investments/MyInvestmentsAssetPanel';
 import { MyInvestmentsHero } from '../components/my-investments/MyInvestmentsHero';
 import { MyInvestmentsTable } from '../components/my-investments/MyInvestmentsTable';
@@ -128,16 +128,18 @@ describe('MyInvestmentsTable', () => {
 
 describe('MyInvestmentsAssetPanel', () => {
   it('shows compact asset detail and a transaction handoff action', () => {
+    const onOpenTransactions = vi.fn();
     render(
       <MyInvestmentsAssetPanel
         row={sampleRow}
         onClose={() => {}}
-        onOpenTransactions={() => {}}
+        onOpenTransactions={onOpenTransactions}
       />
     );
 
     expect(screen.getByRole('heading', { name: 'HEX' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /view full transactions/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /view full transactions/i }));
+    expect(onOpenTransactions).toHaveBeenCalledWith(sampleRow);
   });
 });
 
@@ -160,6 +162,30 @@ describe('MyInvestmentsPage', () => {
     expect(screen.queryByRole('button', { name: /profit planner/i })).not.toBeInTheDocument();
     expect(screen.queryByText('24H Swap P&L')).not.toBeInTheDocument();
     expect(screen.getByText('Holdings Attribution')).toBeInTheDocument();
+  });
+
+  it('opens typed asset history intents from the page shell', () => {
+    const onOpenTransactions = vi.fn();
+    render(
+      <MyInvestmentsPage
+        investedFiat={27465}
+        currentValue={7201}
+        liquidValue={5723}
+        stakedValue={1478}
+        plsUsdPrice={0.000078}
+        rows={[sampleRow]}
+        onOpenTransactions={onOpenTransactions}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /open hex detail/i }));
+
+    expect(onOpenTransactions).toHaveBeenCalledWith({
+      kind: 'asset',
+      symbol: 'HEX',
+      chain: 'pulsechain',
+      txType: 'swap',
+    });
   });
 });
 

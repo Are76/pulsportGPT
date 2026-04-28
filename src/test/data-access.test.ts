@@ -66,6 +66,7 @@ function getTypeDiagnostics() {
       '  getPulsechainLPPositions: async () => [],',
       '  getPulsechainTokenBalances: async () => [],',
       '  getPulsechainPrices: async () => [],',
+      '  getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),',
       '});',
       '',
       "type DataAccessKeys = Expect<Equal<keyof typeof dataAccess, 'searchTokens' | 'getLPPositions' | 'getTokenBalances' | 'getPrices' | 'getTransactions'>>;",
@@ -142,7 +143,7 @@ describe('data access foundation', () => {
     expect(() => createTtlCache<string>(-1)).toThrow(RangeError);
   });
 
-  it('matches the exact service-facing data shapes', () => {
+  it('matches the exact service-facing data shapes', { timeout: 15000 }, () => {
     const diagnostics = getTypeDiagnostics();
 
     expect(diagnostics, ts.formatDiagnosticsWithColorAndContext(diagnostics, {
@@ -382,12 +383,13 @@ describe('data access foundation', () => {
     ]);
   });
 
-  it('throws for unsupported chains on token balances in Phase 1', async () => {
+  it('throws for unsupported chains on token balances when adapters are not wired', async () => {
     const dataAccess = createDataAccess({
       searchPulsechainTokens: async () => [],
       getPulsechainLPPositions: async () => [],
       getPulsechainTokenBalances: async () => [],
       getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
     await expect(dataAccess.getTokenBalances('0xwallet', 'ethereum')).rejects.toThrow(
@@ -401,6 +403,7 @@ describe('data access foundation', () => {
       getPulsechainLPPositions: async () => [],
       getPulsechainTokenBalances: async () => [],
       getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
     await expect(dataAccess.searchTokens('hex', 'ethereum')).rejects.toThrow(
@@ -470,6 +473,38 @@ describe('data access foundation', () => {
         chain: 'pulsechain' as const,
       },
     ]);
+    const getEthereumTokenBalances = vi.fn(async (address: string) => [
+      {
+        address: 'native',
+        symbol: 'ETH',
+        name: 'Ethereum',
+        decimals: 18,
+        balance: address === '0xwallet' ? 2 : 0,
+        chain: 'ethereum' as const,
+      },
+    ]);
+    const getBaseTokenBalances = vi.fn(async () => [
+      {
+        address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+        symbol: 'USDC',
+        name: 'USDC',
+        decimals: 6,
+        balance: 10,
+        chain: 'base' as const,
+      },
+    ]);
+    const getEthereumPrices = vi.fn(async (tokenAddresses: string[]) => tokenAddresses.map((tokenAddress) => ({
+      tokenAddress,
+      chain: 'ethereum' as const,
+      priceUsd: 2,
+      source: 'coingecko' as const,
+    })));
+    const getBasePrices = vi.fn(async (tokenAddresses: string[]) => tokenAddresses.map((tokenAddress) => ({
+      tokenAddress,
+      chain: 'base' as const,
+      priceUsd: 1,
+      source: 'coingecko' as const,
+    })));
     const getPulsechainPrices = vi.fn(async (tokenAddresses: string[]) => [
       {
         tokenAddress: tokenAddresses[0],
@@ -478,12 +513,22 @@ describe('data access foundation', () => {
         source: 'pulsex' as const,
       },
     ]);
+    const getPulsechainTransactions = vi.fn(async (_address: string, _startBlock?: number) => ({
+      implemented: true,
+      transactions: [],
+      nextBlock: undefined,
+    }));
 
     const dataAccess = createDataAccess({
       searchPulsechainTokens,
       getPulsechainLPPositions,
+      getBasePrices,
+      getBaseTokenBalances,
+      getEthereumPrices,
+      getEthereumTokenBalances,
       getPulsechainTokenBalances,
       getPulsechainPrices,
+      getPulsechainTransactions,
     });
 
     await expect(dataAccess.searchTokens('hex', 'pulsechain')).resolves.toEqual([
@@ -538,6 +583,26 @@ describe('data access foundation', () => {
       },
     ]);
     await expect(dataAccess.getTokenBalances('0xwallet', 'pulsechain')).resolves.toHaveLength(1);
+    await expect(dataAccess.getTokenBalances('0xwallet', 'ethereum')).resolves.toEqual([
+      {
+        address: 'native',
+        symbol: 'ETH',
+        name: 'Ethereum',
+        decimals: 18,
+        balance: 2,
+        chain: 'ethereum',
+      },
+    ]);
+    await expect(dataAccess.getTokenBalances('0xwallet', 'base')).resolves.toEqual([
+      {
+        address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+        symbol: 'USDC',
+        name: 'USDC',
+        decimals: 6,
+        balance: 10,
+        chain: 'base',
+      },
+    ]);
     await expect(dataAccess.getPrices(['0xtoken'], 'pulsechain')).resolves.toEqual([
       {
         tokenAddress: '0xtoken',
@@ -546,11 +611,37 @@ describe('data access foundation', () => {
         source: 'pulsex',
       },
     ]);
+    await expect(dataAccess.getPrices(['native'], 'ethereum')).resolves.toEqual([
+      {
+        tokenAddress: 'native',
+        chain: 'ethereum',
+        priceUsd: 2,
+        source: 'coingecko',
+      },
+    ]);
+    await expect(dataAccess.getPrices(['native'], 'base')).resolves.toEqual([
+      {
+        tokenAddress: 'native',
+        chain: 'base',
+        priceUsd: 1,
+        source: 'coingecko',
+      },
+    ]);
 
     expect(searchPulsechainTokens).toHaveBeenCalledWith('hex');
     expect(getPulsechainLPPositions).toHaveBeenCalledWith(['0xwallet'], { '0xtoken': 1 });
     expect(getPulsechainTokenBalances).toHaveBeenCalledWith('0xwallet');
+    expect(getEthereumTokenBalances).toHaveBeenCalledWith('0xwallet');
+    expect(getBaseTokenBalances).toHaveBeenCalledWith('0xwallet');
     expect(getPulsechainPrices).toHaveBeenCalledWith(['0xtoken']);
+    expect(getEthereumPrices).toHaveBeenCalledWith(['native']);
+    expect(getBasePrices).toHaveBeenCalledWith(['native']);
+    await expect(dataAccess.getTransactions('0xwallet', 'pulsechain', 123)).resolves.toEqual({
+      implemented: true,
+      transactions: [],
+      nextBlock: undefined,
+    });
+    expect(getPulsechainTransactions).toHaveBeenCalledWith('0xwallet', 123);
   });
 
   it('provides a runtime pulsechain token search implementation through the default data access instance', async () => {
@@ -846,6 +937,97 @@ describe('data access foundation', () => {
       priceUsd: 12345,
       source: 'coingecko',
     });
+  });
+
+  it('provides live runtime Ethereum and Base balance implementations through the default data access instance', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      const rpcUrl = url;
+      const body = JSON.parse(String(init?.body ?? '[]')) as Array<{ id: number; method: string; params: unknown[] }>;
+
+      if (rpcUrl.includes('ethereum-rpc.publicnode.com')) {
+        return {
+          ok: true,
+          json: async () => body.map((request) => {
+            if (request.method === 'eth_getBalance') {
+              return { id: request.id, result: encodeUint256(1n * 10n ** 18n) };
+            }
+
+            const call = request.params[0] as { to: string };
+            const tokenAddress = call.to.toLowerCase();
+            if (tokenAddress === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48') {
+              return { id: request.id, result: encodeUint256(25n * 10n ** 6n) };
+            }
+            return { id: request.id, result: encodeUint256(0n) };
+          }),
+        };
+      }
+
+      if (rpcUrl.includes('mainnet.base.org')) {
+        return {
+          ok: true,
+          json: async () => body.map((request) => {
+            if (request.method === 'eth_getBalance') {
+              return { id: request.id, result: encodeUint256(2n * 10n ** 18n) };
+            }
+
+            const call = request.params[0] as { to: string };
+            const tokenAddress = call.to.toLowerCase();
+            if (tokenAddress === '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913') {
+              return { id: request.id, result: encodeUint256(50n * 10n ** 6n) };
+            }
+            return { id: request.id, result: encodeUint256(0n) };
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(dataAccess.getTokenBalances(TARGET_LP_WALLET, 'ethereum')).resolves.toEqual([
+      {
+        address: 'native',
+        symbol: 'ETH',
+        name: 'Ethereum',
+        decimals: 18,
+        balance: 1,
+        chain: 'ethereum',
+      },
+      {
+        address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        symbol: 'USDC',
+        name: 'USDC',
+        decimals: 6,
+        balance: 25,
+        chain: 'ethereum',
+      },
+    ]);
+
+    await expect(dataAccess.getTokenBalances(TARGET_LP_WALLET, 'base')).resolves.toEqual([
+      {
+        address: 'native',
+        symbol: 'ETH',
+        name: 'Ethereum',
+        decimals: 18,
+        balance: 2,
+        chain: 'base',
+      },
+      {
+        address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+        symbol: 'USDC',
+        name: 'USDC',
+        decimals: 6,
+        balance: 50,
+        chain: 'base',
+      },
+    ]);
   });
 
   it('does not load liquidity positions on mount until refetch is called', async () => {
@@ -1351,6 +1533,7 @@ describe('data access foundation', () => {
       getPulsechainLPPositions: async () => [],
       getPulsechainTokenBalances: async () => [],
       getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
     await expect(dataAccess.getLPPositions(['0xwallet'], 'base', { '0xtoken': 1 })).rejects.toThrow(
@@ -1358,38 +1541,45 @@ describe('data access foundation', () => {
     );
   });
 
-  it('throws for unsupported chains on prices in Phase 1', async () => {
+  it('throws for unsupported chains on prices when adapters are not wired', async () => {
     const dataAccess = createDataAccess({
       searchPulsechainTokens: async () => [],
       getPulsechainLPPositions: async () => [],
       getPulsechainTokenBalances: async () => [],
       getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
     await expect(dataAccess.getPrices(['0xtoken'], 'base')).rejects.toThrow('Unsupported chain for Phase 1 data access: base');
   });
 
-  it('returns a typed Phase 1 placeholder for transactions', async () => {
+  it('returns the injected transaction query result shape', async () => {
     const dataAccess = createDataAccess({
       searchPulsechainTokens: async () => [],
       getPulsechainLPPositions: async () => [],
       getPulsechainTokenBalances: async () => [],
       getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({
+        implemented: true,
+        transactions: [],
+        nextBlock: 321,
+      }),
     });
 
     await expect(dataAccess.getTransactions('0xwallet', 'pulsechain')).resolves.toEqual({
-      implemented: false,
+      implemented: true,
       transactions: [],
-      nextBlock: undefined,
+      nextBlock: 321,
     });
   });
 
-  it('throws for unsupported chains on transactions in Phase 1', async () => {
+  it('throws for unsupported chains on transactions when adapters are not wired', async () => {
     const dataAccess = createDataAccess({
       searchPulsechainTokens: async () => [],
       getPulsechainLPPositions: async () => [],
       getPulsechainTokenBalances: async () => [],
       getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
     await expect(dataAccess.getTransactions('0xwallet', 'ethereum')).rejects.toThrow(

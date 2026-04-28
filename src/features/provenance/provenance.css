@@ -1,0 +1,136 @@
+.prov-root {
+  position: relative;
+}
+
+.prov-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.prov-trigger:hover,
+.prov-trigger[aria-expanded="true"] {
+  text-decoration: underline;
+  text-decoration-color: rgba(247, 57, 255, 0.35);
+  text-underline-offset: 0.16em;
+}
+
+.prov-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.prov-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 30;
+  width: min(360px, calc(100vw - 48px));
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(14, 16, 26, 0.98);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(14px);
+}
+
+.prov-popover--inline {
+  position: static;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.prov-header {
+  display: grid;
+  gap: 4px;
+}
+
+.prov-label {
+  color: var(--fg-subtle);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.prov-value {
+  color: var(--fg);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.prov-section {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.prov-source,
+.prov-input,
+.prov-action {
+  display: grid;
+  gap: 2px;
+}
+
+.prov-source-label,
+.prov-input-label {
+  color: var(--fg-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.prov-source-value,
+.prov-input-value,
+.prov-copy {
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.prov-source-link,
+.prov-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.prov-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prov-explanation,
+.prov-formula {
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.prov-close {
+  justify-self: end;
+}

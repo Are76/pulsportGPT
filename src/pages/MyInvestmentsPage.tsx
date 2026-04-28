@@ -3,6 +3,7 @@ import { MyInvestmentsAssetPanel } from '../components/my-investments/MyInvestme
 import { MyInvestmentsFilters } from '../components/my-investments/MyInvestmentsFilters';
 import { MyInvestmentsHero } from '../components/my-investments/MyInvestmentsHero';
 import { MyInvestmentsTable } from '../components/my-investments/MyInvestmentsTable';
+import { buildAssetHistoryIntent, type HistoryDrilldownIntent } from '../features/history/historyDrilldown';
 import type { InvestmentHoldingRow } from '../types';
 
 type InvestmentChainFilter = 'all' | 'pulsechain' | 'ethereum' | 'base';
@@ -14,7 +15,7 @@ interface MyInvestmentsPageProps {
   stakedValue: number;
   plsUsdPrice: number;
   rows: InvestmentHoldingRow[];
-  onOpenTransactions: (row: InvestmentHoldingRow) => void;
+  onOpenTransactions: (intent: HistoryDrilldownIntent) => void;
 }
 
 export function MyInvestmentsPage(props: MyInvestmentsPageProps) {
@@ -68,13 +69,13 @@ export function MyInvestmentsPage(props: MyInvestmentsPageProps) {
         expandedId={expandedId}
         onToggleRow={(id) => setExpandedId((current) => current === id ? null : id)}
         onOpenAsset={setSelectedAsset}
-        onOpenTransactions={props.onOpenTransactions}
+        onOpenTransactions={(row) => props.onOpenTransactions(buildAssetHistoryIntent(row))}
       />
       {selectedAsset ? (
         <MyInvestmentsAssetPanel
           row={selectedAsset}
           onClose={() => setSelectedAsset(null)}
-          onOpenTransactions={props.onOpenTransactions}
+          onOpenTransactions={(row) => props.onOpenTransactions(buildAssetHistoryIntent(row))}
         />
       ) : null}
     </div>

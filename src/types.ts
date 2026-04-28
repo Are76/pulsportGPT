@@ -210,6 +210,14 @@ export interface Transaction {
   /** True when only the spent side of an on-chain swap was available from the explorer. */
   swapLegOnly?: boolean;
   bridged?: boolean;
+  bridge?: {
+    originChain: Chain;
+    protocol: 'official' | 'liberty';
+  };
+  staking?: {
+    protocol: 'hex';
+    action: 'stakeStart' | 'stakeEnd';
+  };
   status?: string;
   /** Present when this transaction was routed via Liberty Swap cross-chain bridge. */
   libertySwap?: {

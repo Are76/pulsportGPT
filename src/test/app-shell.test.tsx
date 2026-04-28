@@ -16,6 +16,7 @@ describe('AppShell', () => {
 
     expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /wallet analyzer/i })).toBeInTheDocument();
     expect(screen.getByAltText(/pulseport wordmark/i)).toBeInTheDocument();
     expect(screen.getByText('Page body')).toBeInTheDocument();
   });

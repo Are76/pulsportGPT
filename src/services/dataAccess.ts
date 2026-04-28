@@ -5,13 +5,27 @@ import {
   searchPulsechainTokens,
   type PulsechainTokenSearchResult,
 } from './adapters/pulsechainAdapter';
+import { getEvmTokenBalances } from './adapters/evmAdapter';
+import { getEvmPrices } from './adapters/evmPriceAdapter';
+import {
+  fetchBaseTransactions,
+  fetchEthereumTransactions,
+  fetchPulsechainTransactions,
+} from '../utils/fetchTransactions';
 import type { Chain, LpPositionEnriched, PriceQuote, TokenBalance, TransactionQueryResult } from '../types';
 
 interface DataAccessDeps {
   searchPulsechainTokens: (term: string) => Promise<PulsechainTokenSearchResult[]>;
   getPulsechainLPPositions: (addresses: string[], tokenPrices: Record<string, number>) => Promise<LpPositionEnriched[]>;
   getPulsechainTokenBalances: (address: string) => Promise<TokenBalance[]>;
+  getEthereumTokenBalances?: (address: string) => Promise<TokenBalance[]>;
+  getBaseTokenBalances?: (address: string) => Promise<TokenBalance[]>;
   getPulsechainPrices: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
+  getEthereumPrices?: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
+  getBasePrices?: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
+  getPulsechainTransactions: (address: string, startBlock?: number) => Promise<TransactionQueryResult>;
+  getEthereumTransactions?: (address: string, startBlock?: number) => Promise<TransactionQueryResult>;
+  getBaseTransactions?: (address: string, startBlock?: number) => Promise<TransactionQueryResult>;
 }
 
 function createUnwiredRuntimeDeps(): Omit<DataAccessDeps, 'searchPulsechainTokens'> {
@@ -24,6 +38,9 @@ function createUnwiredRuntimeDeps(): Omit<DataAccessDeps, 'searchPulsechainToken
     },
     async getPulsechainPrices() {
       throw new Error('Pulsechain price runtime access is not wired yet');
+    },
+    async getPulsechainTransactions() {
+      throw new Error('Pulsechain transaction runtime access is not wired yet');
     },
   };
 }
@@ -51,13 +68,41 @@ export function createDataAccess(deps: DataAccessDeps) {
     },
 
     async getTokenBalances(address: string, chain: Chain): Promise<TokenBalance[]> {
-      assertPhase1Chain(chain);
-      return deps.getPulsechainTokenBalances(address);
+      if (chain === 'pulsechain') {
+        return deps.getPulsechainTokenBalances(address);
+      }
+      if (chain === 'ethereum') {
+        if (!deps.getEthereumTokenBalances) {
+          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+        }
+        return deps.getEthereumTokenBalances(address);
+      }
+      if (chain === 'base') {
+        if (!deps.getBaseTokenBalances) {
+          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+        }
+        return deps.getBaseTokenBalances(address);
+      }
+      throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
     },
 
     async getPrices(tokenAddresses: string[], chain: Chain): Promise<PriceQuote[]> {
-      assertPhase1Chain(chain);
-      return deps.getPulsechainPrices(tokenAddresses);
+      if (chain === 'pulsechain') {
+        return deps.getPulsechainPrices(tokenAddresses);
+      }
+      if (chain === 'ethereum') {
+        if (!deps.getEthereumPrices) {
+          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+        }
+        return deps.getEthereumPrices(tokenAddresses);
+      }
+      if (chain === 'base') {
+        if (!deps.getBasePrices) {
+          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+        }
+        return deps.getBasePrices(tokenAddresses);
+      }
+      throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
     },
 
     async getTransactions(
@@ -65,15 +110,22 @@ export function createDataAccess(deps: DataAccessDeps) {
       chain: Chain,
       startBlock?: number,
     ): Promise<TransactionQueryResult> {
-      assertPhase1Chain(chain);
-      void address;
-      void startBlock;
-
-      return {
-        implemented: false,
-        transactions: [],
-        nextBlock: undefined,
-      };
+      if (chain === 'pulsechain') {
+        return deps.getPulsechainTransactions(address, startBlock);
+      }
+      if (chain === 'ethereum') {
+        if (!deps.getEthereumTransactions) {
+          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+        }
+        return deps.getEthereumTransactions(address, startBlock);
+      }
+      if (chain === 'base') {
+        if (!deps.getBaseTransactions) {
+          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+        }
+        return deps.getBaseTransactions(address, startBlock);
+      }
+      throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
     },
   };
 }
@@ -98,9 +150,33 @@ export function createScopedTokenSearchDataAccess() {
 }
 
 export const dataAccess = createDataAccess({
+  getBasePrices(tokenAddresses: string[]) {
+    return getEvmPrices(tokenAddresses, 'base');
+  },
+  getBaseTokenBalances(address: string) {
+    return getEvmTokenBalances('base', address);
+  },
+  getBaseTransactions(address: string, startBlock?: number) {
+    return fetchBaseTransactions(address, { startBlock });
+  },
+  getEthereumPrices(tokenAddresses: string[]) {
+    return getEvmPrices(tokenAddresses, 'ethereum');
+  },
+  getEthereumTokenBalances(address: string) {
+    return getEvmTokenBalances('ethereum', address);
+  },
+  getEthereumTransactions(address: string, startBlock?: number) {
+    return fetchEthereumTransactions(address, {
+      startBlock,
+      apiKey: import.meta.env.VITE_ETHERSCAN_API_KEY,
+    });
+  },
   getPulsechainLPPositions,
   getPulsechainPrices,
   getPulsechainTokenBalances,
+  getPulsechainTransactions(address: string, startBlock?: number) {
+    return fetchPulsechainTransactions(address, { startBlock });
+  },
   searchPulsechainTokens,
 });
 

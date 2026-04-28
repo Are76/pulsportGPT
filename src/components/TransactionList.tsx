@@ -30,6 +30,12 @@ import {
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import type { Transaction } from '../types';
 import type { Asset, Wallet } from '../types';
+import {
+  buildTransactionAmountDescriptor,
+  buildTransactionMetadataDescriptor,
+  buildTransactionUsdDescriptor,
+} from '../features/provenance/builders';
+import { ProvenanceTrigger } from '../features/provenance/ProvenancePopover';
 
 // -- Constants -----------------------------------------------------------------
 const EXPLORER: Record<string, string> = {
@@ -356,27 +362,37 @@ export function TransactionList({
                     className="tx-card__amount"
                     style={{ color: isDeposit ? 'var(--accent)' : (isSwap || isSwapLegOnly) ? 'var(--fg)' : '#ef4444' }}
                   >
-                    {isDeposit ? '+' : isWithdraw ? '-' : ''}
-                    {isSwap && tx.counterAsset
-                      ? (
-                        <span className="tx-swap-line">
-                          <span className="tx-swap-leg tx-swap-leg--paid">
-                            Paid {(tx.counterAmount ?? 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} {tx.counterAsset}
-                          </span>
-                          <span className="tx-swap-arrow" aria-hidden="true">-&gt;</span>
-                          <span className="tx-swap-leg tx-swap-leg--got">
-                            Got {tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} {tx.asset}
-                          </span>
-                        </span>
-                      )
-                      : isSwapLegOnly
-                        ? `Paid ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`
-                      : `${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`}
-                      {!compact && resolvedUsdValue != null && (
-                        <span className="tx-card__usd">
+                    <ProvenanceTrigger
+                      descriptor={buildTransactionAmountDescriptor(tx, {
+                        onDrilldown: onFilterByAsset ? () => onFilterByAsset(tx.asset) : undefined,
+                      })}
+                    >
+                      <>
+                        {isDeposit ? '+' : isWithdraw ? '-' : ''}
+                        {isSwap && tx.counterAsset
+                          ? (
+                            <span className="tx-swap-line">
+                              <span className="tx-swap-leg tx-swap-leg--paid">
+                                Paid {(tx.counterAmount ?? 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} {tx.counterAsset}
+                              </span>
+                              <span className="tx-swap-arrow" aria-hidden="true">-&gt;</span>
+                              <span className="tx-swap-leg tx-swap-leg--got">
+                                Got {tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} {tx.asset}
+                              </span>
+                            </span>
+                          )
+                          : isSwapLegOnly
+                            ? `Paid ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`
+                            : `${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`}
+                      </>
+                    </ProvenanceTrigger>
+                    {!compact && resolvedUsdValue != null && (
+                      <span className="tx-card__usd">
+                        <ProvenanceTrigger descriptor={buildTransactionUsdDescriptor(tx, resolvedUsdValue, coinAsset?.price)}>
                           ~ ${resolvedUsdValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                        </span>
-                      )}
+                        </ProvenanceTrigger>
+                      </span>
+                    )}
                     </div>
                   )}
                 </div>
@@ -387,7 +403,9 @@ export function TransactionList({
                 <div className="tx-card__side-meta">
                   {resolvedUsdValue != null && (
                     <span className="tx-card__side-value">
-                      ${resolvedUsdValue.toLocaleString('en-US', { maximumFractionDigits: compact ? 0 : 2 })}
+                      <ProvenanceTrigger descriptor={buildTransactionUsdDescriptor(tx, resolvedUsdValue, coinAsset?.price)}>
+                        ${resolvedUsdValue.toLocaleString('en-US', { maximumFractionDigits: compact ? 0 : 2 })}
+                      </ProvenanceTrigger>
                     </span>
                   )}
                   <span className="tx-card__side-time">
@@ -648,17 +666,21 @@ interface TransferDetailProps {
 function TransferDetail({ tx, isDeposit, coinAsset, displayAddr, isOwn, explorerBase, resolvedUsdValue }: TransferDetailProps) {
   const currentValue = coinAsset ? tx.amount * coinAsset.price : null;
   const pnl = currentValue != null && resolvedUsdValue != null ? currentValue - resolvedUsdValue : null;
+  const bridgeSummary = tx.bridge ? `${tx.bridge.originChain.charAt(0).toUpperCase()}${tx.bridge.originChain.slice(1)} via ${tx.bridge.protocol}` : null;
+  const stakingSummary = tx.staking ? `${tx.staking.protocol.toUpperCase()} ${tx.staking.action}` : null;
 
-  const stats: Array<{ label: string; val: string; sub: string; color?: string }> = [
+  const stats: Array<{ label: string; val: string; sub: string; color?: string; descriptor?: ReturnType<typeof buildTransactionAmountDescriptor> }> = [
     {
       label: 'Amount',
       val: `${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${tx.asset}`,
       sub: 'Token amount',
+      descriptor: buildTransactionAmountDescriptor(tx),
     },
     {
       label: 'USD at Entry',
       val: resolvedUsdValue != null ? `$${resolvedUsdValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '-',
       sub: 'Value at time of tx',
+      descriptor: resolvedUsdValue != null ? buildTransactionUsdDescriptor(tx, resolvedUsdValue, coinAsset?.price) : undefined,
     },
     {
       label: 'Current Price',
@@ -691,6 +713,18 @@ function TransferDetail({ tx, isDeposit, coinAsset, displayAddr, isOwn, explorer
       val: format(tx.timestamp, 'MMM d, yyyy'),
       sub: format(tx.timestamp, 'HH:mm:ss'),
     },
+    ...(bridgeSummary ? [{
+      label: 'Bridge',
+      val: bridgeSummary,
+      sub: tx.bridged ? 'Cross-chain transfer detected' : 'Bridge metadata',
+      descriptor: buildTransactionMetadataDescriptor('Bridge metadata', bridgeSummary, tx, 'Bridge metadata normalized from the selected transaction'),
+    }] : []),
+    ...(stakingSummary ? [{
+      label: 'Staking',
+      val: stakingSummary,
+      sub: 'Detected from on-chain call metadata',
+      descriptor: buildTransactionMetadataDescriptor('Staking metadata', stakingSummary, tx, 'Staking metadata normalized from the selected transaction'),
+    }] : []),
   ];
 
   return (
@@ -707,10 +741,12 @@ function TransferDetail({ tx, isDeposit, coinAsset, displayAddr, isOwn, explorer
 
       {/* Stats grid */}
       <div className="tx-transfer-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-        {stats.map(({ label, val, sub, color }) => (
+        {stats.map(({ label, val, sub, color, descriptor }) => (
           <div key={label} className="tx-transfer-stat" style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: color ?? 'var(--fg)' }}>{val}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: color ?? 'var(--fg)' }}>
+              {descriptor ? <ProvenanceTrigger descriptor={descriptor}>{val}</ProvenanceTrigger> : val}
+            </div>
             <div style={{ fontSize: 12, color: 'var(--fg-subtle)', marginTop: 1 }}>{sub}</div>
           </div>
         ))}

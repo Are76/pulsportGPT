@@ -194,12 +194,10 @@ export const CHAINS = {
   ethereum: {
     id: 1,
     name: 'Ethereum',
-    rpc: 'https://cloudflare-eth.com',
+    rpc: 'https://ethereum-rpc.publicnode.com',
     fallbackRpcs: [
-      'https://eth.llamarpc.com',
-      'https://ethereum-rpc.publicnode.com',
-      'https://1rpc.io/eth',
-      'https://eth.drpc.org'
+      'https://eth.drpc.org',
+      'https://cloudflare-eth.com'
     ],
     explorer: 'https://etherscan.io',
     color: '#627EEA',
@@ -211,7 +209,6 @@ export const CHAINS = {
     rpc: 'https://rpc-pulsechain.g4mm4.io',
     fallbackRpcs: [
       'https://rpc.pulsechain.com',
-      'https://pulsechain.drpc.org',
       'https://pulsechain-rpc.publicnode.com'
     ],
     explorer: 'https://scan.pulsechain.com',

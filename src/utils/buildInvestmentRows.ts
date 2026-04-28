@@ -7,7 +7,7 @@ interface PositionState {
   routes: string[];
 }
 
-const BRIDGE_LABEL_RE = /\(from\s+(Ethereum|Base)\)/i;
+const BRIDGE_LABEL_RE = /\((?:from\s+(Ethereum|ETH|Base)|Liberty Bridge)\)/i;
 const STABLE_FAMILIES = new Set(['USDC', 'USDT', 'DAI']);
 
 const chainLabel = (chain: Chain) => chain.charAt(0).toUpperCase() + chain.slice(1);
@@ -32,12 +32,26 @@ function sourceFamily(asset: string): string {
 }
 
 function parseOriginChain(asset: string): Chain | null {
-  const match = asset.match(BRIDGE_LABEL_RE);
-  if (!match) return null;
-  return match[1].toLowerCase() as Chain;
+  const upper = asset.toUpperCase();
+  if (upper.includes('(FROM BASE)')) return 'base';
+  if (upper.includes('(FROM ETHEREUM)') || upper.includes('(FROM ETH)') || upper.includes('(LIBERTY BRIDGE)')) {
+    return 'ethereum';
+  }
+  return null;
 }
 
-function normalizeTxSymbol(asset: string, chain: Chain): string {
+function resolveOriginChain(tx: Pick<Transaction, 'asset' | 'bridge'>): Chain | null {
+  return tx.bridge?.originChain ?? parseOriginChain(tx.asset);
+}
+
+function bridgeAdjustedSymbol(family: string): string {
+  if (family === 'ETH') return 'WETH';
+  if (family === 'eHEX' || family === 'HEX') return 'eHEX';
+  if (STABLE_FAMILIES.has(family)) return `p${family}`;
+  return family;
+}
+
+function normalizeTxSymbol(asset: string, chain: Chain, originChain?: Chain | null): string {
   const upper = asset.toUpperCase();
   if (upper === 'EHEX' || upper.includes('EHEX')) return 'eHEX';
   if (upper.startsWith('PDAI')) return 'pDAI';
@@ -45,12 +59,10 @@ function normalizeTxSymbol(asset: string, chain: Chain): string {
   if (upper.startsWith('PUSDT')) return 'pUSDT';
 
   const family = sourceFamily(asset);
-  const originChain = parseOriginChain(asset);
+  const resolvedOriginChain = originChain ?? parseOriginChain(asset);
 
-  if (chain === 'pulsechain' && originChain) {
-    if (family === 'ETH') return 'WETH';
-    if (family === 'eHEX' || family === 'HEX') return 'eHEX';
-    if (STABLE_FAMILIES.has(family)) return `p${family}`;
+  if (chain === 'pulsechain' && resolvedOriginChain) {
+    return bridgeAdjustedSymbol(family);
   }
 
   if (
@@ -75,6 +87,15 @@ function normalizeHoldingSymbol(asset: Pick<Asset, 'symbol' | 'name' | 'chain'>)
   if (symbol === 'PUSDC') return 'pUSDC';
   if (symbol === 'PUSDT') return 'pUSDT';
 
+  if (asset.chain === 'pulsechain' && (name.includes('FROM ETHEREUM') || name.includes('FROM ETH') || name.includes('FROM BASE') || name.includes('LIBERTY BRIDGE'))) {
+    if (symbol === 'USDC') return 'pUSDC';
+    if (symbol === 'USDT') return 'pUSDT';
+    if (symbol === 'DAI') return 'pDAI';
+    if (symbol === 'WETH') return 'WETH';
+    if (symbol === 'WBTC') return 'WBTC';
+    if (symbol === 'HEX' || symbol === 'EHEX') return 'eHEX';
+  }
+
   if (
     asset.chain === 'pulsechain'
     && ['DAI', 'USDC', 'USDT'].includes(symbol)
@@ -86,8 +107,28 @@ function normalizeHoldingSymbol(asset: Pick<Asset, 'symbol' | 'name' | 'chain'>)
   return asset.symbol;
 }
 
+function holdingKeys(asset: Pick<Asset, 'symbol' | 'name' | 'chain'>): string[] {
+  const primary = assetKey(asset.chain, normalizeHoldingSymbol(asset));
+  const keys = new Set<string>([primary]);
+  const symbol = (asset.symbol || '').toUpperCase();
+  const name = (asset.name || '').toUpperCase();
+
+  if (asset.chain === 'pulsechain' && !name.includes('FROM') && !name.includes('LIBERTY') && !name.includes('FORK') && !name.includes('SYSTEM')) {
+    if (STABLE_FAMILIES.has(symbol)) keys.add(assetKey(asset.chain, `p${symbol}`));
+    if (symbol === 'WETH') keys.add(assetKey(asset.chain, 'WETH'));
+    if (symbol === 'WBTC') keys.add(assetKey(asset.chain, 'WBTC'));
+    if (symbol === 'HEX' || symbol === 'EHEX') keys.add(assetKey(asset.chain, 'eHEX'));
+  }
+
+  return [...keys];
+}
+
 function assetKey(chain: Chain, symbol: string): string {
   return `${chain}:${symbol}`;
+}
+
+function stakingPositionKey(chain: Chain, protocol: string, symbol: string): string {
+  return `staking:${chain}:${protocol}:${symbol}`;
 }
 
 function ensurePosition(store: Map<string, PositionState>, key: string): PositionState {
@@ -200,19 +241,31 @@ export function buildInvestmentRows(
   const txs = [...currentTransactions].sort((a, b) => a.timestamp - b.timestamp);
 
   txs.forEach((tx) => {
-    const receiveSymbol = normalizeTxSymbol(tx.asset, tx.chain);
+    const originChain = resolveOriginChain(tx);
+    const receiveSymbol = normalizeTxSymbol(tx.asset, tx.chain, originChain);
     const receiveKey = assetKey(tx.chain, receiveSymbol);
     const usdValue = txUsdValue(tx, ethUsdPrice);
 
     if (tx.type === 'deposit') {
-      const originChain = parseOriginChain(tx.asset);
+      if (tx.staking?.protocol === 'hex' && tx.staking.action === 'stakeEnd') {
+        const released = removeFromPosition(
+          positions,
+          stakingPositionKey(tx.chain, tx.staking.protocol, receiveSymbol),
+          tx.amount,
+          usdValue,
+        );
+        const sources = released.sources.size > 0 ? released.sources : seedSources(tx.asset, tx.chain, released.cost || usdValue);
+        addToPosition(positions, receiveKey, tx.amount, released.cost || usdValue, sources, `${receiveSymbol} stakeEnd`);
+        return;
+      }
+
       const family = sourceFamily(tx.asset);
       const originSymbol = originChain ? normalizeTxSymbol(family, originChain) : receiveSymbol;
       const originKey = originChain ? assetKey(originChain, originSymbol) : null;
 
       if (originChain && originKey && (originChain === 'ethereum' || originChain === 'base')) {
         const transferred = removeFromPosition(positions, originKey, tx.amount, usdValue);
-        const route = `${chainLabel(originChain)} bridge -> ${receiveSymbol}`;
+        const route = `${chainLabel(originChain)}${tx.bridge?.protocol ? ` ${tx.bridge.protocol}` : ''} bridge -> ${receiveSymbol}`;
         const sources = transferred.sources.size > 0 ? transferred.sources : seedSources(tx.asset, tx.chain, transferred.cost || usdValue);
         addToPosition(positions, receiveKey, tx.amount, transferred.cost || usdValue, sources, route);
         return;
@@ -227,6 +280,20 @@ export function buildInvestmentRows(
     }
 
     if (tx.type === 'withdraw') {
+      if (tx.staking?.protocol === 'hex' && tx.staking.action === 'stakeStart') {
+        const staked = removeFromPosition(positions, receiveKey, tx.amount, usdValue);
+        const sources = staked.sources.size > 0 ? staked.sources : seedSources(tx.asset, tx.chain, staked.cost || usdValue);
+        addToPosition(
+          positions,
+          stakingPositionKey(tx.chain, tx.staking.protocol, receiveSymbol),
+          tx.amount,
+          staked.cost || usdValue,
+          sources,
+          `${receiveSymbol} stakeStart`,
+        );
+        return;
+      }
+
       removeFromPosition(positions, receiveKey, tx.amount, usdValue);
       return;
     }
@@ -244,8 +311,9 @@ export function buildInvestmentRows(
     .filter((asset) => asset.value > 0)
     .sort((a, b) => b.value - a.value)
     .map((asset) => {
-      const key = assetKey(asset.chain, normalizeHoldingSymbol(asset));
-      const position = positions.get(key);
+      const position = holdingKeys(asset)
+        .map(key => positions.get(key))
+        .find((candidate): candidate is PositionState => candidate !== undefined);
       const costBasis = position?.totalCost ?? 0;
       const pnlUsd = asset.value - costBasis;
       const pnlPercent = costBasis > 0 ? (pnlUsd / costBasis) * 100 : 0;

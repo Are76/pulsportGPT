@@ -15,8 +15,8 @@ const HEX_ADDRESS = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'; // same on bot
 
 const PULSECHAIN_RPC_PRIMARY  = 'https://rpc-pulsechain.g4mm4.io';
 const PULSECHAIN_RPC_FALLBACK = 'https://rpc.pulsechain.com';
-const ETHEREUM_RPC_PRIMARY    = 'https://cloudflare-eth.com';
-const ETHEREUM_RPC_FALLBACK   = 'https://eth.llamarpc.com';
+const ETHEREUM_RPC_PRIMARY    = 'https://ethereum-rpc.publicnode.com';
+const ETHEREUM_RPC_FALLBACK   = 'https://eth.drpc.org';
 
 /** How many recent days of daily data to fetch (enough for a rolling average). */
 const FETCH_DAYS = 30;

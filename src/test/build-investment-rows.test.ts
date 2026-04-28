@@ -205,4 +205,387 @@ describe('buildInvestmentRows', () => {
     expect(rows[0].costBasis).toBe(0);
     expect(rows[0].sourceMix).toEqual([]);
   });
+
+  it('maps Base-bridged PulseChain deposits into Base funding sources', () => {
+    const currentUsdc: Asset = {
+      id: 'usdc-base-bridge',
+      symbol: 'USDC',
+      name: 'USDC (from Base)',
+      balance: 250,
+      price: 1,
+      value: 250,
+      chain: 'pulsechain',
+    };
+
+    const txs: Transaction[] = [
+      {
+        id: 'base-usdc-in',
+        hash: '0xb1',
+        timestamp: 1,
+        type: 'deposit',
+        from: '0xext',
+        to: '0xme',
+        asset: 'USDC',
+        amount: 250,
+        valueUsd: 250,
+        chain: 'base',
+      },
+      {
+        id: 'pulse-usdc-bridge',
+        hash: '0xb2',
+        timestamp: 2,
+        type: 'deposit',
+        from: '0xbridge',
+        to: '0xme',
+        asset: 'USDC (from Base)',
+        amount: 250,
+        valueUsd: 250,
+        chain: 'pulsechain',
+        bridged: true,
+      },
+    ];
+
+    const rows = buildInvestmentRows([currentUsdc], txs, 2000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].costBasis).toBeCloseTo(250, 4);
+    expect(rows[0].sourceMix).toEqual([
+      { asset: 'USDC', chain: 'base', amountUsd: 250 },
+    ]);
+    expect(rows[0].routeSummary).toContain('Base bridge');
+  });
+
+  it('maps Liberty Bridge stable deposits into Ethereum funding sources', () => {
+    const currentUsdc: Asset = {
+      id: 'usdc-liberty-bridge',
+      symbol: 'USDC',
+      name: 'USDC (Liberty Bridge)',
+      balance: 400,
+      price: 1,
+      value: 400,
+      chain: 'pulsechain',
+    };
+
+    const txs: Transaction[] = [
+      {
+        id: 'eth-usdc-in',
+        hash: '0xc1',
+        timestamp: 1,
+        type: 'deposit',
+        from: '0xext',
+        to: '0xme',
+        asset: 'USDC',
+        amount: 400,
+        valueUsd: 400,
+        chain: 'ethereum',
+      },
+      {
+        id: 'pulse-usdc-liberty',
+        hash: '0xc2',
+        timestamp: 2,
+        type: 'deposit',
+        from: '0xbridge',
+        to: '0xme',
+        asset: 'USDC (Liberty Bridge)',
+        amount: 400,
+        valueUsd: 400,
+        chain: 'pulsechain',
+        bridged: true,
+      },
+    ];
+
+    const rows = buildInvestmentRows([currentUsdc], txs, 2000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].costBasis).toBeCloseTo(400, 4);
+    expect(rows[0].sourceMix).toEqual([
+      { asset: 'USDC', chain: 'ethereum', amountUsd: 400 },
+    ]);
+  });
+
+  it('prefers structured bridge metadata over asset-name parsing for Base bridge deposits', () => {
+    const currentUsdc: Asset = {
+      id: 'usdc-bridge-meta',
+      symbol: 'USDC',
+      name: 'USDC',
+      balance: 250,
+      price: 1,
+      value: 250,
+      chain: 'pulsechain',
+    };
+
+    const txs: Transaction[] = [
+      {
+        id: 'base-usdc-in-meta',
+        hash: '0xd1',
+        timestamp: 1,
+        type: 'deposit',
+        from: '0xext',
+        to: '0xme',
+        asset: 'USDC',
+        amount: 250,
+        valueUsd: 250,
+        chain: 'base',
+      },
+      {
+        id: 'pulse-usdc-bridge-meta',
+        hash: '0xd2',
+        timestamp: 2,
+        type: 'deposit',
+        from: '0xbridge',
+        to: '0xme',
+        asset: 'USDC',
+        amount: 250,
+        valueUsd: 250,
+        chain: 'pulsechain',
+        bridged: true,
+        bridge: {
+          originChain: 'base',
+          protocol: 'official',
+        },
+      },
+    ];
+
+    const rows = buildInvestmentRows([currentUsdc], txs, 2000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].costBasis).toBeCloseTo(250, 4);
+    expect(rows[0].sourceMix).toEqual([
+      { asset: 'USDC', chain: 'base', amountUsd: 250 },
+    ]);
+    expect(rows[0].routeSummary).toContain('Base official bridge');
+  });
+
+  it('uses bridge metadata for Liberty deposits even when the asset label is generic', () => {
+    const currentUsdc: Asset = {
+      id: 'usdc-liberty-meta',
+      symbol: 'USDC',
+      name: 'USDC',
+      balance: 400,
+      price: 1,
+      value: 400,
+      chain: 'pulsechain',
+    };
+
+    const txs: Transaction[] = [
+      {
+        id: 'eth-usdc-in-meta',
+        hash: '0xe1',
+        timestamp: 1,
+        type: 'deposit',
+        from: '0xext',
+        to: '0xme',
+        asset: 'USDC',
+        amount: 400,
+        valueUsd: 400,
+        chain: 'ethereum',
+      },
+      {
+        id: 'pulse-usdc-liberty-meta',
+        hash: '0xe2',
+        timestamp: 2,
+        type: 'deposit',
+        from: '0xbridge',
+        to: '0xme',
+        asset: 'USDC',
+        amount: 400,
+        valueUsd: 400,
+        chain: 'pulsechain',
+        bridged: true,
+        bridge: {
+          originChain: 'ethereum',
+          protocol: 'liberty',
+        },
+      },
+    ];
+
+    const rows = buildInvestmentRows([currentUsdc], txs, 2000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].costBasis).toBeCloseTo(400, 4);
+    expect(rows[0].sourceMix).toEqual([
+      { asset: 'USDC', chain: 'ethereum', amountUsd: 400 },
+    ]);
+    expect(rows[0].routeSummary).toContain('Ethereum liberty bridge');
+  });
+
+  it('removes staked HEX cost from liquid holdings on stakeStart', () => {
+    const currentLiquidHex: Asset = {
+      id: 'hex-liquid',
+      symbol: 'HEX',
+      name: 'HEX',
+      balance: 5000,
+      price: 0.12,
+      value: 600,
+      chain: 'pulsechain',
+    };
+
+    const txs: Transaction[] = [
+      {
+        id: 'eth-in-stake-1',
+        hash: '0xf1',
+        timestamp: 1,
+        type: 'deposit',
+        from: '0xext',
+        to: '0xme',
+        asset: 'ETH',
+        amount: 0.5,
+        valueUsd: 1000,
+        chain: 'ethereum',
+      },
+      {
+        id: 'bridge-in-stake-1',
+        hash: '0xf2',
+        timestamp: 2,
+        type: 'deposit',
+        from: '0xbridge',
+        to: '0xme',
+        asset: 'WETH (from Ethereum)',
+        amount: 0.5,
+        valueUsd: 1000,
+        chain: 'pulsechain',
+        bridged: true,
+        bridge: {
+          originChain: 'ethereum',
+          protocol: 'official',
+        },
+      },
+      {
+        id: 'hex-buy-stake-1',
+        hash: '0xf3',
+        timestamp: 3,
+        type: 'swap',
+        from: '0xme',
+        to: '0xrouter',
+        asset: 'HEX',
+        amount: 10000,
+        valueUsd: 1000,
+        chain: 'pulsechain',
+        counterAsset: 'WETH (from Ethereum)',
+        counterAmount: 0.5,
+      },
+      {
+        id: 'hex-stake-start',
+        hash: '0xf4',
+        timestamp: 4,
+        type: 'withdraw',
+        from: '0xme',
+        to: '0xhex',
+        asset: 'HEX',
+        amount: 5000,
+        valueUsd: 500,
+        chain: 'pulsechain',
+        staking: {
+          protocol: 'hex',
+          action: 'stakeStart',
+        },
+      },
+    ];
+
+    const rows = buildInvestmentRows([currentLiquidHex], txs, 2000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].costBasis).toBeCloseTo(500, 4);
+    expect(rows[0].sourceMix).toEqual([
+      { asset: 'ETH', chain: 'ethereum', amountUsd: 500 },
+    ]);
+  });
+
+  it('restores HEX cost basis to liquid holdings on stakeEnd', () => {
+    const currentLiquidHex: Asset = {
+      id: 'hex-liquid-ended',
+      symbol: 'HEX',
+      name: 'HEX',
+      balance: 10000,
+      price: 0.12,
+      value: 1200,
+      chain: 'pulsechain',
+    };
+
+    const txs: Transaction[] = [
+      {
+        id: 'eth-in-stake-2',
+        hash: '0xf3',
+        timestamp: 1,
+        type: 'deposit',
+        from: '0xext',
+        to: '0xme',
+        asset: 'ETH',
+        amount: 0.5,
+        valueUsd: 1000,
+        chain: 'ethereum',
+      },
+      {
+        id: 'bridge-in-stake-2',
+        hash: '0xf4',
+        timestamp: 2,
+        type: 'deposit',
+        from: '0xbridge',
+        to: '0xme',
+        asset: 'WETH (from Ethereum)',
+        amount: 0.5,
+        valueUsd: 1000,
+        chain: 'pulsechain',
+        bridged: true,
+        bridge: {
+          originChain: 'ethereum',
+          protocol: 'official',
+        },
+      },
+      {
+        id: 'hex-buy-stake-2',
+        hash: '0xf5',
+        timestamp: 3,
+        type: 'swap',
+        from: '0xme',
+        to: '0xrouter',
+        asset: 'HEX',
+        amount: 10000,
+        valueUsd: 1000,
+        chain: 'pulsechain',
+        counterAsset: 'WETH (from Ethereum)',
+        counterAmount: 0.5,
+      },
+      {
+        id: 'hex-stake-start-2',
+        hash: '0xf6',
+        timestamp: 4,
+        type: 'withdraw',
+        from: '0xme',
+        to: '0xhex',
+        asset: 'HEX',
+        amount: 10000,
+        valueUsd: 1000,
+        chain: 'pulsechain',
+        staking: {
+          protocol: 'hex',
+          action: 'stakeStart',
+        },
+      },
+      {
+        id: 'hex-stake-end',
+        hash: '0xf7',
+        timestamp: 5,
+        type: 'deposit',
+        from: '0xhex',
+        to: '0xme',
+        asset: 'HEX',
+        amount: 10000,
+        valueUsd: 1500,
+        chain: 'pulsechain',
+        staking: {
+          protocol: 'hex',
+          action: 'stakeEnd',
+        },
+      },
+    ];
+
+    const rows = buildInvestmentRows([currentLiquidHex], txs, 2000);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].costBasis).toBeCloseTo(1000, 4);
+    expect(rows[0].sourceMix).toEqual([
+      { asset: 'ETH', chain: 'ethereum', amountUsd: 1000 },
+    ]);
+  });
 });

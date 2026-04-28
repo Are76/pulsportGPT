@@ -4,6 +4,7 @@ import { BRAND_ASSETS } from '../branding/brand-assets';
 const NAV_ITEMS: ShellNavItem[] = [
   { id: 'dashboard', label: 'Dashboard', shortLabel: 'Dash' },
   { id: 'portfolio', label: 'Portfolio', shortLabel: 'Portfolio' },
+  { id: 'wallet-analyzer', label: 'Wallet Analyzer', shortLabel: 'Analyzer' },
   { id: 'investments', label: 'My Investments', shortLabel: 'Investments' },
   { id: 'transactions', label: 'Transactions', shortLabel: 'Transactions' },
   { id: 'staking', label: 'HEX Staking', shortLabel: 'Staking' },

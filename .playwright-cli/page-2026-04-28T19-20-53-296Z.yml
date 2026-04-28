@@ -1,0 +1,598 @@
+- generic [ref=e1]:
+  - generic [ref=e1432]:
+    - complementary [ref=e1433]:
+      - generic [ref=e1434]:
+        - img "Pulseport logo" [ref=e1436]
+        - generic [ref=e1438]: PulsePort
+      - navigation [ref=e1440]:
+        - button "Dashboard" [ref=e1441] [cursor=pointer]:
+          - img [ref=e1442]
+          - text: Dashboard
+        - button "Portfolio" [ref=e1444] [cursor=pointer]:
+          - img [ref=e1445]
+          - text: Portfolio
+        - button "Wallet Analyzer" [ref=e1450] [cursor=pointer]:
+          - img [ref=e1451]
+          - text: Wallet Analyzer
+        - button "HEX Staking" [ref=e1454] [cursor=pointer]:
+          - img [ref=e1455]
+          - text: HEX Staking
+        - button "My Investments" [ref=e1458] [cursor=pointer]:
+          - img [ref=e1459]
+          - text: My Investments
+        - button "Transactions" [ref=e1461] [cursor=pointer]:
+          - img [ref=e1462]
+          - text: Transactions
+        - button "DeFi" [ref=e1466] [cursor=pointer]:
+          - img [ref=e1467]
+          - text: DeFi
+      - button "Wallets 0" [ref=e1471] [cursor=pointer]:
+        - generic [ref=e1472]:
+          - img [ref=e1473]
+          - generic [ref=e1476]: Wallets
+        - generic [ref=e1477]:
+          - generic [ref=e1478]: "0"
+          - img [ref=e1479]
+    - main [ref=e1481]:
+      - generic [ref=e1483]:
+        - generic [ref=e1485]: Transactions
+        - generic [ref=e1486]:
+          - button "Switch to light mode" [ref=e1489] [cursor=pointer]:
+            - img [ref=e1490]
+          - button "Open API key settings" [ref=e1496] [cursor=pointer]:
+            - img [ref=e1497]
+            - generic [ref=e1500]: API
+          - button "Refresh" [ref=e1501] [cursor=pointer]:
+            - img [ref=e1502]
+            - generic [ref=e1507]: Refresh
+      - generic [ref=e1508]:
+        - generic [ref=e2525]:
+          - generic [ref=e2526]:
+            - generic [ref=e2527]:
+              - paragraph [ref=e2528]: Analyzer
+              - heading "Wallet Analyzer" [level=1] [ref=e2529]
+              - paragraph [ref=e2530]: Performance, risk, and behavior analytics across the tracked portfolio.
+            - generic [ref=e2531]:
+              - article [ref=e2532]:
+                - generic [ref=e2533]: NAV
+                - strong [ref=e2534]:
+                  - button "Open source details for Net asset value" [ref=e2536] [cursor=pointer]: $9.9K
+              - article [ref=e2538]:
+                - generic [ref=e2539]: Cumulative return
+                - strong [ref=e2540]:
+                  - button "Open source details for Cumulative return" [ref=e2542] [cursor=pointer]: 23.9%
+              - article [ref=e2544]:
+                - generic [ref=e2545]: Diversification
+                - strong [ref=e2546]:
+                  - button "Open source details for Diversification score" [ref=e2548] [cursor=pointer]: 72/100
+          - region "Analyzer alerts" [ref=e2550]:
+            - article [ref=e2551]:
+              - img [ref=e2552]
+              - generic [ref=e2554]:
+                - strong [ref=e2555]: High concentration
+                - paragraph [ref=e2556]: ETH is 52% of current value.
+            - article [ref=e2557]:
+              - img [ref=e2558]
+              - generic [ref=e2560]:
+                - strong [ref=e2561]: Unrealized gains dominate
+                - paragraph [ref=e2562]: Most performance is still in open positions rather than realized exits.
+          - region "Analyzer highlights" [ref=e2563]:
+            - article [ref=e2564]:
+              - generic [ref=e2565]: 1M alpha
+              - strong [ref=e2566]:
+                - button "Open source details for 1M alpha" [ref=e2568] [cursor=pointer]: "-19.6%"
+              - paragraph [ref=e2570]: Portfolio return +23.9% versus benchmark +43.5%.
+            - article [ref=e2571]:
+              - generic [ref=e2572]: Chain driver
+              - strong [ref=e2573]:
+                - button "Open source details for Ethereum chain mix" [ref=e2575] [cursor=pointer]: ethereum
+              - paragraph [ref=e2577]: 1M move +$1.2K on the strongest chain contribution.
+            - article [ref=e2578]:
+              - generic [ref=e2579]: Behavior signal
+              - strong [ref=e2580]:
+                - button "Open source details for Behavior signal holding period" [ref=e2582] [cursor=pointer]: 10.0d
+              - paragraph [ref=e2584]: Open positions still drive the result.
+          - generic [ref=e2585]:
+            - generic [ref=e2586]:
+              - generic [ref=e2587]:
+                - generic [ref=e2588]:
+                  - paragraph [ref=e2589]: Performance
+                  - heading "Portfolio performance" [level=2] [ref=e2590]
+                  - paragraph [ref=e2591]: Selected-range return versus benchmark, then the full equity curve underneath.
+                - generic [ref=e2592]:
+                  - generic "Performance range" [ref=e2593]:
+                    - button "1W" [ref=e2594] [cursor=pointer]
+                    - button "1M" [pressed] [ref=e2595] [cursor=pointer]
+                    - button "All" [ref=e2596] [cursor=pointer]
+                  - generic [ref=e2597]:
+                    - button "Open source details for Portfolio return" [ref=e2600] [cursor=pointer]: Portfolio 23.9%
+                    - button "Open source details for Benchmark return" [ref=e2604] [cursor=pointer]: Benchmark 43.5%
+              - generic [ref=e2606]:
+                - button "Open source details for 1M return" [ref=e2609] [cursor=pointer]: 1M return 23.9%
+                - button "Open source details for 1M benchmark return" [ref=e2613] [cursor=pointer]: Benchmark 43.5%
+                - button "Open source details for 1M alpha" [ref=e2617] [cursor=pointer]: Alpha -19.6%
+              - generic [ref=e2619]:
+                - generic [ref=e2620]: Portfolio NAV
+                - generic [ref=e2621]: Benchmark
+              - button "Inspect latest performance point" [ref=e2622] [cursor=pointer]
+              - application [ref=e2626]:
+                - generic [ref=e2641]:
+                  - generic [ref=e2642]:
+                    - generic [ref=e2644]: Mar 31
+                    - generic [ref=e2646]: Apr 2
+                    - generic [ref=e2648]: Apr 4
+                    - generic [ref=e2650]: Apr 6
+                    - generic [ref=e2652]: Apr 8
+                    - generic [ref=e2654]: Apr 10
+                    - generic [ref=e2656]: Apr 12
+                    - generic [ref=e2658]: Apr 14
+                    - generic [ref=e2660]: Apr 16
+                    - generic [ref=e2662]: Apr 18
+                    - generic [ref=e2664]: Apr 20
+                    - generic [ref=e2666]: Apr 22
+                    - generic [ref=e2668]: Apr 24
+                    - generic [ref=e2670]: Apr 26
+                    - generic [ref=e2672]: Apr 28
+                  - generic [ref=e2673]:
+                    - generic [ref=e2675]: $0
+                    - generic [ref=e2677]: $3.0K
+                    - generic [ref=e2679]: $6.0K
+                    - generic [ref=e2681]: $9.0K
+                    - generic [ref=e2683]: $12.0K
+            - generic [ref=e2684]:
+              - generic [ref=e2685]:
+                - generic [ref=e2687]:
+                  - paragraph [ref=e2688]: Risk
+                  - heading "Risk metrics" [level=2] [ref=e2689]
+                  - paragraph [ref=e2690]: "Read this as fragility first: downside, instability, then risk-adjusted return."
+                - generic [ref=e2691]:
+                  - article [ref=e2692]:
+                    - generic [ref=e2693]: Max drawdown
+                    - strong [ref=e2694]:
+                      - button "Open source details for Max drawdown" [ref=e2696] [cursor=pointer]: "-8.8%"
+                  - article [ref=e2698]:
+                    - generic [ref=e2699]: Volatility
+                    - strong [ref=e2700]:
+                      - button "Open source details for Volatility" [ref=e2702] [cursor=pointer]: 41.9%
+                  - article [ref=e2704]:
+                    - generic [ref=e2705]: Sharpe
+                    - strong [ref=e2706]:
+                      - button "Open source details for Sharpe ratio" [ref=e2708] [cursor=pointer]: "0.35"
+                  - article [ref=e2710]:
+                    - generic [ref=e2711]: Diversification
+                    - strong [ref=e2712]:
+                      - button "Open source details for Diversification score" [ref=e2714] [cursor=pointer]: 72/100
+              - generic [ref=e2716]:
+                - generic [ref=e2718]:
+                  - paragraph [ref=e2719]: Behavior
+                  - heading "Trade behavior" [level=2] [ref=e2720]
+                  - paragraph [ref=e2721]: How long positions are held and whether results are coming from closed trades or open exposure.
+                - generic [ref=e2722]:
+                  - article [ref=e2723]:
+                    - generic [ref=e2724]: Average holding period
+                    - strong [ref=e2725]:
+                      - button "Open source details for Average holding period" [ref=e2727] [cursor=pointer]: 10.0 days
+                  - article [ref=e2729]:
+                    - generic [ref=e2730]: Realized gains
+                    - strong [ref=e2731]:
+                      - button "Open source details for Realized gains" [ref=e2733] [cursor=pointer]: $0
+                  - article [ref=e2735]:
+                    - generic [ref=e2736]: Unrealized gains
+                    - strong [ref=e2737]:
+                      - button "Open source details for Unrealized gains" [ref=e2739] [cursor=pointer]: $100
+                  - article [ref=e2741]:
+                    - generic [ref=e2742]: Closed sales
+                    - strong [ref=e2743]:
+                      - button "Open source details for Closed sales" [ref=e2745] [cursor=pointer]: "1"
+          - region "What changed this range" [ref=e2747]:
+            - generic [ref=e2749]:
+              - paragraph [ref=e2750]: Range Change
+              - heading "What changed this range" [level=2] [ref=e2751]
+              - paragraph [ref=e2752]: A focused read on the selected window before you inspect the deeper attribution cards.
+            - generic [ref=e2753]:
+              - article [ref=e2754]:
+                - generic [ref=e2755]: 1M portfolio move
+                - strong [ref=e2756]:
+                  - button "Open source details for 1M portfolio move" [ref=e2758] [cursor=pointer]: +23.9%
+                - paragraph [ref=e2760]: Alpha landed at -19.6% against the current benchmark track.
+              - article [ref=e2761]:
+                - generic [ref=e2762]: Strongest chain
+                - strong [ref=e2763]:
+                  - button "Open source details for Ethereum chain mix" [ref=e2765] [cursor=pointer]: ethereum
+                - paragraph [ref=e2767]: 1M contribution +$1.2K.
+                - button "Open strongest chain" [ref=e2768] [cursor=pointer]
+              - article [ref=e2769]:
+                - generic [ref=e2770]: Largest position move
+                - strong [ref=e2771]:
+                  - button "Open source details for ETH position move" [ref=e2773] [cursor=pointer]: ETH
+                - paragraph [ref=e2775]: "-$7.1K from stored position snapshots."
+                - button "Open largest position move" [ref=e2776] [cursor=pointer]
+              - article [ref=e2777]:
+                - generic [ref=e2778]: Weakest chain
+                - strong [ref=e2779]:
+                  - button "Open source details for Base chain mix" [ref=e2781] [cursor=pointer]: base
+                - paragraph [ref=e2783]: 1M drag +$480.4.
+                - button "Open weakest chain" [ref=e2784] [cursor=pointer]
+          - generic [ref=e2785]:
+            - generic [ref=e2786]:
+              - generic [ref=e2788]:
+                - paragraph [ref=e2789]: Allocation
+                - heading "Allocation breakdown" [level=2] [ref=e2790]
+                - paragraph [ref=e2791]: Current portfolio weight by asset, sorted by largest positions first.
+              - generic [ref=e2792]:
+                - article [ref=e2793]:
+                  - generic [ref=e2794]:
+                    - strong [ref=e2795]: ETH
+                    - generic [ref=e2796]:
+                      - text: Ethereum
+                      - emphasis [ref=e2797]: ethereum
+                  - generic [ref=e2798]:
+                    - strong [ref=e2799]:
+                      - button "Open source details for ETH allocation" [ref=e2801] [cursor=pointer]: $5.2K
+                    - button "Open source details for ETH allocation" [ref=e2805] [cursor=pointer]: 52.2%
+                  - button "View ETH transactions" [ref=e2809] [cursor=pointer]
+                - article [ref=e2810]:
+                  - generic [ref=e2811]:
+                    - strong [ref=e2812]: USDC
+                    - generic [ref=e2813]:
+                      - text: USD Coin (Base)
+                      - emphasis [ref=e2814]: base
+                  - generic [ref=e2815]:
+                    - strong [ref=e2816]:
+                      - button "Open source details for USDC allocation" [ref=e2818] [cursor=pointer]: $2.5K
+                    - button "Open source details for USDC allocation" [ref=e2822] [cursor=pointer]: 25.2%
+                  - button "View USDC transactions" [ref=e2826] [cursor=pointer]
+                - article [ref=e2827]:
+                  - generic [ref=e2828]:
+                    - strong [ref=e2829]: eHEX
+                    - generic [ref=e2830]:
+                      - text: HEX (from Ethereum)
+                      - emphasis [ref=e2831]: pulsechain
+                  - generic [ref=e2832]:
+                    - strong [ref=e2833]:
+                      - button "Open source details for eHEX allocation" [ref=e2835] [cursor=pointer]: $1.0K
+                    - button "Open source details for eHEX allocation" [ref=e2839] [cursor=pointer]: 10.1%
+                  - button "View eHEX transactions" [ref=e2843] [cursor=pointer]
+                - article [ref=e2844]:
+                  - generic [ref=e2845]:
+                    - strong [ref=e2846]: HEX
+                    - generic [ref=e2847]:
+                      - text: HEX (PulseChain)
+                      - emphasis [ref=e2848]: pulsechain
+                  - generic [ref=e2849]:
+                    - strong [ref=e2850]:
+                      - button "Open source details for HEX allocation" [ref=e2852] [cursor=pointer]: $400
+                    - button "Open source details for HEX allocation" [ref=e2856] [cursor=pointer]: 4.0%
+                  - button "View HEX transactions" [ref=e2860] [cursor=pointer]
+                - article [ref=e2861]:
+                  - generic [ref=e2862]:
+                    - strong [ref=e2863]: INC
+                    - generic [ref=e2864]:
+                      - text: Incentive
+                      - emphasis [ref=e2865]: pulsechain
+                  - generic [ref=e2866]:
+                    - strong [ref=e2867]:
+                      - button "Open source details for INC allocation" [ref=e2869] [cursor=pointer]: $260
+                    - button "Open source details for INC allocation" [ref=e2873] [cursor=pointer]: 2.6%
+                  - button "View INC transactions" [ref=e2877] [cursor=pointer]
+            - generic [ref=e2878]:
+              - generic [ref=e2880]:
+                - paragraph [ref=e2881]: Contributors
+                - heading "Top contributors" [level=2] [ref=e2882]
+                - paragraph [ref=e2883]: Largest positions by current value, with realized position movement from stored entry snapshots.
+              - generic [ref=e2884]:
+                - article [ref=e2885]:
+                  - generic [ref=e2886]:
+                    - strong [ref=e2887]: ETH
+                    - generic [ref=e2888]:
+                      - text: Ethereum
+                      - emphasis [ref=e2889]: ethereum
+                  - generic [ref=e2890]:
+                    - strong [ref=e2891]:
+                      - button "Open source details for ETH position move" [ref=e2893] [cursor=pointer]: $5.2K
+                    - button "Open source details for ETH position move" [ref=e2897] [cursor=pointer]: "-$7.1K position move"
+                  - button "View ETH flow" [active] [ref=e2901] [cursor=pointer]
+                - article [ref=e2902]:
+                  - generic [ref=e2903]:
+                    - strong [ref=e2904]: USDC
+                    - generic [ref=e2905]:
+                      - text: USD Coin (Base)
+                      - emphasis [ref=e2906]: base
+                  - generic [ref=e2907]:
+                    - strong [ref=e2908]:
+                      - button "Open source details for USDC position move" [ref=e2910] [cursor=pointer]: $2.5K
+                    - button "Open source details for USDC position move" [ref=e2914] [cursor=pointer]: +$0 position move
+                  - button "View USDC flow" [ref=e2918] [cursor=pointer]
+                - article [ref=e2919]:
+                  - generic [ref=e2920]:
+                    - strong [ref=e2921]: eHEX
+                    - generic [ref=e2922]:
+                      - text: HEX (from Ethereum)
+                      - emphasis [ref=e2923]: pulsechain
+                  - generic [ref=e2924]:
+                    - strong [ref=e2925]:
+                      - button "Open source details for eHEX position move" [ref=e2927] [cursor=pointer]: $1.0K
+                    - button "Open source details for eHEX position move" [ref=e2931] [cursor=pointer]: +$1.0K position move
+                  - button "View eHEX flow" [ref=e2935] [cursor=pointer]
+                - article [ref=e2936]:
+                  - generic [ref=e2937]:
+                    - strong [ref=e2938]: HEX
+                    - generic [ref=e2939]:
+                      - text: HEX (PulseChain)
+                      - emphasis [ref=e2940]: pulsechain
+                  - generic [ref=e2941]:
+                    - strong [ref=e2942]:
+                      - button "Open source details for HEX position move" [ref=e2944] [cursor=pointer]: $400
+                    - button "Open source details for HEX position move" [ref=e2948] [cursor=pointer]: +$400 position move
+                  - button "View HEX flow" [ref=e2952] [cursor=pointer]
+                - article [ref=e2953]:
+                  - generic [ref=e2954]:
+                    - strong [ref=e2955]: INC
+                    - generic [ref=e2956]:
+                      - text: Incentive
+                      - emphasis [ref=e2957]: pulsechain
+                  - generic [ref=e2958]:
+                    - strong [ref=e2959]:
+                      - button "Open source details for INC position move" [ref=e2961] [cursor=pointer]: $260
+                    - button "Open source details for INC position move" [ref=e2965] [cursor=pointer]: +$260 position move
+                  - button "View INC flow" [ref=e2969] [cursor=pointer]
+          - generic [ref=e2971]:
+            - generic [ref=e2973]:
+              - paragraph [ref=e2974]: Chains
+              - heading "Chain mix" [level=2] [ref=e2975]
+              - paragraph [ref=e2976]: Where portfolio value sits now, with actual historical chain contribution for the selected range.
+            - generic [ref=e2977]:
+              - article [ref=e2978]:
+                - generic [ref=e2979]:
+                  - strong [ref=e2980]: Ethereum
+                  - generic [ref=e2981]:
+                    - button "Open source details for Ethereum chain mix" [ref=e2983] [cursor=pointer]: $5.3K
+                    - text: "| 1M move"
+                    - button "Open source details for Ethereum chain mix" [ref=e2986] [cursor=pointer]: $1.2K
+                - strong [ref=e2989]:
+                  - button "Open source details for Ethereum chain mix" [ref=e2991] [cursor=pointer]: 53.9%
+              - article [ref=e2995]:
+                - generic [ref=e2996]:
+                  - strong [ref=e2997]: Base
+                  - generic [ref=e2998]:
+                    - button "Open source details for Base chain mix" [ref=e3000] [cursor=pointer]: $2.5K
+                    - text: "| 1M move"
+                    - button "Open source details for Base chain mix" [ref=e3003] [cursor=pointer]: $480.4
+                - strong [ref=e3006]:
+                  - button "Open source details for Base chain mix" [ref=e3008] [cursor=pointer]: 25.2%
+              - article [ref=e3012]:
+                - generic [ref=e3013]:
+                  - strong [ref=e3014]: Pulsechain
+                  - generic [ref=e3015]:
+                    - button "Open source details for Pulsechain chain mix" [ref=e3017] [cursor=pointer]: $2.1K
+                    - text: "| 1M move"
+                    - button "Open source details for Pulsechain chain mix" [ref=e3020] [cursor=pointer]: $2.6K
+                - strong [ref=e3023]:
+                  - button "Open source details for Pulsechain chain mix" [ref=e3025] [cursor=pointer]: 20.9%
+          - generic [ref=e3031]:
+            - generic [ref=e3032]:
+              - generic [ref=e3033]:
+                - generic [ref=e3034]:
+                  - paragraph [ref=e3035]: Current Bag
+                  - heading "Holdings Attribution" [level=2] [ref=e3036]
+                - paragraph [ref=e3037]: Filter the live bag by chain, then open a row for source capital, P&L, and route context.
+              - tablist "Chain filters" [ref=e3038]:
+                - button "All 10" [pressed] [ref=e3039] [cursor=pointer]:
+                  - generic [ref=e3040]: All
+                  - generic [ref=e3041]: "10"
+                - button "PulseChain 7" [ref=e3042] [cursor=pointer]:
+                  - generic [ref=e3043]: PulseChain
+                  - generic [ref=e3044]: "7"
+                - button "Ethereum 2" [ref=e3045] [cursor=pointer]:
+                  - generic [ref=e3046]: Ethereum
+                  - generic [ref=e3047]: "2"
+                - button "Base 1" [ref=e3048] [cursor=pointer]:
+                  - generic [ref=e3049]: Base
+                  - generic [ref=e3050]: "1"
+            - generic [ref=e3051]:
+              - generic [ref=e3052]:
+                - button "Token" [ref=e3053] [cursor=pointer]
+                - button "Price" [ref=e3054] [cursor=pointer]
+                - button "24H" [ref=e3055] [cursor=pointer]
+                - button "Amount" [ref=e3056] [cursor=pointer]
+                - button "USD Value" [ref=e3057] [cursor=pointer]
+              - generic [ref=e3058]:
+                - button "ETH Ethereum eth · Ethereum ETH USDC $3,450 +1.20% 1.5 ETH $5,175 Open ETH detail Open ETH calculator -$7.1K" [ref=e3060] [cursor=pointer]:
+                  - generic [ref=e3061]:
+                    - img "ETH" [ref=e3063]
+                    - generic [ref=e3064]:
+                      - button "Ethereum" [ref=e3065]
+                      - generic [ref=e3066]:
+                        - generic [ref=e3068]: eth · Ethereum
+                        - generic [ref=e3069]: ETH
+                        - generic [ref=e3070]: USDC
+                  - strong [ref=e3072]: $3,450
+                  - strong [ref=e3074]: +1.20%
+                  - generic [ref=e3075]:
+                    - strong [ref=e3076]: "1.5"
+                    - generic [ref=e3077]: ETH
+                  - strong [ref=e3079]: $5,175
+                  - generic [ref=e3080]:
+                    - button "Open ETH detail" [ref=e3081]:
+                      - img [ref=e3082]
+                    - button "Open ETH calculator" [ref=e3086]:
+                      - img [ref=e3087]
+                    - generic [ref=e3089]: "-$7.1K"
+                    - img [ref=e3091]
+                - button "U USD Coin (Base) usdc · Base USDC $1 +0.01% 2,500 USDC $2,500 Open USDC detail Open USDC calculator +-" [ref=e3094] [cursor=pointer]:
+                  - generic [ref=e3095]:
+                    - generic [ref=e3096]: U
+                    - generic [ref=e3097]:
+                      - button "USD Coin (Base)" [ref=e3098]
+                      - generic [ref=e3099]:
+                        - generic [ref=e3101]: usdc · Base
+                        - generic [ref=e3102]: USDC
+                  - strong [ref=e3104]: $1
+                  - strong [ref=e3106]: +0.01%
+                  - generic [ref=e3107]:
+                    - strong [ref=e3108]: 2,500
+                    - generic [ref=e3109]: USDC
+                  - strong [ref=e3111]: $2,500
+                  - generic [ref=e3112]:
+                    - button "Open USDC detail" [ref=e3113]:
+                      - img [ref=e3114]
+                    - button "Open USDC calculator" [ref=e3118]:
+                      - img [ref=e3119]
+                    - generic [ref=e3121]: +-
+                    - img [ref=e3123]
+                - button "eHEX HEX (from Ethereum) ehex · Pulsechain $0.004000 +8.20% 250,000 eHEX $1,000 Open eHEX detail Open eHEX calculator +$1.0K" [ref=e3126] [cursor=pointer]:
+                  - generic [ref=e3127]:
+                    - img "eHEX" [ref=e3129]
+                    - generic [ref=e3130]:
+                      - button "HEX (from Ethereum)" [ref=e3131]
+                      - generic [ref=e3134]: ehex · Pulsechain
+                  - strong [ref=e3136]: $0.004000
+                  - strong [ref=e3138]: +8.20%
+                  - generic [ref=e3139]:
+                    - strong [ref=e3140]: 250,000
+                    - generic [ref=e3141]: eHEX
+                  - strong [ref=e3143]: $1,000
+                  - generic [ref=e3144]:
+                    - button "Open eHEX detail" [ref=e3145]:
+                      - img [ref=e3146]
+                    - button "Open eHEX calculator" [ref=e3150]:
+                      - img [ref=e3151]
+                    - generic [ref=e3153]: +$1.0K
+                    - img [ref=e3155]
+                - button "HEX HEX (PulseChain) hex · Pulsechain $0.004000 +12.50% 100,000 HEX $400 Open HEX detail Open HEX calculator +$400" [ref=e3158] [cursor=pointer]:
+                  - generic [ref=e3159]:
+                    - img "HEX" [ref=e3161]
+                    - generic [ref=e3162]:
+                      - button "HEX (PulseChain)" [ref=e3163]
+                      - generic [ref=e3166]: hex · Pulsechain
+                  - strong [ref=e3168]: $0.004000
+                  - strong [ref=e3170]: +12.50%
+                  - generic [ref=e3171]:
+                    - strong [ref=e3172]: 100,000
+                    - generic [ref=e3173]: HEX
+                  - strong [ref=e3175]: $400
+                  - generic [ref=e3176]:
+                    - button "Open HEX detail" [ref=e3177]:
+                      - img [ref=e3178]
+                    - button "Open HEX calculator" [ref=e3182]:
+                      - img [ref=e3183]
+                    - generic [ref=e3185]: +$400
+                    - img [ref=e3187]
+                - button "INC Incentive inc · Pulsechain $5.2 +12.40% 50 INC $260 Open INC detail Open INC calculator +$260" [ref=e3190] [cursor=pointer]:
+                  - generic [ref=e3191]:
+                    - img "INC" [ref=e3193]
+                    - generic [ref=e3194]:
+                      - button "Incentive" [ref=e3195]
+                      - generic [ref=e3198]: inc · Pulsechain
+                  - strong [ref=e3200]: $5.2
+                  - strong [ref=e3202]: +12.40%
+                  - generic [ref=e3203]:
+                    - strong [ref=e3204]: "50"
+                    - generic [ref=e3205]: INC
+                  - strong [ref=e3207]: $260
+                  - generic [ref=e3208]:
+                    - button "Open INC detail" [ref=e3209]:
+                      - img [ref=e3210]
+                    - button "Open INC calculator" [ref=e3214]:
+                      - img [ref=e3215]
+                    - generic [ref=e3217]: +$260
+                    - img [ref=e3219]
+                - button "HEX HEX (Ethereum) hex · Ethereum $0.003500 -0.50% 50,000 HEX $175 Open HEX detail Open HEX calculator +$175" [ref=e3222] [cursor=pointer]:
+                  - generic [ref=e3223]:
+                    - img "HEX" [ref=e3225]
+                    - generic [ref=e3226]:
+                      - button "HEX (Ethereum)" [ref=e3227]
+                      - generic [ref=e3230]: hex · Ethereum
+                  - strong [ref=e3232]: $0.003500
+                  - strong [ref=e3234]: "-0.50%"
+                  - generic [ref=e3235]:
+                    - strong [ref=e3236]: 50,000
+                    - generic [ref=e3237]: HEX
+                  - strong [ref=e3239]: $175
+                  - generic [ref=e3240]:
+                    - button "Open HEX detail" [ref=e3241]:
+                      - img [ref=e3242]
+                    - button "Open HEX calculator" [ref=e3246]:
+                      - img [ref=e3247]
+                    - generic [ref=e3249]: +$175
+                    - img [ref=e3251]
+                - button "PLSX PulseX plsx · Pulsechain $0.00003200 -2.10% 5,000,000 PLSX $160 Open PLSX detail Open PLSX calculator +$160" [ref=e3254] [cursor=pointer]:
+                  - generic [ref=e3255]:
+                    - img "PLSX" [ref=e3257]
+                    - generic [ref=e3258]:
+                      - button "PulseX" [ref=e3259]
+                      - generic [ref=e3262]: plsx · Pulsechain
+                  - strong [ref=e3264]: $0.00003200
+                  - strong [ref=e3266]: "-2.10%"
+                  - generic [ref=e3267]:
+                    - strong [ref=e3268]: 5,000,000
+                    - generic [ref=e3269]: PLSX
+                  - strong [ref=e3271]: $160
+                  - generic [ref=e3272]:
+                    - button "Open PLSX detail" [ref=e3273]:
+                      - img [ref=e3274]
+                    - button "Open PLSX calculator" [ref=e3278]:
+                      - img [ref=e3279]
+                    - generic [ref=e3281]: +$160
+                    - img [ref=e3283]
+                - button "PRVX PrivacyX prvx · Pulsechain $0.1500 +0.00% 1,000 PRVX $150 Open PRVX detail Open PRVX calculator +$150" [ref=e3286] [cursor=pointer]:
+                  - generic [ref=e3287]:
+                    - img "PRVX" [ref=e3289]
+                    - generic [ref=e3290]:
+                      - button "PrivacyX" [ref=e3291]
+                      - generic [ref=e3294]: prvx · Pulsechain
+                  - strong [ref=e3296]: $0.1500
+                  - strong [ref=e3298]: +0.00%
+                  - generic [ref=e3299]:
+                    - strong [ref=e3300]: 1,000
+                    - generic [ref=e3301]: PRVX
+                  - strong [ref=e3303]: $150
+                  - generic [ref=e3304]:
+                    - button "Open PRVX detail" [ref=e3305]:
+                      - img [ref=e3306]
+                    - button "Open PRVX calculator" [ref=e3310]:
+                      - img [ref=e3311]
+                    - generic [ref=e3313]: +$150
+                    - img [ref=e3315]
+                - button "PLS PulseChain pls · Pulsechain $0.00006500 +5.40% 1,250,000 PLS $81.25 Open PLS detail Open PLS calculator +$81" [ref=e3318] [cursor=pointer]:
+                  - generic [ref=e3319]:
+                    - img "PLS" [ref=e3321]
+                    - generic [ref=e3322]:
+                      - button "PulseChain" [ref=e3323]
+                      - generic [ref=e3326]: pls · Pulsechain
+                  - strong [ref=e3328]: $0.00006500
+                  - strong [ref=e3330]: +5.40%
+                  - generic [ref=e3331]:
+                    - strong [ref=e3332]: 1,250,000
+                    - generic [ref=e3333]: PLS
+                  - strong [ref=e3335]: $81.25
+                  - generic [ref=e3336]:
+                    - button "Open PLS detail" [ref=e3337]:
+                      - img [ref=e3338]
+                    - button "Open PLS calculator" [ref=e3342]:
+                      - img [ref=e3343]
+                    - generic [ref=e3345]: +$81
+                    - img [ref=e3347]
+                - button "pDAI DAI (System Copy) pdai · Pulsechain DAI $0.001890 -1.50% 10,000 pDAI $18.9 Open pDAI detail Open pDAI calculator -$1.2K" [ref=e3350] [cursor=pointer]:
+                  - generic [ref=e3351]:
+                    - img "pDAI" [ref=e3353]
+                    - generic [ref=e3354]:
+                      - button "DAI (System Copy)" [ref=e3355]
+                      - generic [ref=e3356]:
+                        - generic [ref=e3358]: pdai · Pulsechain
+                        - generic [ref=e3359]: DAI
+                  - strong [ref=e3361]: $0.001890
+                  - strong [ref=e3363]: "-1.50%"
+                  - generic [ref=e3364]:
+                    - strong [ref=e3365]: 10,000
+                    - generic [ref=e3366]: pDAI
+                  - strong [ref=e3368]: $18.9
+                  - generic [ref=e3369]:
+                    - button "Open pDAI detail" [ref=e3370]:
+                      - img [ref=e3371]
+                    - button "Open pDAI calculator" [ref=e3375]:
+                      - img [ref=e3376]
+                    - generic [ref=e3378]: "-$1.2K"
+                    - img [ref=e3380]
+        - generic [ref=e2368]: PulsePort © 2026 • Powered by PulseChain, Ethereum & Base
+  - generic [ref=e1361]: Apr 14
