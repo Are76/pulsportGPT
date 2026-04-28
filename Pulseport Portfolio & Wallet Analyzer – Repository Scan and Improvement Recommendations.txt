@@ -1,0 +1,77 @@
+Pulseport Portfolio & Wallet Analyzer – Repository Scan and Improvement Recommendations
+
+1. Current capabilities
+
+The pulseport-community repo already implements a sophisticated portfolio tracker that uses on‑chain data and transaction history to compute cost‑basis and P&L. Key findings from the scan include:
+
+Design goals and data assumptions
+The “My Investments” design spec notes that the page is cost‑basis driven; it derives an investor’s original capital and return by ingesting historical transactions from Ethereum/Base (via an API) and combining them with current holdings on PulseChain. The design emphasises exact asset identity (not approximate symbols), grouping positions by current asset, and showing cost basis, value and P&L with source mixing and route mapping.
+The spec also requires a separate Transactions page for swap‑by‑swap P&L; the Investments page focuses on aggregated cost basis and performance.
+Data fetching and processing code
+Liquidity positions are fetched using the custom hook useLiquidityPositions. It batches RPC calls to the PulseX V2 router and MasterChef contracts to get reserves, wallet LP balances and staked amounts. It also queries PulseX subgraphs for 24‑h volume and computes LP value, fees and impermanent loss. The hook returns enriched data with periodic re‑fetch.
+Token search uses the useTokenSearch hook. It queries PulseX v1/v2 subgraphs for pairs containing the search term, filters for pairs with >100 WPLS reserve, deduplicates by token address and sorts by USD liquidity.
+Cost‑basis computation is performed in buildInvestmentRows.ts. This file processes all transactions (deposit, withdrawal, swap) to build InvestmentHoldingRow objects. It tracks positions per token, updates cost basis when receiving or selling tokens, handles cross‑chain bridging (Ethereum/Base → PulseChain), and generates a source mix that attributes the current holdings back to original assets and chains.
+The P&L card component computes realized and unrealized profits, cost basis, proceeds and gas fees for each token and displays them to the user.
+UI tables such as MyInvestmentsTable and HoldingsTable aggregate positions, show price, balance, value, cost basis, P&L and portfolio share, and allow expansion to view details, trading actions and route summaries.
+ProfitPlannerModal provides an advanced planning tool. It projects future growth scenarios, suggests sells to meet profit targets, evaluates diversification and concentration risks, and explains exit strategies and staking considerations【995625737183380†L169-L164】.
+2. Gaps and limitations
+
+Although Pulseport already supports a strong foundation for analytics, several areas could be improved when adding Portfolio Performance Analytics and a Wallet Analyzer for PulseChain:
+
+Limited historical data & cost‑basis for PulseChain – The buildInvestmentRows logic relies on transaction history from Ethereum and Base to compute cost basis. PulseChain transactions (swaps, bridging, staking, etc.) are not yet included in the transaction ingestion pipeline. Without full PulseChain transaction history, cost‑basis and P&L on PulseChain holdings may be underestimated or missing.
+Price feeds & asset metadata – Current price and liquidity data come mainly from PulseX subgraphs. There is no unified price‑feed service, which means tokens without sufficient liquidity on PulseX may have inaccurate valuations. Token metadata (decimals, symbols) is pulled indirectly via subgraph results or RPC calls rather than a dedicated registry.
+RPC performance – The useLiquidityPositions hook uses batch RPC calls but still makes numerous calls for each token/pair. For large portfolios, this can be slow. There is limited caching or prefetching of token balances and LP positions.
+Cross‑chain bridging detection – While buildInvestmentRows handles bridging from Ethereum/Base to PulseChain, there is no automatic ingestion of bridging transactions (e.g., from bridges like the official PulseChain bridge). Users might have to manually tag bridging transactions or import CSVs.
+Risk & diversification analytics – The ProfitPlanner includes basic concentration metrics, but the wallet analyzer could provide deeper insights such as volatility, correlation, drawdowns, Sharpe ratio, or comparisons to benchmark indices.
+Behavioural analysis & benchmarking – There is no analysis of trading behaviour (e.g., holding period, win rate, realized vs. unrealized gains) or benchmarks against market indexes (PLS price, PLSX index).
+Scalability & modularity – Data fetching functions are scattered across hooks and util files; there is no unified data‑access layer that can fetch balances, prices, transactions and LP positions from multiple chains in a consistent way.
+3. Recommendations for data‑fetching improvements
+
+Below are actionable steps to improve data retrieval and prepare for a full Portfolio Performance Analytics and Wallet Analyzer on PulseChain:
+
+3.1 Consolidate data sources
+Implement a unified data‑access service that abstracts network calls across PulseChain, Ethereum, Base and other chains. This service should:
+Provide functions like getTokenBalances(address, chain), getTransactions(address, chain, startBlock?), getLPPositions(address, chain), and getPrices(tokenAddress, chain).
+Use batch RPC for eth_call requests and GraphQL queries for subgraphs. Where possible, run queries through providers with high rate limits.
+Cache token metadata (decimals, symbol, name) in memory or local storage to avoid repeated on‑chain lookups.
+Switch to aggregated price feeds for valuations. For tokens with deep liquidity on PulseX, continue to use subgraph reserves. For others, integrate with oracles or third‑party aggregators (e.g., LlamaNodes
+ or [CoinGecko’s API]) to fetch USD prices for PulseChain tokens. This ensures valuations for small‑cap tokens and cross‑chain assets.
+3.2 Improve historical transaction ingestion
+Add PulseChain transaction retrieval: use getTransactions to fetch the full transaction history (including contract interactions, swaps, staking, bridging) for each wallet. You can use [PulseChain’s public RPC endpoints] and parse logs or call GraphQL on the PulseX subgraph to reconstruct swap details.
+Automate bridge detection: integrate with the PulseChain bridge API or parse known bridge contract events to mark bridging transactions and record the token/chain flows. This would remove the need for manual route mixing.
+Include staking & farming data: fetch HEX staking positions or other DeFi protocols (e.g., validators, liquid staking) to incorporate yield and reward flows into cost‑basis and P&L.
+3.3 Optimise RPC performance
+Parallelise batch requests: the current batchRPC sends requests sequentially. Use concurrency or chunking to send multiple batches in parallel for large portfolios.
+Memoize results: when the same contract calls are repeated (e.g., totalSupply for LP tokens), cache them for a short period. This reduces duplicate network hits.
+Pre‑fetch commonly used data (e.g., token balances) once on page load and share across components via context or a global store. This avoids repeated hooks hitting the RPC.
+3.4 Create portfolio analytics endpoints
+Time‑series performance: build a service that, given a wallet’s transaction history and price data, computes daily portfolio value, cost basis, and P&L. Use this to generate charts for cumulative return, daily ROI and drawdowns.
+Risk & diversification: compute metrics such as asset allocation by token/sector/chain, volatility of each holding, correlation matrix and diversification score. Flag high concentration or illiquid positions.
+Behavioural statistics: analyze trading patterns (average holding period, realized gains vs. unrealized, trade frequency) to generate a wallet scorecard.
+Benchmark comparison: compare the wallet’s performance to benchmarks (PLS price, PLSX index, or major crypto indices) to show relative returns.
+4. Recommendations for the Wallet Analyzer UI
+Interactive dashboards – Provide a dedicated “Wallet Analyzer” page that summarises the portfolio’s health. Include charts for performance over time, asset allocation treemaps, and risk metrics.
+Drill‑down on tokens – For each asset, show cost basis, current value, realized/unrealized P&L, time held, trade history, liquidity profile, and price volatility. Use the existing TokenPnLCard component as a foundation but extend it to include volatility and risk.
+Recommendations & alerts – Use the ProfitPlanner logic to recommend profit‑taking, rebalancing, or diversification actions; send alerts when positions exceed concentration thresholds or when large price movements occur.
+Cross‑chain view – Summarize holdings across Ethereum/Base/PulseChain, clearly indicating the chain for each asset. Provide route details for bridged assets so users understand how their capital moved across chains.
+Exportable reports – Allow users to export transaction history, cost‑basis calculations and P&L for tax reporting.
+5. Implementation roadmap
+Phase 1 – Data layer refactor
+Create a unified data‑access module with functions for balances, transactions, LP positions and prices.
+Set up caching and concurrency improvements in RPC calls.
+Integrate a price‑feed aggregator.
+Phase 2 – PulseChain transaction ingestion
+Implement transaction fetching for PulseChain wallets and bridging detection.
+Extend the existing buildInvestmentRows logic to process PulseChain swaps, staking and bridging events.
+Phase 3 – Analytics engine
+Build time‑series performance computation (daily NAV, P&L, returns).
+Implement risk and diversification metrics.
+Develop behavioural and benchmark analytics.
+Phase 4 – Wallet Analyzer UI
+Design the “Wallet Analyzer” page with dashboards and interactive charts.
+Integrate performance, risk and behavioural stats.
+Provide export options and alerts.
+
+By executing this roadmap, Pulseport can evolve from a basic portfolio tracker into a comprehensive Portfolio Performance Analytics and Wallet Analyzer for PulseChain and other chains. The improvements focus on accurate data ingestion, scalable fetching, deeper analytics and user‑friendly visualisation.
+
+In summary, the repo already supports cost‑basis and P&L calculations by ingesting Ethereum/Base transactions and computing source attribution, but it lacks comprehensive support for PulseChain data. To build a full Portfolio Performance Analytics and Wallet Analyzer, the report recommends (1) creating a unified data‑access layer for balances, transactions and prices across chains, (2) integrating price‑feed aggregators and caching for faster and more reliable valuations, (3) ingesting full PulseChain transaction history and bridge events to maintain accurate cost basis, (4) computing time‑series performance, risk and diversification metrics, and (5) implementing an interactive dashboard that visualizes these analytics and provides actionable recommendations.
