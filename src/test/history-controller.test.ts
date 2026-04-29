@@ -118,7 +118,7 @@ describe('useHistoryController', () => {
 
     expect(result.current.txTypeFilter).toBe('swap');
     expect(result.current.txAssetFilter).toBe('all');
-    expect(result.current.txChainFilter).toBe('pulsechain');
+    expect(result.current.txChainFilter).toBe('all');
     expect(result.current.txBridgeProtocolFilter).toBe('all');
     expect(result.current.txOriginChainFilter).toBe('all');
   });

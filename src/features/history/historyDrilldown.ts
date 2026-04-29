@@ -48,7 +48,7 @@ export const DEFAULT_HISTORY_FILTER_STATE: HistoryFilterState = {
   txAssetFilter: 'all',
   txYearFilter: 'all',
   txCoinCategory: 'all',
-  txChainFilter: 'pulsechain',
+  txChainFilter: 'all',
   txBridgeProtocolFilter: 'all',
   txOriginChainFilter: 'all',
   txStakingActionFilter: 'all',
