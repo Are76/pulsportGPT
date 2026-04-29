@@ -1,10 +1,9 @@
 import { TOKENS } from '../../constants';
 import type { Chain, PriceQuote } from '../../types';
 import { resolvePriceQuotes } from '../priceService';
+import { FETCH_TIMEOUT } from './rpcUtils';
 
 type FetchLike = typeof fetch;
-
-const FETCH_TIMEOUT = 10_000;
 
 async function fetchCoinGeckoPriceMap(
   coinGeckoIds: string[],

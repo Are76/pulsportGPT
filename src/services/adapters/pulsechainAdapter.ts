@@ -2,6 +2,14 @@ import { formatUnits } from 'viem';
 import { PULSEX_LP_PAIRS, TOKENS } from '../../constants';
 import type { LpPositionEnriched, PriceQuote, TokenBalance } from '../../types';
 import { resolvePriceQuotes } from '../priceService';
+import {
+  batchRpcCall,
+  FETCH_TIMEOUT,
+  padAddress,
+  parseBigIntResult,
+  type RpcBatchRequest,
+  type RpcBatchResponse,
+} from './rpcUtils';
 
 export interface PulsechainTokenSearchResult {
   id: string;
@@ -24,7 +32,6 @@ export interface PulsechainTokenSearchResult {
 
 const WPLS_ADDRESS = '0xa1077a294dde1b09bb078844df40758a5d0f9a27';
 const MIN_WPLS_RESERVE = 10_000_000;
-const FETCH_TIMEOUT = 10_000;
 const PRIMARY_RPC = 'https://rpc-pulsechain.g4mm4.io';
 const FALLBACK_RPC = 'https://rpc.pulsechain.com';
 const MASTERCHEF = '0xb2ca4a66d3e57a5a9a12043b6bad28249fe302d4';
@@ -120,18 +127,6 @@ interface PulsechainSubgraphResponse {
   errors?: Array<{ message: string }>;
 }
 
-interface RpcBatchResponse {
-  id: number;
-  result?: string;
-}
-
-interface RpcBatchRequest {
-  jsonrpc: '2.0';
-  id: number;
-  method: 'eth_call' | 'eth_getBalance';
-  params: unknown[];
-}
-
 function buildTokenSearchQuery(term: string): string {
   const escapedTerm = term.replace(/[\\'"]/g, '\\$&');
 
@@ -159,10 +154,6 @@ function buildTokenSearchQuery(term: string): string {
   });
 }
 
-function padAddress(addr: string): string {
-  return addr.replace('0x', '').padStart(64, '0');
-}
-
 function padUint256(n: number | bigint): string {
   return BigInt(n).toString(16).padStart(64, '0');
 }
@@ -177,23 +168,10 @@ async function batchRPC(
     method: 'eth_call',
     params: [{ to: c.to, data: c.data }, 'latest'],
   }));
-  const json = await batchRpcRequest(body, rpc);
+  const json = await batchRpcCall(body, rpc, fetch);
   return [...json]
     .sort((a, b) => a.id - b.id)
-    .map(r => r.result ?? '0x');
-}
-
-async function batchRpcRequest(
-  body: RpcBatchRequest[],
-  rpc: string,
-): Promise<RpcBatchResponse[]> {
-  const res = await fetch(rpc, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT),
-  });
-  return res.json();
+    .map((r: RpcBatchResponse) => r.result ?? '0x');
 }
 
 async function batchRPCWithFallback(
@@ -303,11 +281,6 @@ function parseReservePair(hex: string | undefined): [number, number] {
     Number(BigInt(`0x${normalized.slice(0, 64)}`)),
     Number(BigInt(`0x${normalized.slice(64, 128)}`)),
   ];
-}
-
-function parseBigIntResult(hex: string | undefined): bigint {
-  const normalized = (hex ?? '0x0').replace('0x', '') || '0';
-  return BigInt(`0x${normalized}`);
 }
 
 function setDerivedPrice(
@@ -819,7 +792,7 @@ export async function getPulsechainTokenBalances(address: string): Promise<Token
       })),
   ];
 
-  const responses = await batchRpcRequest(requests, PRIMARY_RPC).catch(() => batchRpcRequest(requests, FALLBACK_RPC));
+  const responses = await batchRpcCall(requests, PRIMARY_RPC, fetch).catch(() => batchRpcCall(requests, FALLBACK_RPC, fetch));
   const resultsById = responses.reduce<Record<number, string>>((acc, response) => {
     acc[response.id] = response.result ?? '0x';
     return acc;
