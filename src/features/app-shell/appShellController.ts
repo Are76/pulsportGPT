@@ -8,6 +8,7 @@ import {
   PieChart as PieChartIcon,
   Zap,
 } from 'lucide-react';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 
 export type ActiveTab =
   | 'home'
@@ -43,7 +44,7 @@ export const ACTIVE_TABS: ActiveTab[] = [
   'bridge',
 ];
 
-export const ACTIVE_TAB_STORAGE_KEY = 'pulseport_active_tab';
+export const ACTIVE_TAB_STORAGE_KEY = STORAGE_KEYS.ACTIVE_TAB;
 
 const MOBILE_PRIMARY_TAB_IDS: ActiveTab[] = ['home', 'overview', 'wallet-analyzer'];
 
