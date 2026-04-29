@@ -28,6 +28,10 @@
     "node_modules",
     "vendor",
     "dist",
-    ".github/prompts"
+    ".github/prompts",
+    "api/server.ts",
+    "api/db",
+    "api/routes",
+    "api/middleware"
   ]
 }
