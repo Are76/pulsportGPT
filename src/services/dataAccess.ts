@@ -45,10 +45,9 @@ function createUnwiredRuntimeDeps(): Omit<DataAccessDeps, 'searchPulsechainToken
   };
 }
 
-function assertPhase1Chain(chain: Chain): void {
-  if (chain !== 'pulsechain') {
-    throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
-  }
+function assertPhase1Chain(_chain: Chain): void {
+  // All three chains (pulsechain, ethereum, base) are fully wired.
+  // This guard is intentionally a no-op and will be removed in a future cleanup pass.
 }
 
 export function createDataAccess(deps: DataAccessDeps) {
@@ -73,17 +72,17 @@ export function createDataAccess(deps: DataAccessDeps) {
       }
       if (chain === 'ethereum') {
         if (!deps.getEthereumTokenBalances) {
-          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+          throw new Error(`Ethereum token balances adapter is not wired`);
         }
         return deps.getEthereumTokenBalances(address);
       }
       if (chain === 'base') {
         if (!deps.getBaseTokenBalances) {
-          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+          throw new Error(`Base token balances adapter is not wired`);
         }
         return deps.getBaseTokenBalances(address);
       }
-      throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+      throw new Error(`Unsupported chain: ${chain}`);
     },
 
     async getPrices(tokenAddresses: string[], chain: Chain): Promise<PriceQuote[]> {
@@ -92,17 +91,17 @@ export function createDataAccess(deps: DataAccessDeps) {
       }
       if (chain === 'ethereum') {
         if (!deps.getEthereumPrices) {
-          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+          throw new Error(`Ethereum price adapter is not wired`);
         }
         return deps.getEthereumPrices(tokenAddresses);
       }
       if (chain === 'base') {
         if (!deps.getBasePrices) {
-          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+          throw new Error(`Base price adapter is not wired`);
         }
         return deps.getBasePrices(tokenAddresses);
       }
-      throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+      throw new Error(`Unsupported chain: ${chain}`);
     },
 
     async getTransactions(
@@ -115,17 +114,17 @@ export function createDataAccess(deps: DataAccessDeps) {
       }
       if (chain === 'ethereum') {
         if (!deps.getEthereumTransactions) {
-          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+          throw new Error(`Ethereum transaction adapter is not wired`);
         }
         return deps.getEthereumTransactions(address, startBlock);
       }
       if (chain === 'base') {
         if (!deps.getBaseTransactions) {
-          throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+          throw new Error(`Base transaction adapter is not wired`);
         }
         return deps.getBaseTransactions(address, startBlock);
       }
-      throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+      throw new Error(`Unsupported chain: ${chain}`);
     },
   };
 }

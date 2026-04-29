@@ -23,6 +23,8 @@ export interface Asset {
   priceChange7d?: number;
   isCore?: boolean;
   isBridged?: boolean;
+  isSpam?: boolean;
+  wrappedBalance?: number;
   entryPls?: number;
 }
 

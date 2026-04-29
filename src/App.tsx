@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Wallet as WalletIcon,
   Coins,
@@ -58,9 +58,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import PulseChainCommunityPage from './components/PulseChainCommunityPage';
 import BridgeDashboardPage from './components/BridgeDashboardPage';
 import { format } from 'date-fns';
-import { createPublicClient, http, getAddress } from 'viem';
+import { getAddress } from 'viem';
 import { cn } from './lib/utils';
-import { CHAINS, HEX_ABI, TOKENS, PULSEX_LP_PAIRS, PHEX_YIELD_PER_TSHARE, EHEX_YIELD_PER_TSHARE, PHEX_YIELD_BI_NUM, PHEX_YIELD_BI_DEN, EHEX_YIELD_BI_NUM, EHEX_YIELD_BI_DEN, FALLBACK_DESCRIPTIONS } from './constants';
+import { CHAINS, TOKENS, PULSEX_LP_PAIRS, PHEX_YIELD_PER_TSHARE, EHEX_YIELD_PER_TSHARE, PHEX_YIELD_BI_NUM, PHEX_YIELD_BI_DEN, EHEX_YIELD_BI_NUM, EHEX_YIELD_BI_DEN, FALLBACK_DESCRIPTIONS } from './constants';
+import { STORAGE_KEYS } from './constants/storageKeys';
 import type { Asset, Wallet, Chain, HexStake, LpPosition, FarmPosition, HistoryPoint, Transaction } from './types';
 import { LiquidityOverviewStrip, LiquiditySection } from './components/LiquiditySection';
 import { PnLModal } from './components/PnLModal';
@@ -73,9 +74,12 @@ import { HoldingsTable } from './components/HoldingsTable';
 import type { HoldingDisplayAsset, HoldingSortField } from './components/HoldingsTable';
 import { CoinList, type CoinListItem } from './components/CoinList';
 import { PulseBoardFeed } from './components/PulseBoardFeed';
+import { StakingLadder } from './components/StakingLadder';
+import { StakingPie } from './components/StakingPie';
 import { normalizeTransactions } from './utils/normalizeTransactions';
 import { buildInvestmentRows } from './utils/buildInvestmentRows';
 import { scheduleLocalStorageWrite, resolveBlockscoutBase } from './utils/localStorageDebounce';
+import { fmtBigNum, fmtDec, fmtTok, fmtCompact, fmtPrice, fmtMarket } from './utils/format';
 import { dataAccess } from './services/dataAccess';
 import { buildTransactionExportRows, buildTransactionExportJson } from './utils/transactionExport';
 import { BRAND_ASSETS } from './branding/brand-assets';
@@ -99,71 +103,13 @@ import { MyInvestmentsPage } from './pages/MyInvestmentsPage';
 import { WalletAnalyzerPage } from './pages/WalletAnalyzer';
 import { buildWalletAnalyzerModel } from './utils/buildWalletAnalyzerModel';
 import { MyInvestmentsUtilityStrip } from './components/my-investments/MyInvestmentsUtilityStrip';
+import { MOCK_ASSETS, MOCK_HISTORY, MOCK_STAKES, MOCK_TRANSACTIONS } from './fixtures/mockData';
 
-const ERC20_ABI = [
-  {
-    "constant": true,
-    "inputs": [{ "name": "_owner", "type": "address" }],
-    "name": "balanceOf",
-    "outputs": [{ "name": "balance", "type": "uint256" }],
-    "type": "function"
-  }
-] as const;
 
-// Mock data for demonstration when no wallets are added
-const MOCK_ASSETS: Asset[] = [
-  { id: 'pls', symbol: 'PLS', name: 'PulseChain', balance: 1250000, price: 0.000065, value: 81.25, chain: 'pulsechain', pnl24h: 5.4 },
-  { id: 'plsx', symbol: 'PLSX', name: 'PulseX', balance: 5000000, price: 0.000032, value: 160, chain: 'pulsechain', pnl24h: -2.1 },
-  { id: 'ehex', symbol: 'eHEX', name: 'HEX (from Ethereum)', balance: 250000, price: 0.004, value: 1000, chain: 'pulsechain', pnl24h: 8.2 },
-  { id: 'pdai', symbol: 'pDAI', name: 'DAI (System Copy)', balance: 10000, price: 0.00189, value: 18.9, chain: 'pulsechain', pnl24h: -1.5 },
-  { id: 'inc', symbol: 'INC', name: 'Incentive', balance: 50, price: 5.20, value: 260, chain: 'pulsechain', pnl24h: 12.4 },
-  { id: 'prvx', symbol: 'PRVX', name: 'PrivacyX', balance: 1000, price: 0.15, value: 150, chain: 'pulsechain', pnl24h: 0 },
-  { id: 'eth', symbol: 'ETH', name: 'Ethereum', balance: 1.5, price: 3450, value: 5175, chain: 'ethereum', pnl24h: 1.2 },
-  { id: 'hex-p', symbol: 'HEX', name: 'HEX (PulseChain)', balance: 100000, price: 0.004, value: 400, chain: 'pulsechain', pnl24h: 12.5 },
-  { id: 'hex-e', symbol: 'HEX', name: 'HEX (Ethereum)', balance: 50000, price: 0.0035, value: 175, chain: 'ethereum', pnl24h: -0.5 },
-  { id: 'usdc-b', symbol: 'USDC', name: 'USD Coin (Base)', balance: 2500, price: 1, value: 2500, chain: 'base', pnl24h: 0.01 },
-];
-
-const MOCK_STAKES: HexStake[] = [
-  { id: 'mock-1', stakeId: 1, stakedHearts: 100000000000n, stakeShares: 5000000000000n, lockedDay: 1500, stakedDays: 365, unlockedDay: 1865, isAutoStake: false, progress: 45, estimatedValueUsd: 1200, chain: 'pulsechain' },
-  { id: 'mock-2', stakeId: 2, stakedHearts: 500000000000n, stakeShares: 25000000000000n, lockedDay: 1200, stakedDays: 5555, unlockedDay: 6755, isAutoStake: false, progress: 12, estimatedValueUsd: 8500, chain: 'ethereum' },
-];
-
-const MOCK_HISTORY: HistoryPoint[] = Array.from({ length: 30 }, (_, i) => {
-  const date = new Date();
-  date.setDate(date.getDate() - (29 - i));
-  const baseValue = 8000;
-  const randomFluc = Math.sin(i * 0.5) * 500 + (Math.random() * 200);
-  const value = baseValue + randomFluc + (i * 50);
-
-  // Mock chain PNLs
-  const chainPnl: Record<Chain, number> = {
-    pulsechain: randomFluc * 0.6 + (Math.random() * 100 - 50),
-    ethereum: randomFluc * 0.3 + (Math.random() * 100 - 50),
-    base: randomFluc * 0.1 + (Math.random() * 50 - 25)
-  };
-
-  return {
-    timestamp: date.getTime(),
-    value: value,
-    nativeValue: value / 0.000065,
-    pnl: randomFluc,
-    chainPnl: chainPnl
-  };
-});
-
-const MOCK_WALLET = '0xdemo0000000000000000000000000000000001';
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: 'm1', hash: '0x123...', timestamp: Date.now() - 86400000 * 2, type: 'deposit', from: '0xabc...', to: MOCK_WALLET, asset: 'ETH', amount: 1.5, chain: 'ethereum', valueUsd: 5175 },
-  { id: 'm2', hash: '0x456...', timestamp: Date.now() - 86400000 * 5, type: 'deposit', from: '0xdef...', to: MOCK_WALLET, asset: 'USDC', amount: 2500, chain: 'base', valueUsd: 2500 },
-  { id: 'm-bridge-1', hash: '0xb1d9e001...', timestamp: Date.now() - 86400000 * 1.25, type: 'deposit', from: '0xbridge...', to: MOCK_WALLET, asset: 'DAI (from Ethereum)', amount: 1250, chain: 'pulsechain', valueUsd: 1248.5, bridged: true, status: 'Confirmed' },
-  { id: 'm-bridge-2', hash: '0xb1d9e002...', timestamp: Date.now() - 86400000 * 6.5, type: 'deposit', from: '0xbridge...', to: MOCK_WALLET, asset: 'WETH (from Ethereum)', amount: 0.42, chain: 'pulsechain', valueUsd: 1449, bridged: true, status: 'Confirmed' },
-  { id: 'm3', hash: '0x789...', timestamp: Date.now() - 86400000 * 10, type: 'swap', from: MOCK_WALLET, to: MOCK_WALLET, asset: 'ETH', amount: 0.5, chain: 'ethereum', valueUsd: 1725, counterAsset: 'USDC', counterAmount: 1725 },
-  { id: 'm4', hash: '0xabc...', timestamp: Date.now() - 86400000 * 15, type: 'deposit', from: '0xghi...', to: MOCK_WALLET, asset: 'ETH', amount: 2.0, chain: 'ethereum', valueUsd: 6800 },
-  { id: 'm5', hash: '0xdef...', timestamp: Date.now() - 86400000 * 20, type: 'deposit', from: '0xjkl...', to: MOCK_WALLET, asset: 'USDC', amount: 5000, chain: 'ethereum', valueUsd: 5000 },
-  { id: 'm6', hash: '0x000...', timestamp: Date.now() - 86400000 * 1, type: 'deposit', from: '0x000...', to: MOCK_WALLET, asset: 'USDC', amount: 1000, chain: 'ethereum', valueUsd: 1000 },
-  { id: 'm7', hash: '0x999...', timestamp: Date.now() - 86400000 * 0.5, type: 'deposit', from: '0x123...', to: MOCK_WALLET, asset: 'USDC', amount: 25000, chain: 'ethereum', valueUsd: 25000 },
-];
+// Address constants used for eHEX price lookup.
+// These are kept here (not in constants.ts) as they are only used in this file.
+const ETH_HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
+const EHEX_PULSECHAIN_ADDR = '0x57fde0a71132198bbec939b98976993d8d89d225';
 
 const PriceDisplay = ({ price, className }: { price: number, className?: string }) => {
   if (price === 0) return <span className={className}>$0.00</span>;
@@ -465,10 +411,6 @@ const STATIC_LOGOS: Record<string, string> = {
   '0x6b175474e89094c44da98b954eedeac495271d0f': 'https://tokens.app.pulsex.com/images/tokens/0x6B175474E89094C44Da98b954EedeAC495271d0F.png', // pDAI system copy (fork of Ethereum DAI) - prevents CoinGecko golden-coin from replacing this on reload
 };
 
-// Bridged HEX (eHEX) on PulseChain - no on-chain WPLS LP, falls back to CoinGecko 'hex'
-const EHEX_PULSECHAIN_ADDR = '0x57fde0a71132198bbec939b98976993d8d89d225';
-const ETH_HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
-
 const normalizeAssetSymbol = (symbol: string, chain?: string): string => {
   const upper = (symbol || '').toUpperCase();
   return chain === 'pulsechain' && upper === 'WPLS' ? 'PLS' : upper;
@@ -486,12 +428,6 @@ type FrontMarketPeriod = '5m' | '1h' | '6h' | '24h' | '7d';
 const FRONT_MARKET_PERIODS: FrontMarketPeriod[] = ['5m', '1h', '6h', '24h', '7d'];
 
 export default function App() {
-  // -- Formatting helpers (defined once here, used throughout) ----------------
-  const fmtBigNum = (n: number) => Math.round(n).toLocaleString('en-US').replace(/,/g, ' ');
-  const fmtDec = (n: number, dp = 2) => n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
-  const fmtTok = (n: number) => n > 1e6 ? `${(n/1e6).toFixed(2)}M` : n > 1000 ? `${(n/1000).toFixed(2)}K` : n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-  const fmtCompact = (n: number) => n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-
   // -- CSV Export helper ------------------------------------------------------
   const exportCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
     const escCell = (c: string | number) => {
@@ -506,14 +442,14 @@ export default function App() {
   };
 
   const [wallets, setWallets] = useState<Wallet[]>(() => {
-    return readStoredJSON<Wallet[]>('pulseport_wallets', []);
+    return readStoredJSON<Wallet[]>(STORAGE_KEYS.WALLETS, []);
   });
-  const [realAssets, setRealAssets] = useState<Asset[]>(() => tryReadCache<Asset[]>('pulseport_cache_assets') ?? []);
-  const [realStakes, setRealStakes] = useState<HexStake[]>(() => tryReadCache<HexStake[]>('pulseport_cache_stakes', true) ?? []);
-  const [lpPositions, setLpPositions] = useState<LpPosition[]>(() => tryReadCache<LpPosition[]>('pulseport_cache_lp') ?? []);
-  const [farmPositions, setFarmPositions] = useState<FarmPosition[]>(() => tryReadCache<FarmPosition[]>('pulseport_cache_farms') ?? []);
-  const [transactions, setTransactions] = useState<Transaction[]>(() => tryReadCache<Transaction[]>('pulseport_cache_txs') ?? []);
-  const [history, setHistory] = useState<HistoryPoint[]>(() => readStoredJSON<HistoryPoint[]>('pulseport_history', []));
+  const [realAssets, setRealAssets] = useState<Asset[]>(() => tryReadCache<Asset[]>(STORAGE_KEYS.CACHE_ASSETS) ?? []);
+  const [realStakes, setRealStakes] = useState<HexStake[]>(() => tryReadCache<HexStake[]>(STORAGE_KEYS.CACHE_STAKES, true) ?? []);
+  const [lpPositions, setLpPositions] = useState<LpPosition[]>(() => tryReadCache<LpPosition[]>(STORAGE_KEYS.CACHE_LP) ?? []);
+  const [farmPositions, setFarmPositions] = useState<FarmPosition[]>(() => tryReadCache<FarmPosition[]>(STORAGE_KEYS.CACHE_FARMS) ?? []);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => tryReadCache<Transaction[]>(STORAGE_KEYS.CACHE_TXS) ?? []);
+  const [history, setHistory] = useState<HistoryPoint[]>(() => readStoredJSON<HistoryPoint[]>(STORAGE_KEYS.HISTORY, []));
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [newWalletName, setNewWalletName] = useState('');
   const [walletFormError, setWalletFormError] = useState('');
@@ -521,11 +457,11 @@ export default function App() {
   const [editingWalletAddress, setEditingWalletAddress] = useState<string | null>(null);
   const [editWalletName, setEditWalletName] = useState('');
   const [isCustomCoinsModalOpen, setIsCustomCoinsModalOpen] = useState(false);
-  const [customCoins, setCustomCoins] = useState<any[]>(() => readStoredJSON<any[]>('custom_coins', []));
+  const [customCoins, setCustomCoins] = useState<any[]>(() => readStoredJSON<any[]>(STORAGE_KEYS.CUSTOM_COINS, []));
   const [customCoinDraft, setCustomCoinDraft] = useState({ symbol: '', name: '', balance: '', price: '' });
 
   useEffect(() => {
-    localStorage.setItem('custom_coins', JSON.stringify(customCoins));
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_COINS, JSON.stringify(customCoins));
   }, [customCoins]);
 
   const addCustomCoin = (coin: any) => {
@@ -555,7 +491,7 @@ export default function App() {
   const isFetchingRef = useRef(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>(readStoredActiveTab);
   const [selectedWalletAddr, setSelectedWalletAddr] = useState<string>('all');
-  const [walletAssets, setWalletAssets] = useState<Record<string, Asset[]>>(() => tryReadCache<Record<string, Asset[]>>('pulseport_cache_wallet_assets') ?? {});
+  const [walletAssets, setWalletAssets] = useState<Record<string, Asset[]>>(() => tryReadCache<Record<string, Asset[]>>(STORAGE_KEYS.CACHE_WALLET_ASSETS) ?? {});
   const [walletChainFilter, setWalletChainFilter] = useState<'all' | 'pulsechain' | 'ethereum' | 'base'>('all');
   const [overviewChainFilter, setOverviewChainFilter] = useState<'all' | 'pulsechain' | 'ethereum' | 'base'>('all');
   const [overviewTokenSearch, setOverviewTokenSearch] = useState<string>('');
@@ -566,14 +502,14 @@ export default function App() {
   const [receivedCoinFilter, setReceivedCoinFilter] = useState<string>('all');
   const [receivedChainFilter, setReceivedChainFilter] = useState<string>('all');
   const [timeSinceLastUpdate, setTimeSinceLastUpdate] = useState<number>(0);
-  const [manualEntries, setManualEntries] = useState<Record<string, number>>(() => readStoredJSON<Record<string, number>>('pulseport_manual_entries', {}));
-  const [prices, setPrices] = useState<Record<string, any>>(() => tryReadCache<Record<string, any>>('pulseport_cache_prices') ?? {});
-  const [etherscanApiKey, setEtherscanApiKey] = useState<string>(() => localStorage.getItem('pulseport_etherscan_key') || '');
+  const [manualEntries, setManualEntries] = useState<Record<string, number>>(() => readStoredJSON<Record<string, number>>(STORAGE_KEYS.MANUAL_ENTRIES, {}));
+  const [prices, setPrices] = useState<Record<string, any>>(() => tryReadCache<Record<string, any>>(STORAGE_KEYS.CACHE_PRICES) ?? {});
+  const [etherscanApiKey, setEtherscanApiKey] = useState<string>(() => localStorage.getItem(STORAGE_KEYS.ETHERSCAN_KEY) || '');
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
-  const [hideDust, setHideDust] = useState<boolean>(() => readStoredJSON<boolean>('pulseport_hide_dust', false));
+  const [hideDust, setHideDust] = useState<boolean>(() => readStoredJSON<boolean>(STORAGE_KEYS.HIDE_DUST, false));
   const [hiddenTokens, setHiddenTokens] = useState<string[]>(() => {
-    return readStoredJSON<string[]>('pulseport_hidden_tokens', []);
+    return readStoredJSON<string[]>(STORAGE_KEYS.HIDDEN_TOKENS, []);
   });
   const [showHiddenCoins, setShowHiddenCoins] = useState(false);
   const [coinVisibilityMenuOpen, setCoinVisibilityMenuOpen] = useState(false);
@@ -586,7 +522,7 @@ export default function App() {
   const [tokenLogos, setTokenLogos] = useState<Record<string, string>>(STATIC_LOGOS);
   const [stakeChainFilter, setStakeChainFilter] = useState<'all' | 'pulsechain' | 'ethereum'>('all');
   const [yieldUnit, setYieldUnit] = useState<'hex' | 'usd'>(() => {
-    return (localStorage.getItem('pulseport_yield_unit') as 'hex' | 'usd') || 'usd';
+    return (localStorage.getItem(STORAGE_KEYS.YIELD_UNIT) as 'hex' | 'usd') || 'usd';
   });
   const [expandedStakeIds, setExpandedStakeIds] = useState<Set<string>>(new Set());
   const [expandedAssetIds, setExpandedAssetIds] = useState<Set<string>>(new Set());
@@ -605,18 +541,18 @@ export default function App() {
     return format(ts, 'MMM yy');
   };
   const [hiddenTxIds, setHiddenTxIds] = useState<string[]>(() => {
-    return readStoredJSON<string[]>('pulseport_hidden_txs', []);
+    return readStoredJSON<string[]>(STORAGE_KEYS.HIDDEN_TXS, []);
   });
   const [showHiddenTxs, setShowHiddenTxs] = useState(false);
   const [showReceivedAssets, setShowReceivedAssets] = useState(true);
   const [showRecentActivity, setShowRecentActivity] = useState(true);
-  const [hideSpam, setHideSpam] = useState<boolean>(() => readStoredJSON<boolean>('pulseport_hide_spam', true));
+  const [hideSpam, setHideSpam] = useState<boolean>(() => readStoredJSON<boolean>(STORAGE_KEYS.HIDE_SPAM, true));
   const [spamTokenIds, setSpamTokenIds] = useState<string[]>(() => {
-    return readStoredJSON<string[]>('pulseport_spam_tokens', []);
+    return readStoredJSON<string[]>(STORAGE_KEYS.SPAM_TOKENS, []);
   });
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<number | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => readStoredJSON<Record<string, boolean>>('pulseport_collapsed', {}));
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => readStoredJSON<Record<string, boolean>>(STORAGE_KEYS.COLLAPSED_SECTIONS, {}));
   const [tokenMarketData, setTokenMarketData] = useState<Record<string, any>>({});
   const [tokenCardModal, setTokenCardModal] = useState<Asset | null>(null);
   const [tokenCardModalLoading, setTokenCardModalLoading] = useState(false);
@@ -625,7 +561,7 @@ export default function App() {
   const [homeSearch, setHomeSearch] = useState('');
   const [expandedWalletAssetIds, setExpandedWalletAssetIds] = useState<Set<string>>(new Set());
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const saved = localStorage.getItem('pulseport_theme');
+    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
     return (saved === 'light') ? 'light' : 'dark';
   });
 
@@ -645,7 +581,7 @@ export default function App() {
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('pulseport_theme', theme);
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
   }, [theme]);
 
   // Prevent background scroll when the mobile sidebar drawer is open.
@@ -697,7 +633,7 @@ export default function App() {
   }), [theme]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_collapsed', JSON.stringify(collapsedSections));
+    scheduleLocalStorageWrite(STORAGE_KEYS.COLLAPSED_SECTIONS, JSON.stringify(collapsedSections));
   }, [collapsedSections]);
 
   const toggleSection = (id: string) => setCollapsedSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -708,68 +644,68 @@ export default function App() {
   // with large JSON.stringify + localStorage.setItem calls on every tick.
   useEffect(() => {
     if (realAssets.length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_assets', JSON.stringify(realAssets));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_ASSETS, JSON.stringify(realAssets));
     }
   }, [realAssets]);
 
   useEffect(() => {
     if (realStakes.length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_stakes', JSON.stringify(realStakes, bigIntReplacer));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_STAKES, JSON.stringify(realStakes, bigIntReplacer));
     }
   }, [realStakes]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_cache_lp', JSON.stringify(lpPositions));
+    scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_LP, JSON.stringify(lpPositions));
   }, [lpPositions]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_cache_farms', JSON.stringify(farmPositions));
+    scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_FARMS, JSON.stringify(farmPositions));
   }, [farmPositions]);
 
   useEffect(() => {
     if (transactions.length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_txs', JSON.stringify(transactions.slice(0, 200)));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_TXS, JSON.stringify(transactions.slice(0, 200)));
     }
   }, [transactions]);
 
   useEffect(() => {
     if (Object.keys(walletAssets).length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_wallet_assets', JSON.stringify(walletAssets));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_WALLET_ASSETS, JSON.stringify(walletAssets));
     }
   }, [walletAssets]);
 
   useEffect(() => {
     if (Object.keys(prices).length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_prices', JSON.stringify(prices));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_PRICES, JSON.stringify(prices));
     }
   }, [prices]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hide_dust', JSON.stringify(hideDust));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDE_DUST, JSON.stringify(hideDust));
   }, [hideDust]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hide_spam', JSON.stringify(hideSpam));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDE_SPAM, JSON.stringify(hideSpam));
   }, [hideSpam]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_spam_tokens', JSON.stringify(spamTokenIds));
+    scheduleLocalStorageWrite(STORAGE_KEYS.SPAM_TOKENS, JSON.stringify(spamTokenIds));
   }, [spamTokenIds]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hidden_tokens', JSON.stringify(hiddenTokens));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDDEN_TOKENS, JSON.stringify(hiddenTokens));
   }, [hiddenTokens]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hidden_txs', JSON.stringify(hiddenTxIds));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDDEN_TXS, JSON.stringify(hiddenTxIds));
   }, [hiddenTxIds]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_yield_unit', yieldUnit);
+    scheduleLocalStorageWrite(STORAGE_KEYS.YIELD_UNIT, yieldUnit);
   }, [yieldUnit]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_manual_entries', JSON.stringify(manualEntries));
+    scheduleLocalStorageWrite(STORAGE_KEYS.MANUAL_ENTRIES, JSON.stringify(manualEntries));
   }, [manualEntries]);
 
   useEffect(() => {
@@ -787,7 +723,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('pulseport_wallets', JSON.stringify(wallets));
+      localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
     } catch {}
   }, [wallets]);
 
@@ -805,10 +741,10 @@ export default function App() {
   }, [lastUpdated]);
 
   useEffect(() => {
-    localStorage.setItem('pulseport_history', JSON.stringify(history));
+    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
   }, [history]);
 
-  const fetchPortfolio = createPortfolioFetchController({
+  const fetchPortfolio = useCallback(createPortfolioFetchController({
     wallets,
     prices,
     history,
@@ -830,9 +766,9 @@ export default function App() {
     staticLogos: STATIC_LOGOS,
     ethHexAddress: ETH_HEX_ADDR,
     ehexPulsechainAddress: EHEX_PULSECHAIN_ADDR,
-    erc20Abi: ERC20_ABI,
     isNoContractDataError,
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [wallets, etherscanApiKey]);
 
   const addWallet = () => {
     const normalizedInput = newWalletAddress.trim();
@@ -1586,24 +1522,6 @@ export default function App() {
   };
 
   // -- RENDER ----------------------------------------------------------------
-
-  // Shared compact price formatter - used by both the header ticker and core-coins panel
-  const fmtPrice = (p: number) => {
-    if (p === 0) return '-';
-    if (p < 0.00001) return `$${p.toFixed(10)}`;
-    if (p < 0.001)   return `$${p.toFixed(8)}`;
-    if (p < 0.01)    return `$${p.toFixed(6)}`;
-    if (p < 1)       return `$${p.toFixed(4)}`;
-    return `$${p.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-  };
-
-  const fmtMarket = (v?: number | null) =>
-    v == null ? '-' :
-    v >= 1e12 ? `$${(v/1e12).toFixed(2)}T` :
-    v >= 1e9 ? `$${(v/1e9).toFixed(2)}B` :
-    v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` :
-    v >= 1e3 ? `$${(v/1e3).toFixed(1)}K` :
-    `$${v.toFixed(0)}`;
 
   const getFrontMarketChange = (marketData: any, priceData: any, asset?: Asset | null): number | null => {
     if (frontMarketPeriod === '5m') return marketData?.priceChange5m ?? null;
@@ -5413,8 +5331,8 @@ export default function App() {
                 <button type="button" onClick={() => {
                   const ethKey = apiKeyInput.trim();
                   setEtherscanApiKey(ethKey);
-                  if (ethKey) localStorage.setItem('pulseport_etherscan_key', ethKey);
-                  else localStorage.removeItem('pulseport_etherscan_key');
+                  if (ethKey) localStorage.setItem(STORAGE_KEYS.ETHERSCAN_KEY, ethKey);
+                  else localStorage.removeItem(STORAGE_KEYS.ETHERSCAN_KEY);
                   localStorage.removeItem('pulseport_basescan_key');
                   setIsApiKeyModalOpen(false);
                   setTimeout(fetchPortfolio, 100);

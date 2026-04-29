@@ -190,6 +190,20 @@ export const PULSEX_V2_PAIR_ABI = [
   }
 ] as const;
 
+/**
+ * Minimal ERC-20 ABI for `balanceOf` calls.
+ * Shared across all chains – import from here instead of defining inline.
+ */
+export const ERC20_ABI = [
+  {
+    "constant": true,
+    "inputs": [{ "name": "_owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "balance", "type": "uint256" }],
+    "type": "function",
+  },
+] as const;
+
 export const CHAINS = {
   ethereum: {
     id: 1,

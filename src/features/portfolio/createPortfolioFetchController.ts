@@ -1,8 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import { createPublicClient, fallback, formatUnits, getAddress, http } from 'viem';
-import { CHAINS, PULSEX_LP_PAIRS, TOKENS } from '../../constants';
+import { formatUnits, getAddress } from 'viem';
+import { CHAINS, ERC20_ABI, PULSEX_LP_PAIRS, TOKENS } from '../../constants';
+import { CHAIN_CLIENTS } from '../../lib/viemClients';
 import { dataAccess } from '../../services/dataAccess';
 import type { Asset, Chain, FarmPosition, HexStake, HistoryPoint, LpPosition, Transaction, Wallet } from '../../types';
+import { withRetry } from '../../utils/withRetry';
 import { buildPortfolioSnapshot } from './buildPortfolioSnapshot';
 import { enrichPulsechainMissingPrices } from './enrichPulsechainMissingPrices';
 import { loadHexStakes } from './loadHexStakes';
@@ -33,7 +35,6 @@ type ControllerArgs = {
   staticLogos: Record<string, string>;
   ethHexAddress: string;
   ehexPulsechainAddress: string;
-  erc20Abi: readonly unknown[];
   isNoContractDataError: (error: unknown) => boolean;
 };
 
@@ -59,7 +60,6 @@ export function createPortfolioFetchController({
   staticLogos,
   ethHexAddress,
   ehexPulsechainAddress,
-  erc20Abi,
   isNoContractDataError,
 }: ControllerArgs) {
   return async function fetchPortfolio() {
@@ -244,40 +244,11 @@ export function createPortfolioFetchController({
       const allStakes: HexStake[] = [];
       const allTransactions: Transaction[] = [];
 
-      const withRetry = async <T,>(fn: () => Promise<T>, retries = 5, delay = 1000): Promise<T> => {
-        try {
-          return await fn();
-        } catch (error: any) {
-          const errMsg = error.message?.toLowerCase() || '';
-          const shouldRetry = retries > 0 && (
-            errMsg.includes('rate limit')
-            || errMsg.includes('429')
-            || errMsg.includes('request failed')
-            || errMsg.includes('internal error')
-            || errMsg.includes('timeout')
-            || errMsg.includes('retry')
-          );
-          if (shouldRetry) {
-            console.warn(`RPC call failed, retrying... (${retries} left). Error: ${errMsg.slice(0, 100)}`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return withRetry(fn, retries - 1, delay * 1.5);
-          }
-          throw error;
-        }
-      };
-
       for (const chainKey of Object.keys(CHAINS) as Chain[]) {
         const chainConfig = CHAINS[chainKey];
         if (!chainConfig) continue;
 
-        const transports = [http(chainConfig.rpc)];
-        if ((chainConfig as any).fallbackRpcs) {
-          (chainConfig as any).fallbackRpcs.forEach((rpc: string) => {
-            transports.push(http(rpc));
-          });
-        }
-
-        const client = createPublicClient({ transport: fallback(transports, { rank: true }) });
+        const client = CHAIN_CLIENTS[chainKey];
 
         await Promise.all(wallets.map(async (wallet) => {
           const address = wallet.address as `0x${string}`;
@@ -319,7 +290,7 @@ export function createPortfolioFetchController({
                 }
                 const data = await withRetry(() => client.readContract({
                   address: checksummedAddr,
-                  abi: erc20Abi,
+                  abi: ERC20_ABI,
                   functionName: 'balanceOf',
                   args: [address],
                 } as any));
@@ -350,7 +321,7 @@ export function createPortfolioFetchController({
             if (assetMap[assetKey]) {
               assetMap[assetKey].balance += balanceNum;
               assetMap[assetKey].value += balanceNum * price;
-              if (isWplsMerge) (assetMap[assetKey] as any).wrappedBalance = ((assetMap[assetKey] as any).wrappedBalance || 0) + balanceNum;
+              if (isWplsMerge) assetMap[assetKey].wrappedBalance = (assetMap[assetKey].wrappedBalance || 0) + balanceNum;
             } else {
               const effectiveAddress = isWplsMerge ? 'native' : token.address;
               const addrLower = effectiveAddress === 'native' ? null : effectiveAddress.toLowerCase();
@@ -385,7 +356,7 @@ export function createPortfolioFetchController({
                 isSpam: false,
                 logoUrl,
                 wrappedBalance: isWplsMerge ? balanceNum : 0,
-              } as any;
+              };
             }
 
             const walletAddr = wallet.address.toLowerCase();
@@ -399,21 +370,18 @@ export function createPortfolioFetchController({
                 balance: balanceNum,
                 value: balanceNum * price,
                 id: `${walletAddr}-${assetKey}`,
-              } as any;
+              };
             }
           }));
 
           if ((chainKey === 'pulsechain' || chainKey === 'ethereum') && 'hexAddress' in chainConfig) {
-            const stakeClient = chainKey === 'pulsechain'
-              ? createPublicClient({ transport: http(chainConfig.rpc) })
-              : client;
             const stakes = await loadHexStakes({
               address,
               chain: chainKey,
               hexAddress: chainConfig.hexAddress,
               walletName: wallet.name,
               fetchedPrices,
-              client: stakeClient,
+              client,
               withRetry,
             });
             allStakes.push(...stakes);
@@ -446,20 +414,21 @@ export function createPortfolioFetchController({
       setRealStakes(snapshot.realStakes);
       setWalletAssets(snapshot.walletAssets);
 
-      try {
-        const walletAddrs = wallets.map((wallet) => wallet.address.toLowerCase());
-        const lpPositions = await loadPulsechainLpPositions(CHAINS.pulsechain.rpc, walletAddrs, fetchedPrices);
-        setLpPositions(lpPositions);
-      } catch (error) {
-        console.warn('LP position fetch failed:', error);
+      // LP and farm positions are fetched in parallel for efficiency.
+      const walletAddrs = wallets.map((w) => w.address.toLowerCase());
+      const [lpResult, farmResult] = await Promise.allSettled([
+        loadPulsechainLpPositions(CHAINS.pulsechain.rpc, walletAddrs, fetchedPrices),
+        loadPulsechainFarmPositions(CHAINS.pulsechain.rpc, walletAddrs, fetchedPrices),
+      ]);
+      if (lpResult.status === 'fulfilled') {
+        setLpPositions(lpResult.value);
+      } else {
+        console.warn('LP position fetch failed:', lpResult.reason);
       }
-
-      try {
-        const walletAddrs = wallets.map((wallet) => wallet.address.toLowerCase());
-        const farmPositions = await loadPulsechainFarmPositions(CHAINS.pulsechain.rpc, walletAddrs, fetchedPrices);
-        setFarmPositions(farmPositions);
-      } catch (error) {
-        console.warn('Farm position fetch failed:', error);
+      if (farmResult.status === 'fulfilled') {
+        setFarmPositions(farmResult.value);
+      } else {
+        console.warn('Farm position fetch failed:', farmResult.reason);
       }
 
       setTransactions(snapshot.processedTransactions);
