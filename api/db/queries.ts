@@ -158,3 +158,49 @@ export function getSnapshots(address: string, days: number): SnapshotRow[] {
     )
     .all(address, since) as SnapshotRow[];
 }
+
+// ---------------------------------------------------------------------------
+// Portfolio daily history (transaction-replay based, up to 365 days)
+// ---------------------------------------------------------------------------
+
+export interface PortfolioHistoryRow {
+  date: string;
+  total_usd: number;
+  native_usd: number;
+  chain_dist: string;
+  net_flow_usd: number;
+}
+
+export function getPortfolioHistory(address: string, days: number): PortfolioHistoryRow[] {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+  return getDb()
+    .prepare(
+      `SELECT date, total_usd, native_usd, chain_dist, net_flow_usd
+       FROM portfolio_history
+       WHERE address = ? AND date >= ?
+       ORDER BY date ASC`,
+    )
+    .all(address, since) as PortfolioHistoryRow[];
+}
+
+export function upsertPortfolioHistory(
+  address: string,
+  date: string,
+  totalUsd: number,
+  nativeUsd: number,
+  chainDist: string,
+  netFlowUsd: number,
+): void {
+  getDb()
+    .prepare(
+      `INSERT INTO portfolio_history (address, date, total_usd, native_usd, chain_dist, net_flow_usd)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(address, date) DO UPDATE
+         SET total_usd    = excluded.total_usd,
+             native_usd   = excluded.native_usd,
+             chain_dist   = excluded.chain_dist,
+             net_flow_usd = excluded.net_flow_usd,
+             created_at   = unixepoch()`,
+    )
+    .run(address, date, totalUsd, nativeUsd, chainDist, netFlowUsd);
+}

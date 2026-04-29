@@ -5,12 +5,21 @@
  * into a normalized list where same-hash in+out pairs are collapsed into a
  * single `swap` record.
  *
- * This is the ONLY place swap-detection logic should live.
- * All UI code must consume the output of this function - never raw blockchain
- * structures directly.
+ * Second-pass enrichments (applied after swap collapse):
+ *   - Bridge correlation: matches a withdraw on chain A with a deposit on chain B
+ *     within ±2 hours and the same USD value (±5%) and tags both as `bridged`.
+ *   - Cross-wallet transfer tagging: when both `from` and `to` are known wallet
+ *     addresses the transaction is re-typed as `internal-transfer` so P&L
+ *     calculations can exclude it.
+ *   - walletAddress stamping: each output transaction receives the `walletAddress`
+ *     field derived from whichever wallet side was matched.
+ *
+ * This is the ONLY place swap-detection and cross-chain correlation logic should
+ * live.  All UI code must consume the output of this function – never raw
+ * blockchain structures directly.
  */
 
-import type { Transaction } from '../types';
+import type { Chain, Transaction } from '../types';
 
 /** Native gas token symbol per chain. Used to filter out zero-value router invocations. */
 const NATIVE_TOKEN: Record<string, string> = {
@@ -157,5 +166,110 @@ export function normalizeTransactions(
     });
   });
 
-  return result.sort((a, b) => b.timestamp - a.timestamp);
+  const collapsed = result.sort((a, b) => b.timestamp - a.timestamp);
+  return applySecondPassEnrichments(collapsed, walletAddrs);
+}
+
+// ---------------------------------------------------------------------------
+// Second-pass enrichments
+// ---------------------------------------------------------------------------
+
+/** Maximum time window in ms between a withdraw on chain A and a deposit on
+ *  chain B for them to be considered correlated bridge legs. */
+const BRIDGE_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+/** Maximum relative USD value difference between the two bridge legs. */
+const BRIDGE_VALUE_TOLERANCE = 0.05; // 5 %
+
+function applySecondPassEnrichments(
+  txs: Transaction[],
+  walletAddrs: Set<string>,
+): Transaction[] {
+  const output = txs.map(tx => {
+    // Stamp walletAddress from the side that belongs to the user
+    if (!tx.walletAddress) {
+      const matchedAddr =
+        isOwnAddress(tx.to, walletAddrs) ? tx.to :
+        isOwnAddress(tx.from, walletAddrs) ? tx.from :
+        undefined;
+      if (matchedAddr) {
+        return { ...tx, walletAddress: matchedAddr.toLowerCase() };
+      }
+    }
+    return tx;
+  });
+
+  // Tag cross-wallet transfers (internal-transfer)
+  const tagged = output.map(tx => {
+    if (tx.type !== 'deposit' && tx.type !== 'withdraw') return tx;
+    if (isOwnAddress(tx.from, walletAddrs) && isOwnAddress(tx.to, walletAddrs)) {
+      return { ...tx, type: 'internal-transfer' as const };
+    }
+    return tx;
+  });
+
+  // Bridge correlation pass
+  return correlateBridgeLegs(tagged);
+}
+
+/**
+ * Match withdraw legs on one chain with deposit legs on a different chain that
+ * occurred within BRIDGE_WINDOW_MS and have a USD value within
+ * BRIDGE_VALUE_TOLERANCE of each other.  Both legs are annotated with
+ * `bridged: true` and `bridge.originChain`.
+ */
+function correlateBridgeLegs(txs: Transaction[]): Transaction[] {
+  // Only consider transactions that are not already tagged as bridged
+  const withdraws = txs.filter(
+    tx => (tx.type === 'withdraw' || tx.type === 'internal-transfer') && !tx.bridged && (tx.valueUsd ?? 0) > 0,
+  );
+  const deposits = txs.filter(
+    tx => (tx.type === 'deposit' || tx.type === 'internal-transfer') && !tx.bridged && (tx.valueUsd ?? 0) > 0,
+  );
+
+  // Map id → mutable copy for annotation
+  const byId = new Map<string, Transaction>(txs.map(tx => [tx.id, { ...tx }]));
+
+  const usedWithdraws = new Set<string>();
+  const usedDeposits = new Set<string>();
+
+  for (const withdraw of withdraws) {
+    if (usedWithdraws.has(withdraw.id)) continue;
+
+    const wUsd = withdraw.valueUsd!;
+
+    for (const deposit of deposits) {
+      if (usedDeposits.has(deposit.id)) continue;
+      if (deposit.chain === withdraw.chain) continue;
+
+      const dUsd = deposit.valueUsd!;
+      const timeDiff = Math.abs(deposit.timestamp - withdraw.timestamp);
+      if (timeDiff > BRIDGE_WINDOW_MS) continue;
+
+      const maxVal = Math.max(wUsd, dUsd, 1);
+      if (Math.abs(wUsd - dUsd) / maxVal > BRIDGE_VALUE_TOLERANCE) continue;
+
+      // Match found — annotate both legs
+      const originChain = withdraw.chain as Chain;
+
+      const wAnnotated = byId.get(withdraw.id);
+      if (wAnnotated) {
+        wAnnotated.bridged = true;
+        wAnnotated.bridge = wAnnotated.bridge ?? { originChain, protocol: 'official' };
+      }
+
+      const dAnnotated = byId.get(deposit.id);
+      if (dAnnotated) {
+        dAnnotated.bridged = true;
+        dAnnotated.bridge = dAnnotated.bridge ?? { originChain, protocol: 'official' };
+      }
+
+      usedWithdraws.add(withdraw.id);
+      usedDeposits.add(deposit.id);
+      break;
+    }
+  }
+
+  // Rebuild in original order
+  return txs.map(tx => byId.get(tx.id) ?? tx);
 }

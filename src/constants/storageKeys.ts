@@ -35,6 +35,12 @@ export const STORAGE_KEYS = {
   // External API credentials
   ETHERSCAN_KEY: 'pulseport_etherscan_key',
 
+  // Incremental sync cursors (per wallet+chain, keyed by `${chain}:${address}`)
+  SYNC_CURSORS: 'pulseport_sync_cursors',
+
+  // Transaction store (per wallet+chain, keyed by `${chain}:${address}`)
+  TX_STORE: 'pulseport_tx_store',
+
   // User-managed custom coins
   CUSTOM_COINS: 'custom_coins',
 } as const;
