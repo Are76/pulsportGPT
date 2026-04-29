@@ -185,11 +185,7 @@ export function useHistoryController({
     );
   }, [currentTransactions, matchesHistoryTransactionFilters, normalizedTxTypeFilter]);
 
-  const holdingsPulsechainTransactions = useMemo(() => {
-    return currentTransactions.filter((tx) =>
-      matchesHistoryTransactionFilters(tx) && matchesHistoryTransactionType(tx, normalizedTxTypeFilter),
-    );
-  }, [currentTransactions, matchesHistoryTransactionFilters, normalizedTxTypeFilter]);
+  const holdingsPulsechainTransactions = filteredTransactions;
 
   const swapAssetFilterOptions = useMemo<[string, string][]>(() => {
     const symbols = Array.from(new Set<string>(
@@ -224,7 +220,7 @@ export function useHistoryController({
 
   const historySummary = useMemo<HistorySummary>(() => {
     const swaps = filteredTransactions;
-    const swapCount = swaps.length;
+    const swapCount = swaps.filter(tx => tx.type === 'swap' || !!tx.swapLegOnly).length;
     const gasPls = swaps.reduce((sum, tx) => sum + (tx.fee ?? 0), 0);
     const gasUsd = gasPls * (prices['pulsechain']?.usd ?? 0);
     const tokenTxs = txAssetFilter === 'all'

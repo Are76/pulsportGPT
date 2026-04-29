@@ -24,7 +24,7 @@ interface DataAccessDeps {
   getEthereumPrices?: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
   getBasePrices?: (tokenAddresses: string[]) => Promise<PriceQuote[]>;
   getPulsechainTransactions: (address: string, startBlock?: number) => Promise<TransactionQueryResult>;
-  getEthereumTransactions?: (address: string, startBlock?: number) => Promise<TransactionQueryResult>;
+  getEthereumTransactions?: (address: string, startBlock?: number, apiKey?: string) => Promise<TransactionQueryResult>;
   getBaseTransactions?: (address: string, startBlock?: number) => Promise<TransactionQueryResult>;
 }
 
@@ -101,6 +101,7 @@ export function createDataAccess(deps: DataAccessDeps) {
       address: string,
       chain: Chain,
       startBlock?: number,
+      apiKey?: string,
     ): Promise<TransactionQueryResult> {
       if (chain === 'pulsechain') {
         return deps.getPulsechainTransactions(address, startBlock);
@@ -109,7 +110,7 @@ export function createDataAccess(deps: DataAccessDeps) {
         if (!deps.getEthereumTransactions) {
           throw new Error(`Ethereum transaction adapter is not wired`);
         }
-        return deps.getEthereumTransactions(address, startBlock);
+        return deps.getEthereumTransactions(address, startBlock, apiKey);
       }
       if (chain === 'base') {
         if (!deps.getBaseTransactions) {
@@ -157,10 +158,10 @@ export const dataAccess = createDataAccess({
   getEthereumTokenBalances(address: string) {
     return getEvmTokenBalances('ethereum', address);
   },
-  getEthereumTransactions(address: string, startBlock?: number) {
+  getEthereumTransactions(address: string, startBlock?: number, apiKey?: string) {
     return fetchEthereumTransactions(address, {
       startBlock,
-      apiKey: import.meta.env.VITE_ETHERSCAN_API_KEY,
+      apiKey: apiKey || import.meta.env.VITE_ETHERSCAN_API_KEY,
     });
   },
   getPulsechainLPPositions,
