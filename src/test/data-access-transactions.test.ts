@@ -47,7 +47,7 @@ describe('dataAccess.getTransactions', () => {
       nextBlock: 789,
     });
 
-    expect(getEthereumTransactions).toHaveBeenCalledWith('0xwallet', 654);
+    expect(getEthereumTransactions).toHaveBeenCalledWith('0xwallet', 654, undefined);
     expect(getBaseTransactions).toHaveBeenCalledWith('0xwallet', 987);
   });
 });

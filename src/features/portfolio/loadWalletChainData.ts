@@ -90,7 +90,7 @@ export async function loadWalletChainData(
       discoveredTokens.push(...discovery.discoveredTokens);
     } else {
       const [transactionResult, discovery] = await Promise.all([
-        deps.getTransactions(address, 'ethereum'),
+        deps.getTransactions(address, 'ethereum', undefined, etherscanApiKey),
         deps.loadEthereumDiscoveredTokens(address, fetchedPrices, etherscanApiKey),
       ]);
       transactions = transactionResult.transactions;

@@ -19,7 +19,7 @@
  *   - Filter-by-asset shortcut button
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   ArrowDownLeft, ArrowUpRight, RefreshCcw,
   ExternalLink, EyeOff, Eye,
@@ -140,6 +140,10 @@ export interface TransactionListProps {
   onFilterByAsset?: (symbol: string) => void;
   /** Shown when the list is empty */
   emptyMessage?: string;
+  /** Render only the first N rows initially and progressively reveal more. */
+  initialVisibleCount?: number;
+  /** Number of rows to reveal per click when initialVisibleCount is set. */
+  loadMoreCount?: number;
 }
 
 // -- Liberty Swap chain names --------------------------------------------------
@@ -217,14 +221,26 @@ export function TransactionList({
   showHidden = false,
   onFilterByAsset,
   emptyMessage = 'No transactions found.',
+  initialVisibleCount,
+  loadMoreCount = 100,
 }: TransactionListProps) {
   // Internal expansion state - no parent needed
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState<number>(initialVisibleCount ?? Number.POSITIVE_INFINITY);
 
-  const walletSet = useMemo(
-    () => new Set(wallets.map(w => w.address.toLowerCase())),
+  const walletMap = useMemo(
+    () => new Map(wallets.map(w => [w.address.toLowerCase(), w])),
     [wallets],
   );
+  const walletSet = useMemo(() => new Set(walletMap.keys()), [walletMap]);
+
+  const assetMap = useMemo(() => {
+    const next = new Map<string, Asset>();
+    for (const asset of assets) {
+      next.set(`${asset.chain}:${normalizeSymbol(asset.symbol, asset.chain)}`, asset);
+    }
+    return next;
+  }, [assets]);
 
   const isOwn = useCallback(
     (addr: string | undefined): boolean =>
@@ -238,18 +254,18 @@ export function TransactionList({
       if (!viewAsYou) return shortAddr(addr);
       const lower = addr.toLowerCase();
       if (walletSet.has(lower)) {
-        const w = wallets.find(w => w.address.toLowerCase() === lower);
+        const w = walletMap.get(lower);
         return w?.name || 'You';
       }
       return shortAddr(addr);
     },
-    [viewAsYou, wallets, walletSet],
+    [viewAsYou, walletMap, walletSet],
   );
 
   const findAsset = useCallback(
     (symbol: string, chain: string): Asset | undefined =>
-      assets.find(a => normalizeSymbol(a.symbol, a.chain) === normalizeSymbol(symbol, chain) && a.chain === chain),
-    [assets],
+      assetMap.get(`${chain}:${normalizeSymbol(symbol, chain)}`),
+    [assetMap],
   );
 
   const getLogoUrl = useCallback(
@@ -270,6 +286,15 @@ export function TransactionList({
   }, []);
 
   const visible = transactions.filter(tx => showHidden || !hideIds.includes(tx.id));
+  const paginatedTransactions = useMemo(() => {
+    return Number.isFinite(visibleCount)
+      ? visible.slice(0, visibleCount)
+      : visible;
+  }, [visible, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(initialVisibleCount ?? Number.POSITIVE_INFINITY);
+  }, [initialVisibleCount, transactions, showHidden]);
 
   if (visible.length === 0) {
     return <div className="tx-list-empty">{emptyMessage}</div>;
@@ -277,10 +302,8 @@ export function TransactionList({
 
   return (
     <div className="tx-list">
-      {transactions.map(tx => {
+      {paginatedTransactions.map(tx => {
         const isHidden = hideIds.includes(tx.id);
-        if (isHidden && !showHidden) return null;
-
         const isExpanded  = expandedIds.has(tx.id);
         const isDeposit   = tx.type === 'deposit';
         const isSwapLegOnly = !!tx.swapLegOnly;
@@ -475,6 +498,43 @@ export function TransactionList({
           </div>
         );
       })}
+      {paginatedTransactions.length < visible.length && (
+        <div
+          className="tx-list-load-more"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '16px 18px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--bg-elevated)',
+          }}
+        >
+          <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
+            Showing {paginatedTransactions.length.toLocaleString('en-US')} of {visible.length.toLocaleString('en-US')} transactions
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibleCount((current) => {
+              if (!Number.isFinite(current)) return current;
+              return Math.min(current + loadMoreCount, visible.length);
+            })}
+            style={{
+              border: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+              color: 'var(--fg)',
+              borderRadius: 999,
+              padding: '8px 14px',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            Load {Math.min(loadMoreCount, visible.length - paginatedTransactions.length).toLocaleString('en-US')} more
+          </button>
+        </div>
+      )}
     </div>
   );
 }

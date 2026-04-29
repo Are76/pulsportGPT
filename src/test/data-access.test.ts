@@ -74,7 +74,7 @@ function getTypeDiagnostics() {
       "type GetLPPositionsArgs = Expect<Equal<Parameters<typeof dataAccess.getLPPositions>, [addresses: string[], chain: Chain, tokenPrices: Record<string, number>]>>;",
       "type TokenBalancesArgs = Expect<Equal<Parameters<typeof dataAccess.getTokenBalances>, [address: string, chain: Chain]>>;",
       "type PricesArgs = Expect<Equal<Parameters<typeof dataAccess.getPrices>, [tokenAddresses: string[], chain: Chain]>>;",
-      "type TransactionsArgs = Expect<Equal<Parameters<typeof dataAccess.getTransactions>, [address: string, chain: Chain, startBlock?: number]>>;",
+      "type TransactionsArgs = Expect<Equal<Parameters<typeof dataAccess.getTransactions>, [address: string, chain: Chain, startBlock?: number, apiKey?: string]>>;",
       "type SearchTokensResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.searchTokens>>, PulsechainTokenSearchResult[]>>;",
       "type GetLPPositionsResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getLPPositions>>, LpPositionEnriched[]>>;",
       "type TokenBalancesResult = Expect<Equal<Awaited<ReturnType<typeof dataAccess.getTokenBalances>>, TokenBalance[]>>;",

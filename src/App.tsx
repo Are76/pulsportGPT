@@ -3808,6 +3808,8 @@ export default function App() {
                         showHidden={showHiddenTxs}
                         onFilterByAsset={symbol => { resetHistoryFilters(); setTxAssetFilter(symbol); }}
                         emptyMessage="No transactions found for these filters."
+                        initialVisibleCount={150}
+                        loadMoreCount={150}
                       />
                       {/* Hidden transactions bar */}
                       {hiddenTxIds.length > 0 && (
@@ -4070,6 +4072,8 @@ export default function App() {
                     setTxAssetFilter(symbol);
                   }}
                   emptyMessage={txTypeFilter === 'all' ? 'No transactions found for these filters.' : `No ${txTypeFilter}s found for these filters.`}
+                  initialVisibleCount={150}
+                  loadMoreCount={150}
                 />
               </div>
             </div>
@@ -4664,6 +4668,8 @@ export default function App() {
                           onToggleHide={id => setHiddenTxIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
                           showHidden={showHiddenTxs}
                           emptyMessage="No transactions found for these filters."
+                          initialVisibleCount={100}
+                          loadMoreCount={100}
                         />
                       </div>
                     )}
