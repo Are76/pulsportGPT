@@ -104,7 +104,7 @@ import { MyInvestmentsPage } from './pages/MyInvestmentsPage';
 import { WalletAnalyzerPage } from './pages/WalletAnalyzer';
 import { buildWalletAnalyzerModel } from './utils/buildWalletAnalyzerModel';
 import { MyInvestmentsUtilityStrip } from './components/my-investments/MyInvestmentsUtilityStrip';
-import { MOCK_ASSETS, MOCK_HISTORY, MOCK_STAKES, MOCK_TRANSACTIONS } from './fixtures/mockData';
+
 
 
 // Address constants used for eHEX price lookup.
@@ -415,7 +415,14 @@ export default function App() {
   };
 
   const [wallets, setWallets] = useState<Wallet[]>(() => {
-    return readStoredJSON<Wallet[]>(STORAGE_KEYS.WALLETS, []);
+    const stored = readStoredJSON<Wallet[]>(STORAGE_KEYS.WALLETS, []);
+    if (stored.length > 0) return stored;
+    const demoWalletsEnv: string = import.meta.env.VITE_DEMO_WALLETS ?? '';
+    if (!demoWalletsEnv.trim()) return [];
+    return demoWalletsEnv.split(',').map((addr: string, i: number) => ({
+      address: addr.trim(),
+      name: `Wallet ${i + 1}`,
+    }));
   });
   const [realAssets, setRealAssets] = useState<Asset[]>(() => tryReadCache<Asset[]>(STORAGE_KEYS.CACHE_ASSETS) ?? []);
   const [realStakes, setRealStakes] = useState<HexStake[]>(() => tryReadCache<HexStake[]>(STORAGE_KEYS.CACHE_STAKES, true) ?? []);
@@ -477,7 +484,7 @@ export default function App() {
   const [timeSinceLastUpdate, setTimeSinceLastUpdate] = useState<number>(0);
   const [manualEntries, setManualEntries] = useState<Record<string, number>>(() => readStoredJSON<Record<string, number>>(STORAGE_KEYS.MANUAL_ENTRIES, {}));
   const [prices, setPrices] = useState<Record<string, any>>(() => tryReadCache<Record<string, any>>(STORAGE_KEYS.CACHE_PRICES) ?? {});
-  const [etherscanApiKey, setEtherscanApiKey] = useState<string>(() => localStorage.getItem(STORAGE_KEYS.ETHERSCAN_KEY) || '');
+  const [etherscanApiKey, setEtherscanApiKey] = useState<string>(() => localStorage.getItem(STORAGE_KEYS.ETHERSCAN_KEY) || import.meta.env.VITE_ETHERSCAN_API_KEY || '');
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [hideDust, setHideDust] = useState<boolean>(() => readStoredJSON<boolean>(STORAGE_KEYS.HIDE_DUST, false));
@@ -839,7 +846,7 @@ export default function App() {
     const activeWalletKey = activeWallet?.toLowerCase() ?? null;
     const baseAssets = wallets.length > 0
       ? (activeWalletKey ? (walletAssets[activeWalletKey] || []) : realAssets)
-      : MOCK_ASSETS;
+      : [];
     const assetsWithCustom = [...baseAssets];
 
     customCoins.forEach(coin => {
@@ -912,7 +919,7 @@ export default function App() {
   }, [assetUniverse, manualEntries, hiddenTokens, hideDust, hideSpam, spamTokenIds, prices]);
 
   const currentStakes = useMemo(() => {
-    if (wallets.length === 0) return MOCK_STAKES;
+    if (wallets.length === 0) return [];
     const key = activeWallet?.toLowerCase() ?? null;
     return key ? realStakes.filter(s => s.walletAddress === key) : realStakes;
   }, [wallets.length, realStakes, activeWallet]);
@@ -938,9 +945,9 @@ export default function App() {
       });
   }, [manualEntries, prices]);
 
-  const currentHistory = wallets.length > 0 ? history : MOCK_HISTORY;
+  const currentHistory = wallets.length > 0 ? history : [];
   const currentTransactions = useMemo(() => {
-    const baseTransactions = wallets.length > 0 ? transactions : MOCK_TRANSACTIONS;
+    const baseTransactions = wallets.length > 0 ? transactions : [];
     return baseTransactions.map(tx => ({
       ...tx,
       asset: normalizeAssetSymbol(tx.asset, tx.chain),
@@ -1019,7 +1026,7 @@ export default function App() {
   const COLORS = [CHAINS.pulsechain.color, CHAINS.ethereum.color, CHAINS.base.color];
 
   const stakeSummary = useMemo(() => {
-    const stakes = wallets.length > 0 ? realStakes : MOCK_STAKES;
+    const stakes = wallets.length > 0 ? realStakes : [];
     const activeStakes = stakes.filter(s => (s.daysRemaining ?? 0) > 0);
     let totalStakedHex = 0;
     let totalTShares = 0;
@@ -1128,7 +1135,7 @@ export default function App() {
   }, [realAssets, manualEntries, prices]);
 
   const monthlyPnlData = useMemo(() => {
-    const pts = wallets.length > 0 ? history : MOCK_HISTORY;
+    const pts = wallets.length > 0 ? history : [];
     const byMonth: Record<string, { month: string; pnl: number }> = {};
     pts.forEach(p => {
       const key = format(p.timestamp, 'MMM yy');
@@ -2837,9 +2844,6 @@ export default function App() {
                   };
                   const cutoff = cutoffs[perfPeriod];
                   const realHistory = (wallets.length > 0 ? history : []).filter(p => p.timestamp >= cutoff);
-                  const currentVal = summary.totalValue || 1;
-                  const mockLast = MOCK_HISTORY[MOCK_HISTORY.length - 1]?.value || 1;
-                  const scale = currentVal / mockLast;
 
                   // Deduplicate by period-appropriate bucket, keeping latest value + timestamp per bucket
                   const byBucket = new Map<string, { value: number; ts: number }>();
@@ -2851,20 +2855,7 @@ export default function App() {
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([, { value, ts }]) => ({ day: fmtLabel(ts), value }));
 
-                  let chartPoints: { day: string; value: number }[];
-                  let isSimulated = false;
-
-                  if (uniquePts.length >= 3) {
-                    chartPoints = uniquePts;
-                  } else {
-                    isSimulated = true;
-                    const mockCount = perfPeriod === '1w' ? 28 : perfPeriod === '1m' ? 30 : perfPeriod === '1y' ? 52 : 60;
-                    chartPoints = MOCK_HISTORY.slice(-mockCount).map(p => ({
-                      day: fmtLabel(p.timestamp),
-                      value: p.value * scale
-                    }));
-                    if (chartPoints.length > 0) chartPoints[chartPoints.length - 1].value = currentVal;
-                  }
+                  const chartPoints: { day: string; value: number }[] = uniquePts;
 
                   const periodChange = chartPoints.length >= 2
                     ? ((chartPoints[chartPoints.length - 1].value - chartPoints[0].value) / Math.max(1, chartPoints[0].value)) * 100
@@ -2887,8 +2878,7 @@ export default function App() {
                           <div className="overview-performance-delta" style={{ color: periodChange >= 0 ? t.green : t.red }}>
                             {periodChange >= 0 ? '+' : ''}{periodChange.toFixed(2)}%
                           </div>
-                          {isSimulated && <div className="overview-performance-badge">Modeled</div>}
-                        </div>
+                                                  </div>
                         <div className="overview-performance-actions">
                           {/* Period tabs */}
                           {!isCollapsed('perf-chart') && (

@@ -208,11 +208,19 @@ export const CHAINS = {
   ethereum: {
     id: 1,
     name: 'Ethereum',
-    rpc: 'https://ethereum-rpc.publicnode.com',
-    fallbackRpcs: [
-      'https://eth.drpc.org',
-      'https://cloudflare-eth.com'
-    ],
+    rpc: import.meta.env.VITE_NOWNODES_API_KEY
+      ? `https://eth.nownodes.io/${import.meta.env.VITE_NOWNODES_API_KEY}`
+      : 'https://ethereum-rpc.publicnode.com',
+    fallbackRpcs: import.meta.env.VITE_NOWNODES_API_KEY
+      ? [
+          'https://ethereum-rpc.publicnode.com',
+          'https://eth.drpc.org',
+          'https://cloudflare-eth.com',
+        ]
+      : [
+          'https://eth.drpc.org',
+          'https://cloudflare-eth.com',
+        ],
     explorer: 'https://etherscan.io',
     color: '#627EEA',
     hexAddress: '0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39'
