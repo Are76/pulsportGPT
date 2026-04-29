@@ -68,6 +68,7 @@ describe('loadWalletChainData', () => {
 
     const result = await loadWalletChainData('0xwallet', 'ethereum', {}, 'api-key', deps as any);
 
+    expect(deps.getTransactions).toHaveBeenCalledWith('0xwallet', 'ethereum', undefined, 'api-key');
     expect(deps.loadEthereumDiscoveredTokens).toHaveBeenCalledWith('0xwallet', {}, 'api-key');
     expect(result.transactions).toEqual([{ id: 'eth' }]);
     expect(result.pricePatches).toEqual({

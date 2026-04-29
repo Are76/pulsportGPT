@@ -708,7 +708,7 @@ export async function fetchEthereumTransactions(
       const priceUsd = mapping?.coinGeckoId ? marketPrices[mapping.coinGeckoId] : undefined;
 
       return {
-        id: `${item.hash}-${item.logIndex ?? '0'}`,
+        id: `${item.hash}-${tokenAddress || 'token'}-${isDeposit ? 'deposit' : 'withdraw'}-${item.logIndex ?? 0}`,
         hash: item.hash,
         timestamp: Number(item.timeStamp) * 1000,
         type: isDeposit ? 'deposit' : 'withdraw',
