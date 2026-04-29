@@ -3556,7 +3556,7 @@ export default function App() {
                           </button>
                         )}
                         <button
-                          onClick={() => { setTxTypeFilter('swap'); setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }}
+                          onClick={() => { setTxTypeFilter('all'); setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }}
                           style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '3px 6px', textDecoration: 'underline' }}>
                           Clear all
                         </button>
