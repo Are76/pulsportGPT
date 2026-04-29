@@ -417,9 +417,9 @@ export default function App() {
   const [wallets, setWallets] = useState<Wallet[]>(() => {
     const stored = readStoredJSON<Wallet[]>(STORAGE_KEYS.WALLETS, []);
     if (stored.length > 0) return stored;
-    const demoEnv: string = import.meta.env.VITE_DEMO_WALLETS ?? '';
-    if (!demoEnv.trim()) return [];
-    return demoEnv.split(',').map((addr: string, i: number) => ({
+    const demoWalletsEnv: string = import.meta.env.VITE_DEMO_WALLETS ?? '';
+    if (!demoWalletsEnv.trim()) return [];
+    return demoWalletsEnv.split(',').map((addr: string, i: number) => ({
       address: addr.trim(),
       name: `Wallet ${i + 1}`,
     }));
@@ -2856,7 +2856,6 @@ export default function App() {
                     .map(([, { value, ts }]) => ({ day: fmtLabel(ts), value }));
 
                   const chartPoints: { day: string; value: number }[] = uniquePts;
-                  const isSimulated = false;
 
                   const periodChange = chartPoints.length >= 2
                     ? ((chartPoints[chartPoints.length - 1].value - chartPoints[0].value) / Math.max(1, chartPoints[0].value)) * 100
@@ -2879,8 +2878,7 @@ export default function App() {
                           <div className="overview-performance-delta" style={{ color: periodChange >= 0 ? t.green : t.red }}>
                             {periodChange >= 0 ? '+' : ''}{periodChange.toFixed(2)}%
                           </div>
-                          {isSimulated && <div className="overview-performance-badge">Modeled</div>}
-                        </div>
+                                                  </div>
                         <div className="overview-performance-actions">
                           {/* Period tabs */}
                           {!isCollapsed('perf-chart') && (

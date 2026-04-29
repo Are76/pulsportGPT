@@ -176,8 +176,17 @@ export class PulseChainBadRequestException extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Internal fetch helper
+// Internal helpers
 // ---------------------------------------------------------------------------
+
+/** Converts a mixed-value page-params map to the string-only form required by `scannerFetch`. */
+function toStringParams(params: Record<string, string | number>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    result[k] = String(v);
+  }
+  return result;
+}
 
 async function scannerFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
   const url = new URL(`${SCANNER_BASE_URL}${path}`);
@@ -255,13 +264,9 @@ class AddressesClient {
     address: string,
     nextPageParams: Record<string, string | number>,
   ): Promise<PagedResult<AddressTxItem>> {
-    const params: Record<string, string> = {};
-    for (const [k, v] of Object.entries(nextPageParams)) {
-      params[k] = String(v);
-    }
     return scannerFetch<PagedResult<AddressTxItem>>(
       `/addresses/${address}/transactions`,
-      params,
+      toStringParams(nextPageParams),
     );
   }
 }
@@ -311,15 +316,11 @@ class BlocksClient {
     numberOrHash: string | number,
     nextPageParams?: Record<string, string | number>,
   ): Promise<PagedResult<AddressTxItem>> {
-    const params: Record<string, string> = {};
-    if (nextPageParams) {
-      for (const [k, v] of Object.entries(nextPageParams)) {
-        params[k] = String(v);
-      }
-    }
     return scannerFetch<PagedResult<AddressTxItem>>(
       `/blocks/${numberOrHash}/transactions`,
-      Object.keys(params).length > 0 ? params : undefined,
+      nextPageParams && Object.keys(nextPageParams).length > 0
+        ? toStringParams(nextPageParams)
+        : undefined,
     );
   }
 }
