@@ -116,7 +116,7 @@ describe('useHistoryController', () => {
       result.current.resetHistoryFilters();
     });
 
-    expect(result.current.txTypeFilter).toBe('swap');
+    expect(result.current.txTypeFilter).toBe('all');
     expect(result.current.txAssetFilter).toBe('all');
     expect(result.current.txChainFilter).toBe('all');
     expect(result.current.txBridgeProtocolFilter).toBe('all');

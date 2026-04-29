@@ -44,7 +44,7 @@ export type HistoryDrilldownIntent =
     };
 
 export const DEFAULT_HISTORY_FILTER_STATE: HistoryFilterState = {
-  txTypeFilter: 'swap',
+  txTypeFilter: 'all',
   txAssetFilter: 'all',
   txYearFilter: 'all',
   txCoinCategory: 'all',
