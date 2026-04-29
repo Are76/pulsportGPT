@@ -611,4 +611,103 @@ describe('fetchPulsechainTransactions', () => {
       }),
     ]);
   });
+
+  // ── Regression: Bug 1 – PulseChain timeout (request hangs indefinitely) ────────
+  it('rejects with an error when the Blockscout request times out instead of hanging', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      // Simulate a timeout abort from AbortSignal
+      const signal = (init as RequestInit & { signal?: AbortSignal })?.signal;
+      if (signal) {
+        await new Promise<never>((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+          // dispatch abort immediately to simulate timeout
+          (signal as any).dispatchEvent(new Event('abort'));
+        });
+      }
+      return { ok: false, status: 500, json: async () => ({}) } as Response;
+    });
+
+    await expect(
+      fetchPulsechainTransactions('0x75f808367720951e789d47e9e9db51148d9aa765', {
+        fetchImpl: fetchMock as unknown as typeof fetch,
+        baseUrl: 'https://api.scan.pulsechain.com/api/v2',
+      }),
+    ).rejects.toThrow();
+  });
+
+  // ── Regression: Bug 2 – Base history truncated at first empty page ────────────
+  it('continues pagination through empty Blockscout pages to reach older history', async () => {
+    // Simulates what Base Blockscout returns for address 0x75F808367720951e…
+    // Page 1: 1 recent tx (block 22_000_000)
+    // Page 2: 0 items but next_page_params points to an older cursor – this is
+    //   the page that used to cause early exit, hiding pre-July-2025 history.
+    // Page 3: 1 old tx (block 18_000_000, i.e. early 2024)
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        // native txns page 1
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              hash: '0xrecent',
+              timestamp: '2025-11-01T10:00:00.000000Z',
+              block_number: 22_000_000,
+              from: { hash: '0xexternal' },
+              to: { hash: '0x75f808367720951e789d47e9e9db51148d9aa765' },
+              value: '1000000000000000000',
+              gas_used: '21000',
+              gas_price: '1000000000',
+            },
+          ],
+          next_page_params: { block_number: 19_000_000, index: 5 },
+        }),
+      })
+      .mockResolvedValueOnce({
+        // token transfers page 1 – empty but cursor present (sparse period)
+        ok: true,
+        json: async () => ({
+          items: [],
+          next_page_params: { block_number: 18_500_000, index: 0 },
+        }),
+      })
+      .mockResolvedValueOnce({
+        // native txns page 2 – old tx pre-dating the sparse period
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              hash: '0xold',
+              timestamp: '2024-02-15T08:00:00.000000Z',
+              block_number: 18_000_000,
+              from: { hash: '0x75f808367720951e789d47e9e9db51148d9aa765' },
+              to: { hash: '0xexternal' },
+              value: '500000000000000000',
+              gas_used: '21000',
+              gas_price: '1000000000',
+            },
+          ],
+          next_page_params: null,
+        }),
+      })
+      .mockResolvedValueOnce({
+        // token transfers page 2 – nothing left
+        ok: true,
+        json: async () => ({
+          items: [],
+          next_page_params: null,
+        }),
+      });
+
+    const result = await fetchBaseTransactions('0x75F808367720951e789d47E9E9dB51148D9aa765', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      baseUrl: 'https://base.blockscout.com/api/v2',
+      marketPrices: { ethereum: 3000 },
+    });
+
+    // Both the recent AND the old tx must be present – not just the recent one
+    const hashes = result.transactions.map(tx => tx.hash);
+    expect(hashes).toContain('0xrecent');
+    expect(hashes).toContain('0xold');
+    expect(result.transactions.length).toBeGreaterThanOrEqual(2);
+  });
 });
