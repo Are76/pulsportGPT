@@ -23,8 +23,8 @@ export async function enrichPulsechainMissingPrices(
     asset.chain === 'pulsechain'
     && asset.balance > 0
     && asset.price === 0
-    && (asset as any).address
-    && (asset as any).address !== 'native',
+    && asset.address
+    && asset.address !== 'native',
   );
 
   if (pulseAssetsMissingPrice.length === 0) {
@@ -33,7 +33,7 @@ export async function enrichPulsechainMissingPrices(
 
   // Build a lookup from address → asset so we can apply results below.
   const assetByAddress = new Map<string, Asset>(
-    pulseAssetsMissingPrice.map((a) => [(a as any).address.toLowerCase(), a]),
+    pulseAssetsMissingPrice.map((a) => [a.address!.toLowerCase(), a]),
   );
 
   // One bestPair per token address, selected by highest liquidity USD.

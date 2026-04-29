@@ -171,7 +171,7 @@ async function batchRPC(
   const json = await batchRpcCall(body, rpc, fetch);
   return [...json]
     .sort((a, b) => a.id - b.id)
-    .map((r: RpcBatchResponse) => r.result ?? '0x');
+    .map((r) => r.result ?? '0x');
 }
 
 async function batchRPCWithFallback(
