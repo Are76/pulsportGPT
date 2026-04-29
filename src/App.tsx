@@ -160,141 +160,6 @@ function isNoContractDataError(error: unknown): boolean {
     || text.includes('function may not exist');
 }
 
-// -- StakingLadder -------------------------------------------------------------
-// Bar chart showing stake distribution by 30-day end-date buckets (from pulsechain-dashboard)
-function StakingLadder({ stakes }: { stakes: HexStake[] }) {
-  if (!stakes || stakes.length === 0) return null;
-  const bucketSize = 30;
-  const buckets: Record<number, { totalShares: number; stakeCount: number; bucketRange: string }> = {};
-
-  stakes.forEach(stake => {
-    const days = Math.max(0, Math.min(5555, Math.floor(stake.daysRemaining ?? 0)));
-    const bucketIdx = Math.floor(days / bucketSize);
-    if (!buckets[bucketIdx]) {
-      const start = bucketIdx * bucketSize;
-      buckets[bucketIdx] = { totalShares: 0.001, stakeCount: 0, bucketRange: `${start}-${start + bucketSize - 1}` };
-    }
-    buckets[bucketIdx].totalShares = (buckets[bucketIdx].totalShares === 0.001 ? 0 : buckets[bucketIdx].totalShares) + (stake.tShares ?? 0);
-    buckets[bucketIdx].stakeCount += 1;
-  });
-
-  const chartData = Object.entries(buckets)
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([idx, d]) => ({ daysRemaining: Number(idx) * bucketSize + bucketSize / 2, ...d }));
-
-  const CustomTip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="chart-tooltip" style={{ fontSize: 13 }}>
-        <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Days: {d.bucketRange}</div>
-        <div>T-Shares: {d.totalShares.toFixed(2)}</div>
-        <div>Stakes: {d.stakeCount}</div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 18px 10px' }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.6px' }}>Staking Ladder</div>
-      <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
-        <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 24 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="daysRemaining" tick={{ fill: 'var(--fg-subtle)', fontSize: 13 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false}
-            label={{ value: 'Days Remaining', position: 'insideBottom', offset: -10, fill: 'var(--fg-subtle)', fontSize: 13 }} />
-          <YAxis tick={{ fill: 'var(--fg-subtle)', fontSize: 13 }} axisLine={false} tickLine={false} scale="log" domain={['auto', 'auto']} allowDataOverflow={false} />
-          <RechartsTooltip content={<CustomTip />} />
-          <Bar dataKey="totalShares" fill="#00FF9F" radius={[3, 3, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// -- StakingPie -----------------------------------------------------------------
-// Donut chart showing HEX stake distribution grouped by wallet (from pulsechain-dashboard)
-function StakingPie({ stakes, hexUsdPrice }: { stakes: HexStake[]; hexUsdPrice: number }) {
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  if (!stakes || stakes.length === 0) return null;
-
-  const byWallet: Record<string, { label: string; tShares: number; stakedHex: number; yieldHex: number; totalHex: number; totalUsd: number; count: number }> = {};
-  stakes.forEach(s => {
-    const key = s.walletAddress ?? s.id;
-    const label = s.walletLabel ?? key.slice(0, 8) + '...';
-    if (!byWallet[key]) byWallet[key] = { label, tShares: 0, stakedHex: 0, yieldHex: 0, totalHex: 0, totalUsd: 0, count: 0 };
-    const tsh = s.tShares ?? 0;
-    const staked = s.stakedHex ?? 0;
-    const yld = s.stakeHexYield ?? 0;
-    byWallet[key].tShares += tsh;
-    byWallet[key].stakedHex += staked;
-    byWallet[key].yieldHex += yld;
-    byWallet[key].totalHex += staked + yld;
-    byWallet[key].totalUsd += (staked + yld) * hexUsdPrice;
-    byWallet[key].count += 1;
-  });
-
-  const totalTShares = Object.values(byWallet).reduce((a, b) => a + b.tShares, 0);
-  const totalUsd = Object.values(byWallet).reduce((a, b) => a + b.totalUsd, 0);
-  const totalHex = Object.values(byWallet).reduce((a, b) => a + b.totalHex, 0);
-
-  const sorted = Object.values(byWallet).sort((a, b) => b.tShares - a.tShares);
-  const threshold = 0.02;
-  const large = sorted.filter(w => w.tShares / totalTShares >= threshold);
-  const small = sorted.filter(w => w.tShares / totalTShares < threshold);
-  const chartData = small.length > 0
-    ? [...large, { label: 'Others', tShares: small.reduce((a, b) => a + b.tShares, 0), totalUsd: small.reduce((a, b) => a + b.totalUsd, 0), count: small.reduce((a, b) => a + b.count, 0) }]
-    : large;
-
-  const GRADIENT = ['#00FF9F', '#627EEA', '#f739ff', '#fb923c', '#3b82f6', '#a855f7'];
-  const getColor = (i: number) => GRADIENT[i % GRADIENT.length];
-
-  const fmtK = (n: number) => n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toFixed(0);
-
-  const renderActiveShape = (props: any) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload } = props;
-    return (
-      <g>
-        <text x={cx} y={cy - 14} textAnchor="middle" fill="var(--fg-subtle)" fontSize="12">{payload.label}</text>
-        <text x={cx} y={cy + 8} textAnchor="middle" fill="var(--fg)" fontSize="18" fontWeight="700">{fmtK(payload.tShares)}</text>
-        <text x={cx} y={cy + 24} textAnchor="middle" fill="var(--fg-subtle)" fontSize="11">T-Shares</text>
-        <Pie data={[]} cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} dataKey="value" />
-      </g>
-    );
-  };
-
-  return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 18px 10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.6px' }}>Stake Distribution</div>
-        <div style={{ fontSize: 13, color: 'var(--fg-muted)' }}>
-          <span style={{ color: 'var(--fg)', fontWeight: 700 }}>${fmtK(totalUsd)}</span>
-          {'  -  '}<span style={{ color: '#fb923c' }}>{fmtK(totalHex)} HEX</span>
-          {'  -  '}<span style={{ color: 'var(--accent)' }}>{fmtK(totalTShares)} T-Shares</span>
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-        <PieChart>
-          <Pie data={chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} dataKey="tShares"
-            activeIndex={activeIndex} activeShape={renderActiveShape}
-            onMouseEnter={(_, i) => setActiveIndex(i)}>
-            {chartData.map((_, i) => <Cell key={i} fill={getColor(i)} />)}
-          </Pie>
-          <RechartsTooltip formatter={(val: any, _: any, entry: any) => [`${fmtK(Number(val))} T-Shares  -  $${fmtK(entry.payload.totalUsd)}`, entry.payload.label]} />
-        </PieChart>
-      </ResponsiveContainer>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 4 }}>
-        {chartData.map((w, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--fg-muted)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: getColor(i), flexShrink: 0 }} />
-            <span>{w.label}</span>
-            <span style={{ color: 'var(--fg-subtle)' }}>({w.count})</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // -- Wallet Selector ---------------------------------------------------------
 function shortenAddr(addr: string): string {
   if (!addr || addr.length < 10) return addr;
@@ -1599,7 +1464,7 @@ export default function App() {
 
     topHoldingCards.forEach(add);
 
-    const sourceAssets = currentAssets.length > 0 ? currentAssets : MOCK_ASSETS;
+    const sourceAssets = currentAssets;
     [...sourceAssets]
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value)
@@ -1623,7 +1488,7 @@ export default function App() {
   }, [topHoldingCards, currentAssets, tokenMarketData, tokenLogos, frontMarketPeriod]);
 
   const frontPagePortfolioRows = useMemo(() => {
-    const assets = currentAssets.length > 0 ? currentAssets : MOCK_ASSETS;
+    const assets = currentAssets;
     return assets
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value)
