@@ -68,6 +68,30 @@ describe('useHistoryController', () => {
     expect(result.current.filteredTransactions[0]?.id).toBe('swap-eth');
   });
 
+  it('resets txAssetFilter to all when chain filter changes', () => {
+    const { result } = renderHook(() =>
+      useHistoryController({
+        currentAssets,
+        currentTransactions,
+        selectedWalletAddr: 'all',
+        prices: { pulsechain: { usd: 0.00008 } },
+        matchesAssetSymbol,
+      }),
+    );
+
+    act(() => {
+      result.current.setTxAssetFilter('ETH');
+    });
+
+    expect(result.current.txAssetFilter).toBe('ETH');
+
+    act(() => {
+      result.current.setTxChainFilter('pulsechain');
+    });
+
+    expect(result.current.txAssetFilter).toBe('all');
+  });
+
   it('resets filters back to the default history state', () => {
     const { result } = renderHook(() =>
       useHistoryController({
