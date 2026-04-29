@@ -5,6 +5,8 @@ import { normalizeTransactions } from './normalizeTransactions';
 const PULSECHAIN_NATIVE_DECIMALS = 18;
 const EVM_NATIVE_DECIMALS = 18;
 const ERC20_TYPE_FILTER = 'ERC-20';
+const BLOCKSCOUT_PAGE_TIMEOUT = 30_000;
+const MAX_PAGES = 200;
 const PULSECHAIN_HEX_ADDRESS = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
 const BASE_BLOCKSCOUT_API = 'https://base.blockscout.com/api/v2';
 const ETHERSCAN_API = 'https://api.etherscan.io/v2/api?chainid=1';
@@ -268,10 +270,10 @@ function resolveTokenAsset(token: TokenRef | null | undefined): { asset: string;
 }
 
 async function fetchPagedJson<T>(url: string, fetchImpl: FetchLike): Promise<PagedResponse<T>> {
-  const response = await fetchImpl(url);
+  const response = await fetchImpl(url, { signal: AbortSignal.timeout(BLOCKSCOUT_PAGE_TIMEOUT) });
 
   if (!response.ok) {
-    throw new Error(`PulseChain transaction request failed: ${response.status}`);
+    throw new Error(`Blockscout transaction request failed: ${response.status}`);
   }
 
   return response.json() as Promise<PagedResponse<T>>;
@@ -299,8 +301,11 @@ async function fetchPaginatedItems<T>(
   const items: T[] = [];
   let nextPageParams: Record<string, string | number> | null = null;
   let nextBlock: number | undefined;
+  let pageCount = 0;
 
   do {
+    if (++pageCount > MAX_PAGES) break;
+
     const pageUrl = buildPagedUrl(url, nextPageParams);
     const page = await fetchPagedJson<T>(pageUrl, fetchImpl);
     items.push(...(page.items ?? []));
@@ -310,7 +315,7 @@ async function fetchPaginatedItems<T>(
       nextBlock = candidateNextBlock;
     }
 
-    if (!page.next_page_params || (page.items?.length ?? 0) === 0) {
+    if (!page.next_page_params) {
       break;
     }
 
