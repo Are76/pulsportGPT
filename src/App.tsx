@@ -1464,8 +1464,7 @@ export default function App() {
 
     topHoldingCards.forEach(add);
 
-    const sourceAssets = currentAssets;
-    [...sourceAssets]
+    currentAssets
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value)
       .forEach(asset => {
