@@ -76,6 +76,7 @@ import { CoinList, type CoinListItem } from './components/CoinList';
 import { PulseBoardFeed } from './components/PulseBoardFeed';
 import { StakingLadder } from './components/StakingLadder';
 import { StakingPie } from './components/StakingPie';
+import { PriceDisplay } from './components/PriceDisplay';
 import { normalizeTransactions } from './utils/normalizeTransactions';
 import { buildInvestmentRows } from './utils/buildInvestmentRows';
 import { scheduleLocalStorageWrite, resolveBlockscoutBase } from './utils/localStorageDebounce';
@@ -110,34 +111,6 @@ import { MOCK_ASSETS, MOCK_HISTORY, MOCK_STAKES, MOCK_TRANSACTIONS } from './fix
 // These are kept here (not in constants.ts) as they are only used in this file.
 const ETH_HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
 const EHEX_PULSECHAIN_ADDR = '0x57fde0a71132198bbec939b98976993d8d89d225';
-
-const PriceDisplay = ({ price, className }: { price: number, className?: string }) => {
-  if (price === 0) return <span className={className}>$0.00</span>;
-
-  // Handle very small prices with subscript for zeros
-  if (price < 0.0001 && price > 0) {
-    const priceStr = price.toFixed(12);
-    const match = priceStr.match(/^0\.0+(?=[1-9])/);
-    if (match) {
-      const zerosCount = match[0].length - 2;
-      const remaining = priceStr.slice(match[0].length);
-      return (
-        <span className={cn("font-mono", className)}>
-          $0.0<sub className="price-sub">{zerosCount}</sub>{remaining.slice(0, 4)}
-        </span>
-      );
-    }
-  }
-
-  return (
-    <span className={cn("font-mono", className)}>
-      ${price.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: price < 1 ? 6 : 2
-      })}
-    </span>
-  );
-};
 
 // -- localStorage cache helpers (BigInt-safe) ----------------------------------
 const bigIntReplacer = (_key: string, value: unknown) =>

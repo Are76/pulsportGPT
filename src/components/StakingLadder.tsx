@@ -31,6 +31,9 @@ export function StakingLadder({ stakes }: StakingLadderProps) {
     const bucketIdx = Math.floor(days / bucketSize);
     if (!buckets[bucketIdx]) {
       const start = bucketIdx * bucketSize;
+      // Use 0.001 as a sentinel so that buckets that are initialised but have
+      // no shares yet (totalShares === 0.001) are not confused with genuinely
+      // empty bucket entries (which are never added to the map).
       buckets[bucketIdx] = {
         totalShares: 0.001,
         stakeCount: 0,
