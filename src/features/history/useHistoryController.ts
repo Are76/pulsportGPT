@@ -90,6 +90,7 @@ export function useHistoryController({
 
   const setTxChainFilter = useCallback((value: 'all' | Chain) => {
     setTxChainFilterState(value);
+    setTxAssetFilterState(DEFAULT_HISTORY_FILTER_STATE.txAssetFilter);
   }, []);
 
   const setTxBridgeProtocolFilter = useCallback((value: HistoryBridgeProtocolFilter) => {
@@ -193,20 +194,20 @@ export function useHistoryController({
   const swapAssetFilterOptions = useMemo<[string, string][]>(() => {
     const symbols = Array.from(new Set<string>(
       currentTransactions
-        .filter((tx) => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly))
+        .filter((tx) => (txChainFilter === 'all' || tx.chain === txChainFilter) && (tx.type === 'swap' || tx.swapLegOnly))
         .flatMap((tx) => [tx.asset, tx.counterAsset].filter(Boolean) as string[]),
     )).sort((a, b) => a.localeCompare(b));
     return [['all', 'All Tokens'], ...symbols.map((symbol) => [symbol, symbol] as [string, string])];
-  }, [currentTransactions]);
+  }, [currentTransactions, txChainFilter]);
 
   const swapYearFilterOptions = useMemo<[string, string][]>(() => {
     const years = Array.from(new Set(
       currentTransactions
-        .filter((tx) => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly))
+        .filter((tx) => (txChainFilter === 'all' || tx.chain === txChainFilter) && (tx.type === 'swap' || tx.swapLegOnly))
         .map((tx) => new Date(tx.timestamp).getFullYear().toString()),
     )).sort((a, b) => Number(b) - Number(a));
     return [['all', 'All Years'], ...years.map((year) => [year, year] as [string, string])];
-  }, [currentTransactions]);
+  }, [currentTransactions, txChainFilter]);
 
   const hasActiveSwapFilters = txAssetFilter !== 'all'
     || txYearFilter !== 'all'
