@@ -21,7 +21,7 @@ export function MyInvestmentsFilters({ activeFilter, counts, onChange }: MyInves
         </div>
         <p>Filter the live bag by chain, then open a row for source capital, P&amp;L, and route context.</p>
       </div>
-      <div className="mi-filters" aria-label="Chain filters">
+      <div className="mi-filters" role="tablist" aria-label="Chain filters">
         {FILTERS.map((filter) => (
           <button
             key={filter.id}

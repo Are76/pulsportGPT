@@ -5,3 +5,5 @@ dist
 build
 .vercel
 .DS_Store
+vite.stdout.log
+vite.stderr.log
