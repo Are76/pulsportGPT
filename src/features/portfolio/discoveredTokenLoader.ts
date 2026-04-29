@@ -189,10 +189,15 @@ export async function loadEthereumDiscoveredTokens(
   const tokenTransfers = await fetchAllEtherscanPages('tokentx', address, apiKey, fetchImpl);
   const discoveredTokens: DiscoveredToken[] = [];
 
+  // Pre-build a Map for O(1) lookups instead of O(N) Array.find per transfer.
+  const knownEthTokenByAddress = new Map(
+    TOKENS.ethereum.map((token) => [token.address.toLowerCase(), token]),
+  );
+
   tokenTransfers.forEach((tx: any) => {
     const contractAddr = String(tx.contractAddress || '').toLowerCase();
     const symbol = tx.tokenSymbol || 'TOKEN';
-    const knownEthToken = TOKENS.ethereum.find((token) => token.address.toLowerCase() === contractAddr);
+    const knownEthToken = knownEthTokenByAddress.get(contractAddr);
     const coinGeckoId = knownEthToken?.coinGeckoId || symbol.toLowerCase();
     const price = fetchedPrices[contractAddr]?.usd || fetchedPrices[coinGeckoId]?.usd || 0;
     const discovered = buildEthereumDiscoveredToken(

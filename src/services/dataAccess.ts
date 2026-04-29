@@ -45,24 +45,17 @@ function createUnwiredRuntimeDeps(): Omit<DataAccessDeps, 'searchPulsechainToken
   };
 }
 
-function assertPhase1Chain(_chain: Chain): void {
-  // All three chains (pulsechain, ethereum, base) are fully wired.
-  // This guard is intentionally a no-op and will be removed in a future cleanup pass.
-}
-
 export function createDataAccess(deps: DataAccessDeps) {
   return {
-    async searchTokens(term: string, chain: Chain): Promise<PulsechainTokenSearchResult[]> {
-      assertPhase1Chain(chain);
+    async searchTokens(term: string, _chain: Chain): Promise<PulsechainTokenSearchResult[]> {
       return deps.searchPulsechainTokens(term);
     },
 
     async getLPPositions(
       addresses: string[],
-      chain: Chain,
+      _chain: Chain,
       tokenPrices: Record<string, number>,
     ): Promise<LpPositionEnriched[]> {
-      assertPhase1Chain(chain);
       return deps.getPulsechainLPPositions(addresses, tokenPrices);
     },
 

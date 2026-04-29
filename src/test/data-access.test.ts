@@ -749,6 +749,7 @@ describe('data access foundation', () => {
         }>;
 
         return {
+          ok: true,
           json: async () => body.map(({ id, params: [{ to, data }] }) => {
             const normalizedTo = to.toLowerCase();
             const normalizedData = data.toLowerCase();
@@ -827,6 +828,7 @@ describe('data access foundation', () => {
       }>;
 
       return {
+        ok: true,
         json: async () => body.map(({ id, method, params }) => {
           if (method === 'eth_getBalance') {
             return { id, result: encodeUint256(2n * 10n ** 18n) };
@@ -891,6 +893,7 @@ describe('data access foundation', () => {
       }>;
 
       return {
+        ok: true,
         json: async () => body.map(({ id, params: [{ to, data }] }) => {
           const normalizedTo = to.toLowerCase();
           const normalizedData = data.toLowerCase();

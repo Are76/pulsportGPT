@@ -26,19 +26,17 @@ describe('enrichPulsechainMissingPrices', () => {
     };
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        pairs: [
-          {
-            chainId: 'pulsechain',
-            priceUsd: '1.5',
-            liquidity: { usd: 1000 },
-            priceChange: { h24: 3, h1: 1 },
-            baseToken: { address: '0xabc', symbol: 'ABX', name: 'Alpha' },
-            quoteToken: { address: '0xdef', symbol: 'PLS', name: 'PulseChain' },
-            info: { imageUrl: 'https://logo' },
-          },
-        ],
-      }),
+      json: async () => ([
+        {
+          chainId: 'pulsechain',
+          priceUsd: '1.5',
+          liquidity: { usd: 1000 },
+          priceChange: { h24: 3, h1: 1 },
+          baseToken: { address: '0xabc', symbol: 'ABX', name: 'Alpha' },
+          quoteToken: { address: '0xdef', symbol: 'PLS', name: 'PulseChain' },
+          info: { imageUrl: 'https://logo' },
+        },
+      ]),
     });
 
     const logos = await enrichPulsechainMissingPrices(assetMap, walletAssetMap, fetchMock as any);
@@ -78,9 +76,7 @@ describe('enrichPulsechainMissingPrices', () => {
     const walletAssetMap = {};
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        pairs: [{ chainId: 'pulsechain', priceUsd: '0', liquidity: { usd: 1 } }],
-      }),
+      json: async () => ([{ chainId: 'pulsechain', priceUsd: '0', liquidity: { usd: 1 } }]),
     });
 
     const logos = await enrichPulsechainMissingPrices(assetMap, walletAssetMap, fetchMock as any);

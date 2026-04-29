@@ -1,68 +1,15 @@
 import { formatUnits } from 'viem';
 import { CHAINS, TOKENS } from '../../constants';
 import type { Chain, TokenBalance } from '../../types';
+import {
+  batchRpcWithFallback,
+  padAddress,
+  parseBigIntResult,
+  type RpcBatchRequest,
+  type RpcBatchResponse,
+} from './rpcUtils';
 
 type FetchLike = typeof fetch;
-
-interface RpcBatchRequest {
-  jsonrpc: '2.0';
-  id: number;
-  method: 'eth_getBalance' | 'eth_call';
-  params: unknown[];
-}
-
-interface RpcBatchResponse {
-  id: number;
-  result?: string;
-}
-
-const FETCH_TIMEOUT = 10_000;
-
-function padAddress(addr: string): string {
-  return addr.replace('0x', '').padStart(64, '0');
-}
-
-function parseBigIntResult(hex: string | undefined): bigint {
-  const normalized = (hex ?? '0x0').replace('0x', '') || '0';
-  return BigInt(`0x${normalized}`);
-}
-
-async function batchRpcRequest(
-  body: RpcBatchRequest[],
-  rpc: string,
-  fetchImpl: FetchLike,
-): Promise<RpcBatchResponse[]> {
-  const response = await fetchImpl(rpc, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT),
-  });
-
-  if (!response.ok) {
-    throw new Error(`RPC HTTP ${response.status}`);
-  }
-
-  return response.json() as Promise<RpcBatchResponse[]>;
-}
-
-async function batchRpcWithFallback(
-  body: RpcBatchRequest[],
-  rpcs: string[],
-  fetchImpl: FetchLike,
-): Promise<RpcBatchResponse[]> {
-  let lastError: unknown;
-
-  for (const rpc of rpcs) {
-    try {
-      return await batchRpcRequest(body, rpc, fetchImpl);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('EVM balance request failed');
-}
 
 export async function getEvmTokenBalances(
   chain: Extract<Chain, 'ethereum' | 'base'>,
