@@ -245,20 +245,23 @@
   line-height: 1.6;
 }
 
-.wa-layout {
+.wa-layout,
+.wa-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
   gap: 18px;
   align-items: start;
 }
 
-.wa-layout--bottom {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
+.wa-main-grid__primary,
+.wa-main-grid__secondary,
 .wa-side-stack {
   display: grid;
   gap: 18px;
+}
+
+.wa-main-grid--lower .wa-main-grid__primary {
+  min-width: 0;
 }
 
 .wa-panel {
@@ -680,7 +683,7 @@
 @media (max-width: 1100px) {
   .wa-hero,
   .wa-layout,
-  .wa-layout--bottom,
+  .wa-main-grid,
   .wa-story-grid,
   .wa-change-grid {
     grid-template-columns: 1fr;

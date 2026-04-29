@@ -193,7 +193,6 @@ export function useHistoryController({
   const swapAssetFilterOptions = useMemo<[string, string][]>(() => {
     const symbols = Array.from(new Set<string>(
       currentTransactions
-        .filter((tx) => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly))
         .flatMap((tx) => [tx.asset, tx.counterAsset].filter(Boolean) as string[]),
     )).sort((a, b) => a.localeCompare(b));
     return [['all', 'All Tokens'], ...symbols.map((symbol) => [symbol, symbol] as [string, string])];
@@ -202,7 +201,6 @@ export function useHistoryController({
   const swapYearFilterOptions = useMemo<[string, string][]>(() => {
     const years = Array.from(new Set(
       currentTransactions
-        .filter((tx) => tx.chain === 'pulsechain' && (tx.type === 'swap' || tx.swapLegOnly))
         .map((tx) => new Date(tx.timestamp).getFullYear().toString()),
     )).sort((a, b) => Number(b) - Number(a));
     return [['all', 'All Years'], ...years.map((year) => [year, year] as [string, string])];
@@ -229,9 +227,7 @@ export function useHistoryController({
     const tokenTxs = txAssetFilter === 'all'
       ? swaps
       : currentTransactions.filter((tx) =>
-        (tx.type === 'swap' || !!tx.swapLegOnly)
-        && tx.chain === 'pulsechain'
-        && (matchesAssetSymbol(tx.asset, txAssetFilter, tx.chain)
+        (matchesAssetSymbol(tx.asset, txAssetFilter, tx.chain)
           || matchesAssetSymbol(tx.counterAsset ?? '', txAssetFilter, tx.chain)),
       );
 
@@ -266,7 +262,7 @@ export function useHistoryController({
     const realizedCost = Math.min(cost, sold * averageCost);
     const realizedPnl = txAssetFilter === 'all' ? aggregateSwapPnl : proceeds - realizedCost;
     const holdingsValue = txAssetFilter === 'all'
-      ? currentAssets.filter((asset) => asset.chain === 'pulsechain').reduce((sum, asset) => sum + asset.value, 0)
+      ? currentAssets.reduce((sum, asset) => sum + asset.value, 0)
       : activeHistoryAsset ? activeHistoryAsset.balance * activeHistoryAsset.price : 0;
 
     return {

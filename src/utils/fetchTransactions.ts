@@ -8,11 +8,15 @@ const ERC20_TYPE_FILTER = 'ERC-20';
 const PULSECHAIN_HEX_ADDRESS = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
 const BASE_BLOCKSCOUT_API = 'https://base.blockscout.com/api/v2';
 const ETHERSCAN_API = 'https://api.etherscan.io/v2/api?chainid=1';
+const PULSECHAIN_COMPAT_API = 'https://api.scan.pulsechain.com/api';
 const ETH_START_BLOCK = 11565019;
 const ETH_PAGE_SIZE = 10000;
+const PULSECHAIN_COMPAT_PAGE_SIZE = 100;
 const LIBERTY_SWAP_SELECTOR = 'dc655e26';
 const LIBERTY_SWAP_BASE_ROUTER = '0xcf3d89aedd07ee94e5c45037581744e2d9f0b9fc';
 const MARKET_PRICE_IDS = ['ethereum', 'usd-coin', 'tether', 'dai', 'wrapped-bitcoin', 'hex'] as const;
+const FETCH_TIMEOUT_MS = 20_000;
+const PULSECHAIN_FETCH_TIMEOUT_MS = 75_000;
 
 type FetchLike = typeof fetch;
 type MarketPriceMap = Partial<Record<(typeof MARKET_PRICE_IDS)[number], number>>;
@@ -39,6 +43,7 @@ type AddressTransactionItem = {
 };
 
 type TokenRef = {
+  address?: string | null;
   address_hash?: string | null;
   symbol?: string | null;
   name?: string | null;
@@ -52,7 +57,9 @@ type TotalRef = {
 };
 
 type AddressTokenTransferItem = {
+  tx_hash?: string | null;
   transaction_hash: string;
+  method?: string | null;
   timestamp?: string | null;
   block_number?: number | string | null;
   from?: HashRef | null;
@@ -71,33 +78,42 @@ type EtherscanResponse<T> = {
 type EtherscanNativeTransactionItem = {
   hash: string;
   timeStamp: string;
+  blockNumber?: string;
   from: string;
   to: string;
   value: string;
   gasUsed?: string;
   gasPrice?: string;
+  functionName?: string;
+  input?: string;
+  txreceipt_status?: string;
+  isError?: string;
 };
 
 type EtherscanTokenTransactionItem = {
   hash: string;
   timeStamp: string;
+  blockNumber?: string;
   from: string;
   to: string;
   value: string;
   gasUsed?: string;
   gasPrice?: string;
   logIndex?: string;
+  tokenName?: string;
   tokenSymbol?: string;
   tokenDecimal?: string;
   contractAddress: string;
 };
 
 type EtherscanInternalTransactionItem = {
-  hash: string;
+  hash?: string;
+  transactionHash?: string;
   timeStamp: string;
   from: string;
   to: string;
   value: string;
+  blockNumber?: string;
 };
 
 type PagedResponse<T> = {
@@ -254,7 +270,7 @@ async function loadMarketPrices(fetchImpl: FetchLike): Promise<MarketPriceMap> {
 }
 
 function resolveTokenAsset(token: TokenRef | null | undefined): { asset: string; bridged?: boolean; bridge?: Transaction['bridge'] } {
-  const tokenAddress = token?.address_hash?.toLowerCase();
+  const tokenAddress = (token?.address_hash ?? token?.address)?.toLowerCase();
   if (tokenAddress && BRIDGED_TOKENS[tokenAddress]) {
     return BRIDGED_TOKENS[tokenAddress];
   }
@@ -267,10 +283,20 @@ function resolveTokenAsset(token: TokenRef | null | undefined): { asset: string;
   };
 }
 
-async function fetchPagedJson<T>(url: string, fetchImpl: FetchLike): Promise<PagedResponse<T>> {
-  const response = await fetchImpl(url);
+async function fetchPagedJson<T>(
+  url: string,
+  fetchImpl: FetchLike,
+  timeoutMs = FETCH_TIMEOUT_MS,
+  retries = 2,
+): Promise<PagedResponse<T>> {
+  const response = await fetchImpl(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+  });
 
   if (!response.ok) {
+    if (response.status >= 500 && retries > 0) {
+      return fetchPagedJson(url, fetchImpl, timeoutMs, retries - 1);
+    }
     throw new Error(`PulseChain transaction request failed: ${response.status}`);
   }
 
@@ -295,6 +321,8 @@ async function fetchPaginatedItems<T>(
   url: string,
   fetchImpl: FetchLike,
   startBlock?: number,
+  toleratePartialFailure = false,
+  timeoutMs = FETCH_TIMEOUT_MS,
 ): Promise<{ items: T[]; nextBlock?: number }> {
   const items: T[] = [];
   let nextPageParams: Record<string, string | number> | null = null;
@@ -302,7 +330,15 @@ async function fetchPaginatedItems<T>(
 
   do {
     const pageUrl = buildPagedUrl(url, nextPageParams);
-    const page = await fetchPagedJson<T>(pageUrl, fetchImpl);
+    let page: PagedResponse<T>;
+    try {
+      page = await fetchPagedJson<T>(pageUrl, fetchImpl, timeoutMs);
+    } catch (error) {
+      if (toleratePartialFailure && items.length > 0) {
+        break;
+      }
+      throw error;
+    }
     items.push(...(page.items ?? []));
 
     const candidateNextBlock = parseBlockNumber(page.next_page_params?.block_number);
@@ -401,6 +437,7 @@ function normalizeTokenTransfers(
   txMetaByHash: Map<string, { fee?: number; status?: string; method?: string }>,
 ): Transaction[] {
   return items.map((item) => {
+    const hash = item.transaction_hash ?? item.tx_hash ?? '';
     const from = normalizeAddress(item.from?.hash ?? '');
     const to = normalizeAddress(item.to?.hash ?? '');
     const isDeposit = to === walletAddress;
@@ -408,13 +445,14 @@ function normalizeTokenTransfers(
     const amount = parseDecimal(item.total?.value, Number.isFinite(decimals) ? decimals : 18);
     const resolvedToken = resolveTokenAsset(item.token);
     const exchangeRate = parseOptionalPositiveNumber(item.token?.exchange_rate);
-    const meta = txMetaByHash.get(item.transaction_hash);
+    const meta = txMetaByHash.get(hash);
     const blockNumber = parseBlockNumber(item.block_number);
-    const staking = resolveHexStakingAction(meta?.method, item.token?.address_hash, to);
+    const tokenAddress = item.token?.address_hash ?? item.token?.address;
+    const staking = resolveHexStakingAction(item.method ?? meta?.method, tokenAddress, to);
 
     return {
-      id: `${item.transaction_hash}-${item.token?.address_hash?.toLowerCase() ?? 'token'}-${isDeposit ? 'deposit' : 'withdraw'}-${item.log_index ?? 0}`,
-      hash: item.transaction_hash,
+      id: `${hash}-${tokenAddress?.toLowerCase() ?? 'token'}-${isDeposit ? 'deposit' : 'withdraw'}-${item.log_index ?? 0}`,
+      hash,
       timestamp: parseTimestamp(item.timestamp),
       type: isDeposit ? 'deposit' : 'withdraw',
       from,
@@ -435,11 +473,187 @@ function normalizeTokenTransfers(
 
 type FetchPulsechainTransactionsOptions = {
   baseUrl?: string;
+  compatApiBase?: string;
   fetchImpl?: FetchLike;
   startBlock?: number;
 };
 
-export async function fetchPulsechainTransactions(
+function resolveCompatMethodName(
+  functionName: string | undefined,
+  input: string | undefined,
+): string | undefined {
+  const trimmed = functionName?.trim();
+  if (trimmed) {
+    return trimmed.split('(')[0];
+  }
+
+  const normalizedInput = input?.trim().toLowerCase();
+  if (!normalizedInput || normalizedInput === '0x') {
+    return undefined;
+  }
+
+  return normalizedInput;
+}
+
+function resolvePulsechainCompatTokenAsset(
+  contractAddress: string,
+  symbol: string | undefined,
+  name: string | undefined,
+): { asset: string; bridged?: boolean; bridge?: Transaction['bridge'] } {
+  const tokenAddress = contractAddress.toLowerCase();
+  if (BRIDGED_TOKENS[tokenAddress]) {
+    return BRIDGED_TOKENS[tokenAddress];
+  }
+
+  return {
+    asset: symbol?.trim() || name?.trim() || 'UNKNOWN',
+  };
+}
+
+async function fetchPulsechainTransactionsViaCompatApi(
+  address: string,
+  options: FetchPulsechainTransactionsOptions,
+): Promise<TransactionQueryResult> {
+  const walletAddress = normalizeAddress(address);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const apiBase = options.compatApiBase ?? PULSECHAIN_COMPAT_API;
+  const startBlock = options.startBlock ?? 0;
+
+  const [nativeTransactions, tokenTransactions, internalTransactions] = await Promise.all([
+    fetchAllEtherscanPages<EtherscanNativeTransactionItem>(
+      'txlist',
+      walletAddress,
+      fetchImpl,
+      undefined,
+      startBlock,
+      apiBase,
+      PULSECHAIN_COMPAT_PAGE_SIZE,
+      'desc',
+    ),
+    fetchAllEtherscanPages<EtherscanTokenTransactionItem>(
+      'tokentx',
+      walletAddress,
+      fetchImpl,
+      undefined,
+      startBlock,
+      apiBase,
+      PULSECHAIN_COMPAT_PAGE_SIZE,
+      'desc',
+    ),
+    fetchAllEtherscanPages<EtherscanInternalTransactionItem>(
+      'txlistinternal',
+      walletAddress,
+      fetchImpl,
+      undefined,
+      startBlock,
+      apiBase,
+      PULSECHAIN_COMPAT_PAGE_SIZE,
+      'desc',
+    ),
+  ]);
+
+  const txMetaByHash = new Map<string, { fee?: number; status?: string; method?: string }>();
+  for (const item of nativeTransactions) {
+    txMetaByHash.set(item.hash, {
+      fee: item.gasUsed && item.gasPrice
+        ? parseDecimal((BigInt(item.gasUsed) * BigInt(item.gasPrice)).toString(), PULSECHAIN_NATIVE_DECIMALS)
+        : 0,
+      status: item.txreceipt_status === '1' || item.isError === '0' ? 'ok' : undefined,
+      method: resolveCompatMethodName(item.functionName, item.input),
+    });
+  }
+
+  const rawTransactions: Array<Transaction & { blockNumber?: number }> = [
+    ...nativeTransactions.map((item) => {
+      const from = normalizeAddress(item.from);
+      const to = normalizeAddress(item.to);
+      const isDeposit = to === walletAddress;
+      const type: Transaction['type'] = isDeposit ? 'deposit' : 'withdraw';
+      const blockNumber = parseBlockNumber(item.blockNumber);
+
+      return {
+        id: `${item.hash}-native-${isDeposit ? 'deposit' : 'withdraw'}`,
+        hash: item.hash,
+        timestamp: Number(item.timeStamp) * 1000,
+        type,
+        from,
+        to,
+        asset: 'PLS',
+        amount: parseDecimal(item.value, PULSECHAIN_NATIVE_DECIMALS),
+        fee: item.gasUsed && item.gasPrice
+          ? parseDecimal((BigInt(item.gasUsed) * BigInt(item.gasPrice)).toString(), PULSECHAIN_NATIVE_DECIMALS)
+          : 0,
+        chain: 'pulsechain' as const,
+        status: item.txreceipt_status === '1' || item.isError === '0' ? 'ok' : undefined,
+        ...(blockNumber !== undefined ? { blockNumber } : {}),
+      } satisfies Transaction & { blockNumber?: number };
+    }),
+    ...tokenTransactions.map((item) => {
+      const from = normalizeAddress(item.from);
+      const to = normalizeAddress(item.to);
+      const isDeposit = to === walletAddress;
+      const type: Transaction['type'] = isDeposit ? 'deposit' : 'withdraw';
+      const blockNumber = parseBlockNumber(item.blockNumber);
+      const tokenAddress = item.contractAddress.toLowerCase();
+      const decimals = Number.parseInt(item.tokenDecimal ?? '18', 10);
+      const amount = parseDecimal(item.value, Number.isFinite(decimals) ? decimals : 18);
+      const resolvedToken = resolvePulsechainCompatTokenAsset(tokenAddress, item.tokenSymbol, item.tokenName);
+      const meta = txMetaByHash.get(item.hash);
+      const staking = resolveHexStakingAction(meta?.method, tokenAddress, to);
+
+      return {
+        id: `${item.hash}-${tokenAddress}-${isDeposit ? 'deposit' : 'withdraw'}-${item.logIndex ?? 0}`,
+        hash: item.hash,
+        timestamp: Number(item.timeStamp) * 1000,
+        type,
+        from,
+        to,
+        asset: resolvedToken.asset,
+        amount,
+        fee: meta?.fee,
+        chain: 'pulsechain' as const,
+        bridged: resolvedToken.bridged,
+        bridge: resolvedToken.bridge,
+        staking,
+        status: meta?.status,
+        ...(blockNumber !== undefined ? { blockNumber } : {}),
+      } satisfies Transaction & { blockNumber?: number };
+    }),
+    ...internalTransactions.map((item) => {
+      const hash = item.hash ?? item.transactionHash ?? '';
+      const from = normalizeAddress(item.from);
+      const to = normalizeAddress(item.to);
+      const isDeposit = to === walletAddress;
+      const type: Transaction['type'] = isDeposit ? 'deposit' : 'withdraw';
+      const blockNumber = parseBlockNumber(item.blockNumber);
+
+      return {
+        id: `${hash}-internal-${isDeposit ? 'deposit' : 'withdraw'}`,
+        hash,
+        timestamp: Number(item.timeStamp) * 1000,
+        type,
+        from,
+        to,
+        asset: 'PLS',
+        amount: parseDecimal(item.value, PULSECHAIN_NATIVE_DECIMALS),
+        fee: txMetaByHash.get(hash)?.fee,
+        chain: 'pulsechain' as const,
+        status: txMetaByHash.get(hash)?.status,
+        ...(blockNumber !== undefined ? { blockNumber } : {}),
+      } satisfies Transaction & { blockNumber?: number };
+    }),
+  ];
+
+  const normalizedTransactions = normalizeTransactions(rawTransactions, new Set([walletAddress]));
+
+  return {
+    implemented: true,
+    transactions: normalizedTransactions,
+    nextBlock: undefined,
+  };
+}
+
+async function fetchPulsechainTransactionsViaBlockscoutV2(
   address: string,
   options: FetchPulsechainTransactionsOptions = {},
 ): Promise<TransactionQueryResult> {
@@ -447,18 +661,33 @@ export async function fetchPulsechainTransactions(
   const baseUrl = options.baseUrl ?? resolveBlockscoutBase();
   const fetchImpl = options.fetchImpl ?? fetch;
 
-  const [transactionsResponse, tokenTransfersResponse] = await Promise.all([
+  const [transactionsResult, tokenTransfersResult] = await Promise.allSettled([
     fetchPaginatedItems<AddressTransactionItem>(
       `${baseUrl}/addresses/${walletAddress}/transactions`,
       fetchImpl,
       options.startBlock,
+      false,
+      PULSECHAIN_FETCH_TIMEOUT_MS,
     ),
     fetchPaginatedItems<AddressTokenTransferItem>(
       `${baseUrl}/addresses/${walletAddress}/token-transfers?type=${ERC20_TYPE_FILTER}`,
       fetchImpl,
       options.startBlock,
+      true,
+      PULSECHAIN_FETCH_TIMEOUT_MS,
     ),
   ]);
+
+  if (transactionsResult.status === 'rejected' && tokenTransfersResult.status === 'rejected') {
+    throw transactionsResult.reason;
+  }
+
+  const transactionsResponse = transactionsResult.status === 'fulfilled'
+    ? transactionsResult.value
+    : { items: [], nextBlock: undefined };
+  const tokenTransfersResponse = tokenTransfersResult.status === 'fulfilled'
+    ? tokenTransfersResult.value
+    : { items: [], nextBlock: undefined };
 
   const txMetaByHash = new Map<string, { fee?: number; status?: string; method?: string }>();
   for (const item of transactionsResponse.items) {
@@ -493,6 +722,26 @@ export async function fetchPulsechainTransactions(
     transactions: normalizedTransactions,
     nextBlock: nextBlocks.length > 0 ? Math.max(...nextBlocks) : undefined,
   };
+}
+
+export async function fetchPulsechainTransactions(
+  address: string,
+  options: FetchPulsechainTransactionsOptions = {},
+): Promise<TransactionQueryResult> {
+  if (options.baseUrl) {
+    return fetchPulsechainTransactionsViaBlockscoutV2(address, options);
+  }
+
+  try {
+    const compatResult = await fetchPulsechainTransactionsViaCompatApi(address, options);
+    if (compatResult.transactions.length > 0) {
+      return compatResult;
+    }
+  } catch {
+    // fall through to the slower Blockscout v2 path
+  }
+
+  return fetchPulsechainTransactionsViaBlockscoutV2(address, options);
 }
 
 type FetchBaseTransactionsOptions = {
@@ -622,6 +871,8 @@ async function fetchAllEtherscanPages<T>(
   apiKey: string | undefined,
   startBlock: number,
   apiBase: string,
+  pageSize = ETH_PAGE_SIZE,
+  sort: 'asc' | 'desc' = 'asc',
 ): Promise<T[]> {
   const results: T[] = [];
   let page = 1;
@@ -631,13 +882,13 @@ async function fetchAllEtherscanPages<T>(
     const apiKeyParam = apiKey ? `&apikey=${apiKey}` : '';
     const separator = apiBase.includes('?') ? '&' : '?';
     const url = `${apiBase}${separator}module=account&action=${action}&address=${address}`
-      + `&startblock=${startBlock}&endblock=99999999&sort=asc&page=${page}&offset=${ETH_PAGE_SIZE}${apiKeyParam}`;
+      + `&startblock=${startBlock}&endblock=99999999&sort=${sort}&page=${page}&offset=${pageSize}${apiKeyParam}`;
     const response = await fetchImpl(url);
     const data = await response.json() as EtherscanResponse<T>;
 
     if (data.status === '1' && Array.isArray(data.result)) {
       results.push(...data.result);
-      if (data.result.length < ETH_PAGE_SIZE) break;
+      if (data.result.length < pageSize) break;
       page += 1;
       retries = 0;
       continue;

@@ -288,27 +288,35 @@ export function WalletAnalyzerPage({
         </article>
       </section>
 
-      <div className="wa-layout">
-        <PortfolioPerformanceChart
-          performance={filteredPerformance}
-          summary={rangeSummary}
-          controls={
-            <div className="wa-segmented-control" aria-label="Performance range">
-              {(['1W', '1M', 'ALL'] as const).map((range) => (
-                <button
-                  key={range}
-                  type="button"
-                  className="wa-segmented-control__button"
-                  aria-pressed={performanceRange === range}
-                  onClick={() => setPerformanceRange(range)}
-                >
-                  {range === 'ALL' ? 'All' : range}
-                </button>
-              ))}
-            </div>
-          }
-        />
-        <div className="wa-side-stack">
+      <div className="wa-main-grid">
+        <div className="wa-main-grid__primary">
+          <PortfolioPerformanceChart
+            performance={filteredPerformance}
+            summary={rangeSummary}
+            controls={
+              <div className="wa-segmented-control" aria-label="Performance range">
+                {(['1W', '1M', 'ALL'] as const).map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    className="wa-segmented-control__button"
+                    aria-pressed={performanceRange === range}
+                    onClick={() => setPerformanceRange(range)}
+                  >
+                    {range === 'ALL' ? 'All' : range}
+                  </button>
+                ))}
+              </div>
+            }
+          />
+          <ChainMixCard
+            chainMix={model.chainMix}
+            rangeLabel={rangeSummary.label}
+            attribution={chainAttribution}
+            onOpenTransactions={onOpenTransactionsForChain}
+          />
+        </div>
+        <div className="wa-main-grid__secondary">
           <RiskMetricsPanel nav={model.nav} risk={model.risk} />
           <TradeBehaviorCard behavior={model.behavior} />
         </div>
@@ -447,45 +455,37 @@ export function WalletAnalyzerPage({
         </div>
       </section>
 
-      <div className="wa-layout wa-layout--bottom">
-        <AllocationBreakdownCard
-          allocation={model.allocation}
-          onOpenTransactions={onOpenTransactionsForHolding}
-        />
-        <TopContributorsCard
-          contributors={model.contributors}
-          onOpenTransactions={onOpenTransactionsForHolding}
-        />
-      </div>
-
-      <div className="wa-layout wa-layout--bottom">
-        <ChainMixCard
-          chainMix={model.chainMix}
-          rangeLabel={rangeSummary.label}
-          attribution={chainAttribution}
-          onOpenTransactions={onOpenTransactionsForChain}
-        />
-      </div>
-
-      <div className="wa-layout wa-layout--bottom">
-        <section className="wa-panel wa-panel--holdings">
-          <div className="wa-holdings-shell">
-            <MyInvestmentsFilters
-              activeFilter={holdingChainFilter}
-              counts={holdingChainCounts}
-              onChange={setHoldingChainFilter}
-            />
-            <MyInvestmentsTable
-              rows={filteredHoldingRows}
-              plsUsdPrice={plsUsdPrice}
-              portfolioValue={model.nav.totalValue}
-              expandedId={expandedHoldingId}
-              onToggleRow={(id) => setExpandedHoldingId((current) => current === id ? null : id)}
-              onOpenAsset={setSelectedHolding}
-              onOpenTransactions={(row) => onOpenTransactions(buildAssetHistoryIntent(row))}
-            />
-          </div>
-        </section>
+      <div className="wa-main-grid wa-main-grid--lower">
+        <div className="wa-main-grid__primary">
+          <section className="wa-panel wa-panel--holdings">
+            <div className="wa-holdings-shell">
+              <MyInvestmentsFilters
+                activeFilter={holdingChainFilter}
+                counts={holdingChainCounts}
+                onChange={setHoldingChainFilter}
+              />
+              <MyInvestmentsTable
+                rows={filteredHoldingRows}
+                plsUsdPrice={plsUsdPrice}
+                portfolioValue={model.nav.totalValue}
+                expandedId={expandedHoldingId}
+                onToggleRow={(id) => setExpandedHoldingId((current) => current === id ? null : id)}
+                onOpenAsset={setSelectedHolding}
+                onOpenTransactions={(row) => onOpenTransactions(buildAssetHistoryIntent(row))}
+              />
+            </div>
+          </section>
+        </div>
+        <div className="wa-main-grid__secondary">
+          <AllocationBreakdownCard
+            allocation={model.allocation}
+            onOpenTransactions={onOpenTransactionsForHolding}
+          />
+          <TopContributorsCard
+            contributors={model.contributors}
+            onOpenTransactions={onOpenTransactionsForHolding}
+          />
+        </div>
       </div>
       {selectedHolding ? (
         <MyInvestmentsAssetPanel

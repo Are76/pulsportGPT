@@ -196,8 +196,7 @@ export const CHAINS = {
     name: 'Ethereum',
     rpc: 'https://ethereum-rpc.publicnode.com',
     fallbackRpcs: [
-      'https://eth.drpc.org',
-      'https://cloudflare-eth.com'
+      'https://eth.drpc.org'
     ],
     explorer: 'https://etherscan.io',
     color: '#627EEA',
@@ -220,7 +219,11 @@ export const CHAINS = {
   base: {
     id: 8453,
     name: 'Base',
-    rpc: 'https://mainnet.base.org',
+    rpc: 'https://base-rpc.publicnode.com',
+    fallbackRpcs: [
+      'https://base.llamarpc.com',
+      'https://developer-access-mainnet.base.org'
+    ],
     explorer: 'https://basescan.org',
     color: '#0052FF'
   }

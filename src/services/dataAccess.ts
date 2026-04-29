@@ -45,16 +45,12 @@ function createUnwiredRuntimeDeps(): Omit<DataAccessDeps, 'searchPulsechainToken
   };
 }
 
-function assertPhase1Chain(chain: Chain): void {
-  if (chain !== 'pulsechain') {
-    throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
-  }
-}
-
 export function createDataAccess(deps: DataAccessDeps) {
   return {
     async searchTokens(term: string, chain: Chain): Promise<PulsechainTokenSearchResult[]> {
-      assertPhase1Chain(chain);
+      if (chain !== 'pulsechain') {
+        throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+      }
       return deps.searchPulsechainTokens(term);
     },
 
@@ -63,7 +59,9 @@ export function createDataAccess(deps: DataAccessDeps) {
       chain: Chain,
       tokenPrices: Record<string, number>,
     ): Promise<LpPositionEnriched[]> {
-      assertPhase1Chain(chain);
+      if (chain !== 'pulsechain') {
+        throw new Error(`Unsupported chain for Phase 1 data access: ${chain}`);
+      }
       return deps.getPulsechainLPPositions(addresses, tokenPrices);
     },
 

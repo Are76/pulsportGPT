@@ -52,7 +52,7 @@ describe('history drill-down helpers', () => {
       kind: 'asset',
       symbol: 'HEX',
       chain: 'pulsechain',
-      txType: 'swap',
+      txType: 'all',
     });
   });
 
@@ -61,5 +61,6 @@ describe('history drill-down helpers', () => {
     expect(matchesHistoryTransactionType({ type: 'deposit' } as any, 'swap')).toBe(false);
     expect(matchesHistoryTransactionType({ type: 'deposit' } as any, 'all')).toBe(true);
     expect(matchesHistoryTransactionType({ type: 'withdraw', swapLegOnly: true } as any, 'withdraw')).toBe(false);
+    expect(matchesHistoryTransactionType({ type: 'interaction' } as any, 'interaction')).toBe(true);
   });
 });

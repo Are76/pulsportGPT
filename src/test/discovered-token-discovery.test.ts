@@ -106,6 +106,29 @@ describe('discoveredTokenDiscovery', () => {
     expect(second).toBeNull();
   });
 
+  it('uses tokenName when checking Ethereum URL-pattern spam', () => {
+    const result = buildEthereumDiscoveredToken(
+      {
+        from: '0xexternal',
+        contractAddress: '0xdef',
+        tokenName: 'scam-token.io',
+        tokenSymbol: 'SAFE',
+        tokenDecimal: '18',
+        value: '1000000000000000000',
+      },
+      [{ address: 'native' }],
+      [],
+      '0xwallet',
+      'safe',
+      100,
+    );
+
+    expect(result).toMatchObject({
+      name: 'scam-token.io',
+      isSpam: true,
+    });
+  });
+
   it('collects lookup keys only for unpriced discovered tokens', () => {
     const discoveredTokens: DiscoveredToken[] = [
       {

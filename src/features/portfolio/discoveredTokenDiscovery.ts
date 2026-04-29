@@ -116,14 +116,15 @@ export function buildEthereumDiscoveredToken(
   if (hasDiscoveredAddress(discoveredTokens, contractAddr)) return null;
 
   const symbol = tx.tokenSymbol || 'TOKEN';
+  const tokenName = tx.tokenName || symbol;
   const isOut = String(tx.from || '').toLowerCase() === walletAddress.toLowerCase();
   const amount = Number(tx.value ? tx.value : 0) / 10 ** (Number(tx.tokenDecimal) || 18);
-  const hasUrlPattern = /\.(io|com|net|org|xyz|finance|app|pro|gg)\b/i.test(`${symbol} ${symbol}`);
+  const hasUrlPattern = /\.(io|com|net|org|xyz|finance|app|pro|gg)\b/i.test(`${tokenName} ${symbol}`);
   const isTinyAirdrop = !isOut && knownPriceUsd === 0 && amount <= 10;
 
   return {
     symbol,
-    name: symbol,
+    name: tokenName,
     address: tx.contractAddress,
     decimals: Number(tx.tokenDecimal) || 18,
     coinGeckoId: knownCoinGeckoId || symbol.toLowerCase(),

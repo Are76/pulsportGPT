@@ -51,11 +51,11 @@ describe('buildWalletAnalyzerPageProps', () => {
     expect(result.pageProps.plsUsdPrice).toBe(0.00008);
     expect(onOpenTransactions).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'swap' }),
+      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'all' }),
     );
     expect(onOpenTransactions).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ kind: 'chain', chain: 'ethereum', txType: 'swap' }),
+      expect.objectContaining({ kind: 'chain', chain: 'ethereum', txType: 'all' }),
     );
   });
 });

@@ -14,7 +14,6 @@ describe('shared RPC configuration', () => {
     expect(CHAINS.ethereum.rpc).toBe('https://ethereum-rpc.publicnode.com');
     expect(CHAINS.ethereum.fallbackRpcs).toEqual([
       'https://eth.drpc.org',
-      'https://cloudflare-eth.com',
     ]);
   });
 });

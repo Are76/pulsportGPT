@@ -235,6 +235,8 @@ export function buildPerformancePointDescriptor(point: { label: string; value: n
 export function buildTransactionAmountDescriptor(tx: Transaction, options?: { onDrilldown?: () => void }): ProvenanceDescriptor {
   const swapDescription = tx.type === 'swap' && tx.counterAsset
     ? `Paid ${(tx.counterAmount ?? 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.counterAsset} and received ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}.`
+    : tx.type === 'interaction'
+      ? `Contract interaction from ${tx.from} to ${tx.to}.`
     : `${tx.type} ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}.`;
   return buildRawMetricProvenance({
     label: `${tx.asset} amount`,

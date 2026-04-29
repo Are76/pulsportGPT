@@ -175,7 +175,7 @@ export interface TransactionQueryResult {
  *  - withdraw  : tokens/native leaving a wallet (transfer-out)
  *  - swap      : atomic exchange of one asset for another
  */
-export type TransactionType = 'deposit' | 'withdraw' | 'swap';
+export type TransactionType = 'deposit' | 'withdraw' | 'swap' | 'interaction';
 
 export interface Transaction {
   /** Unique identifier (hash-based). */

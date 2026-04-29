@@ -82,4 +82,88 @@ describe('normalizeTransactions', () => {
       counterAmount: 1000,
     });
   });
+
+  it('preserves zero-value contract calls as interaction rows', () => {
+    const walletAddrs = new Set(['0xwallet']);
+    const timestamp = new Date('2026-04-23T12:00:00Z').getTime();
+
+    const txs: Transaction[] = [
+      {
+        id: 'approval',
+        hash: '0xapproval',
+        timestamp,
+        type: 'withdraw',
+        from: '0xwallet',
+        to: '0xcontract',
+        asset: 'ETH',
+        amount: 0,
+        valueUsd: 0,
+        chain: 'ethereum',
+      },
+    ];
+
+    const normalized = normalizeTransactions(txs, walletAddrs);
+
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0]).toMatchObject({
+      type: 'interaction',
+      hash: '0xapproval',
+      from: '0xwallet',
+      to: '0xcontract',
+      asset: 'ETH',
+      amount: 0,
+    });
+  });
+
+  it('aggregates split same-asset out legs into one swap when the wallet receives one asset back', () => {
+    const walletAddrs = new Set(['0xwallet']);
+    const timestamp = new Date('2026-04-27T11:31:45Z').getTime();
+
+    const txs: Transaction[] = [
+      {
+        id: 'most-out-1',
+        hash: '0xsplit',
+        timestamp,
+        type: 'withdraw',
+        from: '0xwallet',
+        to: '0xpair1',
+        asset: 'MOST',
+        amount: 12000,
+        chain: 'pulsechain',
+      },
+      {
+        id: 'most-out-2',
+        hash: '0xsplit',
+        timestamp,
+        type: 'withdraw',
+        from: '0xwallet',
+        to: '0xpair2',
+        asset: 'MOST',
+        amount: 3000,
+        chain: 'pulsechain',
+      },
+      {
+        id: 'pls-in',
+        hash: '0xsplit',
+        timestamp,
+        type: 'deposit',
+        from: '0xrouter',
+        to: '0xwallet',
+        asset: 'PLS',
+        amount: 8430922.23176224,
+        chain: 'pulsechain',
+      },
+    ];
+
+    const normalized = normalizeTransactions(txs, walletAddrs);
+
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0]).toMatchObject({
+      type: 'swap',
+      asset: 'PLS',
+      amount: 8430922.23176224,
+      counterAsset: 'MOST',
+      counterAmount: 15000,
+    });
+  });
 });

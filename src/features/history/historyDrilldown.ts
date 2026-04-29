@@ -1,6 +1,6 @@
 import type { Chain, InvestmentHoldingRow, Transaction } from '../../types';
 
-export type HistoryTransactionTypeFilter = 'all' | 'deposit' | 'withdraw' | 'swap';
+export type HistoryTransactionTypeFilter = 'all' | 'deposit' | 'withdraw' | 'swap' | 'interaction';
 export type HistoryBridgeProtocolFilter = 'all' | 'official' | 'liberty';
 export type HistoryStakingActionFilter = 'all' | 'stakeStart' | 'stakeEnd';
 
@@ -44,11 +44,11 @@ export type HistoryDrilldownIntent =
     };
 
 export const DEFAULT_HISTORY_FILTER_STATE: HistoryFilterState = {
-  txTypeFilter: 'swap',
+  txTypeFilter: 'all',
   txAssetFilter: 'all',
   txYearFilter: 'all',
   txCoinCategory: 'all',
-  txChainFilter: 'pulsechain',
+  txChainFilter: 'all',
   txBridgeProtocolFilter: 'all',
   txOriginChainFilter: 'all',
   txStakingActionFilter: 'all',
@@ -59,14 +59,14 @@ export function resolveHistoryFilterState(intent: HistoryDrilldownIntent): Histo
     case 'asset':
       return {
         ...DEFAULT_HISTORY_FILTER_STATE,
-        txTypeFilter: intent.txType ?? 'swap',
+        txTypeFilter: intent.txType ?? 'all',
         txAssetFilter: intent.symbol,
         txChainFilter: intent.chain ?? DEFAULT_HISTORY_FILTER_STATE.txChainFilter,
       };
     case 'chain':
       return {
         ...DEFAULT_HISTORY_FILTER_STATE,
-        txTypeFilter: intent.txType ?? 'swap',
+        txTypeFilter: intent.txType ?? 'all',
         txChainFilter: intent.chain,
       };
     case 'bridge':
@@ -93,7 +93,7 @@ export function buildAssetHistoryIntent(row: Pick<InvestmentHoldingRow, 'symbol'
     kind: 'asset',
     symbol: row.symbol,
     chain: row.chain,
-    txType: 'swap',
+    txType: 'all',
   };
 }
 
@@ -102,6 +102,7 @@ export function matchesHistoryTransactionType(
   filter: HistoryTransactionTypeFilter,
 ): boolean {
   if (filter === 'all') return true;
+  if (filter === 'interaction') return tx.type === 'interaction';
   if (filter === 'swap') return tx.type === 'swap' || !!tx.swapLegOnly;
   if (filter === 'withdraw') return tx.type === 'withdraw' && !tx.swapLegOnly;
   return tx.type === filter && !tx.swapLegOnly;

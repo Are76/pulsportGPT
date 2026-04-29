@@ -29,12 +29,12 @@ export function buildWalletAnalyzerPageProps({
     const row = investmentRowByHolding.get(toHoldingKey(holding.chain, holding.symbol));
     const intent: HistoryDrilldownIntent = row
       ? buildAssetHistoryIntent(row)
-      : { kind: 'asset', symbol: holding.symbol, chain: holding.chain, txType: 'swap' };
+      : { kind: 'asset', symbol: holding.symbol, chain: holding.chain, txType: 'all' };
     onOpenTransactions(intent);
   };
 
   const onOpenTransactionsForChain: WalletAnalyzerPageProps['onOpenTransactionsForChain'] = (chain) => {
-    onOpenTransactions({ kind: 'chain', chain, txType: 'swap' });
+    onOpenTransactions({ kind: 'chain', chain, txType: 'all' });
   };
 
   return {

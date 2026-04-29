@@ -26,6 +26,7 @@ import {
   ChevronDown, ChevronUp,
   Filter, TrendingUp, TrendingDown,
   ArrowLeftRight,
+  Workflow,
 } from 'lucide-react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import type { Transaction } from '../types';
@@ -111,6 +112,7 @@ function txVisual(type: Transaction['type']) {
     case 'deposit':  return { Icon: ArrowDownLeft, bg: 'rgba(0,255,159,.10)', color: 'var(--accent)',  label: 'Received' } as const;
     case 'withdraw': return { Icon: ArrowUpRight,  bg: 'rgba(239,68,68,.10)',  color: '#ef4444',        label: 'Sent'     } as const;
     case 'swap':     return { Icon: RefreshCcw,    bg: 'rgba(139,92,246,.10)', color: '#8b5cf6',        label: 'Swap'     } as const;
+    case 'interaction': return { Icon: Workflow, bg: 'rgba(59,130,246,.10)', color: '#3b82f6', label: 'Call' } as const;
   }
 }
 
@@ -284,6 +286,7 @@ export function TransactionList({
         const isSwapLegOnly = !!tx.swapLegOnly;
         const isWithdraw  = tx.type === 'withdraw' && !isSwapLegOnly;
         const isSwap      = tx.type === 'swap';
+        const isInteraction = tx.type === 'interaction';
         const { Icon, bg, color, label } = txVisual(isSwapLegOnly ? 'swap' : tx.type);
 
         const coinAsset = findAsset(tx.asset, tx.chain);
@@ -343,6 +346,13 @@ export function TransactionList({
                         <span>to</span>
                         <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg-muted)' }}>{toLabel}</strong>
                       </>
+                    ) : isInteraction ? (
+                      <>
+                        <span>contract call from</span>
+                        <strong style={{ color: isOwn(tx.from) ? 'var(--accent)' : 'var(--fg-muted)' }}>{fromLabel}</strong>
+                        <span>to</span>
+                        <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg-muted)' }}>{toLabel}</strong>
+                      </>
                     ) : isDeposit ? (
                       <>
                         <span>from</span>
@@ -360,7 +370,7 @@ export function TransactionList({
                   {(!compact || isSwap || isSwapLegOnly) && (
                   <div
                     className="tx-card__amount"
-                    style={{ color: isDeposit ? 'var(--accent)' : (isSwap || isSwapLegOnly) ? 'var(--fg)' : '#ef4444' }}
+                    style={{ color: isDeposit ? 'var(--accent)' : (isSwap || isSwapLegOnly) ? 'var(--fg)' : isInteraction ? '#3b82f6' : '#ef4444' }}
                   >
                     <ProvenanceTrigger
                       descriptor={buildTransactionAmountDescriptor(tx, {
@@ -381,6 +391,8 @@ export function TransactionList({
                               </span>
                             </span>
                           )
+                          : isInteraction
+                            ? `Contract call to ${shortAddr(tx.to)}`
                           : isSwapLegOnly
                             ? `Paid ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`
                             : `${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`}
@@ -454,6 +466,8 @@ export function TransactionList({
               <div className="tx-card__detail-panel" style={{ padding: '0 18px 14px', background: 'var(--bg-inset, var(--bg-elevated))' }}>
                 {isSwap || isSwapLegOnly
                   ? <SwapDetail tx={tx} coinAsset={coinAsset} counterAsset={counterAsset} coinLogo={coinLogo} getLogoUrl={getLogoUrl} displayAddr={displayAddr} isOwn={isOwn} explorerBase={explorerBase} onFilterByAsset={onFilterByAsset} resolvedUsdValue={resolvedUsdValue} />
+                  : isInteraction
+                    ? <InteractionDetail tx={tx} displayAddr={displayAddr} isOwn={isOwn} explorerBase={explorerBase} />
                   : <TransferDetail tx={tx} isDeposit={isDeposit} coinAsset={coinAsset} displayAddr={displayAddr} isOwn={isOwn} explorerBase={explorerBase} resolvedUsdValue={resolvedUsdValue} />
                 }
               </div>
@@ -461,6 +475,55 @@ export function TransactionList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function InteractionDetail({
+  tx,
+  displayAddr,
+  isOwn,
+  explorerBase,
+}: {
+  tx: Transaction;
+  displayAddr: (addr: string | undefined) => string;
+  isOwn: (addr: string | undefined) => boolean;
+  explorerBase: string;
+}) {
+  const stats = [
+    { label: 'Type', val: 'Contract interaction', sub: 'Zero-value on-chain call preserved from the raw ledger.' },
+    { label: 'Chain', val: tx.chain === 'pulsechain' ? 'PulseChain' : tx.chain === 'ethereum' ? 'Ethereum' : 'Base', sub: `Hash ${shortAddr(tx.hash)}` },
+    { label: 'From', val: displayAddr(tx.from), sub: isOwn(tx.from) ? 'Tracked wallet' : 'External sender' },
+    { label: 'To', val: displayAddr(tx.to), sub: isOwn(tx.to) ? 'Tracked wallet' : 'Contract or destination' },
+    { label: 'Date', val: format(tx.timestamp, 'MMM d, yyyy'), sub: format(tx.timestamp, 'HH:mm:ss') },
+  ];
+
+  return (
+    <div className="tx-transfer-detail" style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <div className="tx-detail-context" style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 10 }}>
+        Contract call from <strong style={{ color: isOwn(tx.from) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.from)}</strong>
+        <span> to </span>
+        <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.to)}</strong>
+      </div>
+      <div className="tx-transfer-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+        {stats.map(({ label, val, sub }) => (
+          <div key={label} className="tx-transfer-stat" style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg)' }}>{val}</div>
+            <div style={{ fontSize: 12, color: 'var(--fg-subtle)', marginTop: 1 }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <a
+          href={`${explorerBase}/tx/${tx.hash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}
+        >
+          <ExternalLink size={11} /> View on Explorer
+        </a>
+      </div>
     </div>
   );
 }

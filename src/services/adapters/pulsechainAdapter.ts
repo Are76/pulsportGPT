@@ -2,6 +2,13 @@ import { formatUnits } from 'viem';
 import { PULSEX_LP_PAIRS, TOKENS } from '../../constants';
 import type { LpPositionEnriched, PriceQuote, TokenBalance } from '../../types';
 import { resolvePriceQuotes } from '../priceService';
+import {
+  FETCH_TIMEOUT_MS,
+  padAddress,
+  parseBigIntResult,
+  type RpcBatchRequest,
+  type RpcBatchResponse,
+} from './rpcShared';
 
 export interface PulsechainTokenSearchResult {
   id: string;
@@ -24,7 +31,6 @@ export interface PulsechainTokenSearchResult {
 
 const WPLS_ADDRESS = '0xa1077a294dde1b09bb078844df40758a5d0f9a27';
 const MIN_WPLS_RESERVE = 10_000_000;
-const FETCH_TIMEOUT = 10_000;
 const PRIMARY_RPC = 'https://rpc-pulsechain.g4mm4.io';
 const FALLBACK_RPC = 'https://rpc.pulsechain.com';
 const MASTERCHEF = '0xb2ca4a66d3e57a5a9a12043b6bad28249fe302d4';
@@ -120,18 +126,6 @@ interface PulsechainSubgraphResponse {
   errors?: Array<{ message: string }>;
 }
 
-interface RpcBatchResponse {
-  id: number;
-  result?: string;
-}
-
-interface RpcBatchRequest {
-  jsonrpc: '2.0';
-  id: number;
-  method: 'eth_call' | 'eth_getBalance';
-  params: unknown[];
-}
-
 function buildTokenSearchQuery(term: string): string {
   const escapedTerm = term.replace(/[\\'"]/g, '\\$&');
 
@@ -157,10 +151,6 @@ function buildTokenSearchQuery(term: string): string {
       }
     }`,
   });
-}
-
-function padAddress(addr: string): string {
-  return addr.replace('0x', '').padStart(64, '0');
 }
 
 function padUint256(n: number | bigint): string {
@@ -191,9 +181,22 @@ async function batchRpcRequest(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
+  if (res.ok === false) {
+    throw new Error(`RPC HTTP ${res.status}`);
+  }
   return res.json();
+}
+
+async function batchRpcRequestWithFallback(
+  body: RpcBatchRequest[],
+): Promise<RpcBatchResponse[]> {
+  try {
+    return await batchRpcRequest(body, PRIMARY_RPC);
+  } catch {
+    return await batchRpcRequest(body, FALLBACK_RPC);
+  }
 }
 
 async function batchRPCWithFallback(
@@ -237,10 +240,10 @@ async function queryPulsechainTokenSearchSubgraph(
       'Content-Type': 'application/json',
     },
     body: buildTokenSearchQuery(term),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT)]) : AbortSignal.timeout(FETCH_TIMEOUT),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]) : AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
-  if (!response.ok) {
+  if (response.ok === false) {
     throw new Error(`Subgraph HTTP ${response.status}`);
   }
 
@@ -303,11 +306,6 @@ function parseReservePair(hex: string | undefined): [number, number] {
     Number(BigInt(`0x${normalized.slice(0, 64)}`)),
     Number(BigInt(`0x${normalized.slice(64, 128)}`)),
   ];
-}
-
-function parseBigIntResult(hex: string | undefined): bigint {
-  const normalized = (hex ?? '0x0').replace('0x', '') || '0';
-  return BigInt(`0x${normalized}`);
 }
 
 function setDerivedPrice(
@@ -761,10 +759,10 @@ async function getCoinGeckoPriceSourceMap(tokenAddresses: string[]): Promise<Rec
 
   const response = await fetch(
     `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoIds.join(',')}&vs_currencies=usd`,
-    { signal: AbortSignal.timeout(FETCH_TIMEOUT) },
+    { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
   );
 
-  if (!response.ok) {
+  if (response.ok === false) {
     throw new Error(`CoinGecko HTTP ${response.status}`);
   }
 
@@ -819,7 +817,7 @@ export async function getPulsechainTokenBalances(address: string): Promise<Token
       })),
   ];
 
-  const responses = await batchRpcRequest(requests, PRIMARY_RPC).catch(() => batchRpcRequest(requests, FALLBACK_RPC));
+  const responses = await batchRpcRequestWithFallback(requests);
   const resultsById = responses.reduce<Record<number, string>>((acc, response) => {
     acc[response.id] = response.result ?? '0x';
     return acc;

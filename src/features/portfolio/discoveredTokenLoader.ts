@@ -1,4 +1,5 @@
 import { TOKENS } from '../../constants';
+import { fetchDefiLlamaPrices } from '../../services/marketDataService';
 import { resolveBlockscoutBase } from '../../utils/localStorageDebounce';
 import {
   buildBaseDiscoveredToken,
@@ -188,11 +189,14 @@ export async function loadEthereumDiscoveredTokens(
 ): Promise<LoaderResult> {
   const tokenTransfers = await fetchAllEtherscanPages('tokentx', address, apiKey, fetchImpl);
   const discoveredTokens: DiscoveredToken[] = [];
+  const knownEthereumTokensByAddress = new Map(
+    TOKENS.ethereum.map((token) => [token.address.toLowerCase(), token]),
+  );
 
   tokenTransfers.forEach((tx: any) => {
     const contractAddr = String(tx.contractAddress || '').toLowerCase();
     const symbol = tx.tokenSymbol || 'TOKEN';
-    const knownEthToken = TOKENS.ethereum.find((token) => token.address.toLowerCase() === contractAddr);
+    const knownEthToken = knownEthereumTokensByAddress.get(contractAddr);
     const coinGeckoId = knownEthToken?.coinGeckoId || symbol.toLowerCase();
     const price = fetchedPrices[contractAddr]?.usd || fetchedPrices[coinGeckoId]?.usd || 0;
     const discovered = buildEthereumDiscoveredToken(
@@ -270,16 +274,11 @@ export async function enrichEthereumDiscoveredTokens(
     return { discoveredTokens };
   }
 
-  const response = await fetchImpl(`https://coins.llama.fi/prices/current/${lookupKeys.join(',')}`);
-  if (!response.ok) {
-    return { discoveredTokens };
-  }
-
-  const data = await response.json();
+  const data = await fetchDefiLlamaPrices(lookupKeys, fetchImpl);
   const pricePatches: Record<string, PriceEntry> = {};
   const logoPatches: Record<string, string> = {};
 
-  Object.entries(data.coins || {}).forEach(([key, val]: [string, any]) => {
+  Object.entries(data).forEach(([key, val]: [string, any]) => {
     const addr = key.replace('ethereum:', '');
     pricePatches[addr] = { usd: val.price, image: val.logo };
     pricePatches[key] = { usd: val.price, image: val.logo };

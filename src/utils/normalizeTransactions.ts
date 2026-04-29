@@ -28,6 +28,21 @@ const isOwnAddress = (addr: string | undefined, walletAddrs: Set<string>): boole
 const normalizeSymbol = (symbol: string | undefined): string =>
   (symbol ?? '').trim().toUpperCase();
 
+const buildInteractionRows = (
+  txs: Transaction[],
+  walletAddrs: Set<string>,
+): Transaction[] =>
+  txs
+    .filter(t =>
+      isZeroValueNativeCall(t)
+      && (isOwnAddress(t.from, walletAddrs) || isOwnAddress(t.to, walletAddrs)),
+    )
+    .map((tx, index) => ({
+      ...tx,
+      id: `${tx.id}-interaction-${index}`,
+      type: 'interaction' as const,
+    }));
+
 export function normalizeTransactions(
   rawTxs: Transaction[],
   walletAddrs: Set<string>,
@@ -43,6 +58,7 @@ export function normalizeTransactions(
   const seen = new Set<string>();
 
   Object.entries(byHash).forEach(([hash, txs]) => {
+    const interactionTxs = buildInteractionRows(txs, walletAddrs);
     const hasOutboundZeroValueCall = txs.some(t =>
       isZeroValueNativeCall(t) &&
       isOwnAddress(t.from, walletAddrs) &&
@@ -54,7 +70,15 @@ export function normalizeTransactions(
       !isZeroValueNativeCall(t) &&
       (isOwnAddress(t.from, walletAddrs) || isOwnAddress(t.to, walletAddrs)),
     );
-    if (relevant.length === 0) return;
+    if (relevant.length === 0) {
+      interactionTxs.forEach(tx => {
+        if (!seen.has(tx.id)) {
+          seen.add(tx.id);
+          result.push(tx);
+        }
+      });
+      return;
+    }
 
     if (relevant.length === 1 && relevant[0].type === 'withdraw' && hasOutboundZeroValueCall) {
       const tx = relevant[0];
@@ -62,6 +86,12 @@ export function normalizeTransactions(
         seen.add(tx.id);
         result.push({ ...tx, swapLegOnly: true });
       }
+      interactionTxs.forEach(interactionTx => {
+        if (!seen.has(interactionTx.id)) {
+          seen.add(interactionTx.id);
+          result.push(interactionTx);
+        }
+      });
       return;
     }
 
@@ -75,6 +105,20 @@ export function normalizeTransactions(
       // In + Out on the same hash -> this is a swap
       if (outs.length > 0 && ins.length > 0) {
         const txUsd = (t: Transaction) => t.valueUsd ?? 0;
+        const uniqueOutAssets = Array.from(new Set(outs.map((tx) => normalizeSymbol(tx.asset))));
+        const uniqueInAssets = Array.from(new Set(ins.map((tx) => normalizeSymbol(tx.asset))));
+
+        const aggregateLeg = (arr: Transaction[]): Transaction => {
+          const base = arr[0];
+          const totalAmount = arr.reduce((sum, tx) => sum + tx.amount, 0);
+          const totalValueUsd = arr.reduce((sum, tx) => sum + (tx.valueUsd ?? 0), 0);
+          return {
+            ...base,
+            amount: totalAmount,
+            valueUsd: totalValueUsd > 0 ? totalValueUsd : base.valueUsd,
+            fee: arr.reduce((maxFee, tx) => Math.max(maxFee, tx.fee ?? 0), base.fee ?? 0),
+          };
+        };
 
         // Prefer the leg with real economic value. Amount alone is misleading
         // when routers hop through tokens with very different decimal scales.
@@ -94,8 +138,8 @@ export function normalizeTransactions(
           return arr[0];
         };
 
-        const outTx = pickBest(outs);
-        const inTx  = pickBest(ins);
+        const outTx = uniqueOutAssets.length === 1 ? aggregateLeg(outs) : pickBest(outs);
+        const inTx  = uniqueInAssets.length === 1 ? aggregateLeg(ins) : pickBest(ins);
 
         // Same-asset in/out on one hash is usually a transfer pattern or explorer artifact,
         // not an economic swap. Keep both legs so history stays truthful.
@@ -130,6 +174,12 @@ export function normalizeTransactions(
             libertySwap: inTx.libertySwap ?? outTx.libertySwap,
           });
         }
+        interactionTxs.forEach(interactionTx => {
+          if (!seen.has(interactionTx.id)) {
+            seen.add(interactionTx.id);
+            result.push(interactionTx);
+          }
+        });
         return;
       }
 
@@ -144,6 +194,12 @@ export function normalizeTransactions(
             result.push(tx);
           }
         });
+        interactionTxs.forEach(interactionTx => {
+          if (!seen.has(interactionTx.id)) {
+            seen.add(interactionTx.id);
+            result.push(interactionTx);
+          }
+        });
         return;
       }
     }
@@ -153,6 +209,12 @@ export function normalizeTransactions(
       if (!seen.has(tx.id)) {
         seen.add(tx.id);
         result.push(tx);
+      }
+    });
+    interactionTxs.forEach(interactionTx => {
+      if (!seen.has(interactionTx.id)) {
+        seen.add(interactionTx.id);
+        result.push(interactionTx);
       }
     });
   });

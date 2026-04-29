@@ -96,11 +96,16 @@ export function calculatePortfolioSummary({
   ), 0);
   const tokenPlsValue = nativeValue - nativePlsBalance - stakedPlsValue;
 
-  const ownAddrs = new Set(wallets.map((wallet) => wallet.address.toLowerCase()));
+  const ownAddrs = new Set(
+    wallets
+      .map((wallet) => wallet.address?.toLowerCase?.())
+      .filter((address): address is string => Boolean(address)),
+  );
 
   const qualifiedInflows = currentTransactions.filter((tx) => {
     if (tx.type !== 'deposit') return false;
     if (tx.chain === 'pulsechain') return false;
+    if (!tx.asset || !tx.from || !tx.to) return false;
     const assetUpper = tx.asset.toUpperCase();
     const isEth = assetUpper === 'ETH';
     const isStable = isStableAsset(tx.asset);
@@ -146,6 +151,7 @@ export function calculatePortfolioSummary({
 
   const netInvestment = qualifiedInflows.reduce((acc, tx) => {
     if (deduped.has(tx.id)) return acc;
+    if (!tx.asset) return acc;
     const assetUpper = tx.asset.toUpperCase();
     const isEth = assetUpper === 'ETH';
     if (isStableAsset(tx.asset)) return acc + tx.amount;

@@ -255,7 +255,7 @@ describe('WalletAnalyzerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /view eth transactions/i }));
 
     expect(onOpenTransactions).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'swap' }),
+      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'all' }),
     );
   });
 
@@ -441,7 +441,7 @@ describe('WalletAnalyzerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /view eth flow/i }));
 
     expect(onOpenTransactions).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'swap' }),
+      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'all' }),
     );
   });
 
@@ -517,12 +517,12 @@ describe('WalletAnalyzerPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /open strongest chain/i }));
     expect(onOpenTransactions).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'chain', chain: 'ethereum', txType: 'swap' }),
+      expect.objectContaining({ kind: 'chain', chain: 'ethereum', txType: 'all' }),
     );
 
     fireEvent.click(screen.getByRole('button', { name: /open largest position move/i }));
     expect(onOpenTransactions).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'swap' }),
+      expect.objectContaining({ kind: 'asset', symbol: 'ETH', chain: 'ethereum', txType: 'all' }),
     );
   });
 });

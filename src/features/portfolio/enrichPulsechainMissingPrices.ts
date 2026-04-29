@@ -1,4 +1,5 @@
 import type { Asset } from '../../types';
+import { fetchDexScreenerBatchTokenPairs } from '../../services/marketDataService';
 
 type FetchLike = typeof fetch;
 type AssetMap = Record<string, Asset>;
@@ -22,28 +23,45 @@ export async function enrichPulsechainMissingPrices(
   }
 
   const fallbackLogos: Record<string, string> = {};
+  const assetsByAddress = new Map(
+    pulseAssetsMissingPrice.map((asset) => [String((asset as any).address).toLowerCase(), asset]),
+  );
+  const addresses = [...assetsByAddress.keys()];
+  const chunks: string[][] = [];
 
-  await Promise.allSettled(pulseAssetsMissingPrice.map(async (asset) => {
-    const rawAddress = (asset as any).address?.toLowerCase?.();
-    if (!rawAddress) return;
+  for (let i = 0; i < addresses.length; i += 30) {
+    chunks.push(addresses.slice(i, i + 30));
+  }
 
-    try {
-      const response = await fetchImpl(`https://api.dexscreener.com/latest/dex/tokens/${rawAddress}`);
-      if (!response.ok) return;
+  await Promise.allSettled(chunks.map(async (chunk) => {
+    const pairs = await fetchDexScreenerBatchTokenPairs('pulsechain', chunk, fetchImpl);
+    const bestPairs = new Map<string, any>();
 
-      const data = await response.json();
-      const pairs: any[] = (data.pairs || []).filter((pair: any) =>
-        pair?.chainId === 'pulsechain'
-        && (
-          pair?.baseToken?.address?.toLowerCase?.() === rawAddress
-          || pair?.quoteToken?.address?.toLowerCase?.() === rawAddress
-        ),
-      );
-      if (pairs.length === 0) return;
+    pairs.forEach((pair: any) => {
+      const baseAddress = pair?.baseToken?.address?.toLowerCase?.();
+      const quoteAddress = pair?.quoteToken?.address?.toLowerCase?.();
+      const matchedAddress = assetsByAddress.has(baseAddress)
+        ? baseAddress
+        : assetsByAddress.has(quoteAddress)
+          ? quoteAddress
+          : null;
 
-      const bestPair = [...pairs].sort((left, right) =>
-        Number(right?.liquidity?.usd ?? 0) - Number(left?.liquidity?.usd ?? 0),
-      )[0];
+      if (!matchedAddress || pair?.chainId !== 'pulsechain') {
+        return;
+      }
+
+      const current = bestPairs.get(matchedAddress);
+      const currentLiquidity = Number(current?.liquidity?.usd ?? 0);
+      const nextLiquidity = Number(pair?.liquidity?.usd ?? 0);
+      if (!current || nextLiquidity > currentLiquidity) {
+        bestPairs.set(matchedAddress, pair);
+      }
+    });
+
+    bestPairs.forEach((bestPair, rawAddress) => {
+      const asset = assetsByAddress.get(rawAddress);
+      if (!asset) return;
+
       const matchedBase = bestPair?.baseToken?.address?.toLowerCase?.() === rawAddress;
       const pairToken = matchedBase ? bestPair?.baseToken : bestPair?.quoteToken;
       const price = Number(bestPair?.priceUsd ?? 0);
@@ -81,9 +99,7 @@ export async function enrichPulsechainMissingPrices(
           ...(bestPair?.info?.imageUrl ? { logoUrl: bestPair.info.imageUrl } : {}),
         } as Asset;
       });
-    } catch {
-      /* ignore */
-    }
+    });
   }));
 
   return fallbackLogos;

@@ -140,4 +140,26 @@ describe('TransactionList', () => {
     expect(screen.getByRole('dialog', { name: /bridge metadata provenance/i })).toBeInTheDocument();
     expect(screen.getByText(/bridge metadata normalized from the selected transaction/i)).toBeInTheDocument();
   });
+
+  it('renders preserved contract interactions', () => {
+    const tx: Transaction = {
+      id: 'approval-interaction',
+      hash: '0xapproval',
+      timestamp: new Date('2026-04-29T12:00:00Z').getTime(),
+      type: 'interaction',
+      from: '0xme',
+      to: '0xcontract',
+      asset: 'ETH',
+      amount: 0,
+      valueUsd: 0,
+      chain: 'ethereum',
+    };
+
+    render(<TransactionList transactions={[tx]} assets={[]} />);
+
+    expect(screen.getByText('Call')).toBeInTheDocument();
+    expect(screen.getByText(/contract call to/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/apr 29, 2026/i));
+    expect(screen.getByText(/contract interaction/i)).toBeInTheDocument();
+  });
 });
