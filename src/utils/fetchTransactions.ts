@@ -273,7 +273,7 @@ async function fetchPagedJson<T>(url: string, fetchImpl: FetchLike): Promise<Pag
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(BLOCKSCOUT_PAGE_TIMEOUT) });
 
   if (!response.ok) {
-    throw new Error(`Blockscout transaction request failed: ${response.status}`);
+    throw new Error(`Blockscout transaction request failed for ${url}: ${response.status}`);
   }
 
   return response.json() as Promise<PagedResponse<T>>;
@@ -304,7 +304,10 @@ async function fetchPaginatedItems<T>(
   let pageCount = 0;
 
   do {
-    if (++pageCount > MAX_PAGES) break;
+    if (++pageCount > MAX_PAGES) {
+      console.warn(`fetchPaginatedItems: reached MAX_PAGES (${MAX_PAGES}) for ${url} – stopping early`);
+      break;
+    }
 
     const pageUrl = buildPagedUrl(url, nextPageParams);
     const page = await fetchPagedJson<T>(pageUrl, fetchImpl);
