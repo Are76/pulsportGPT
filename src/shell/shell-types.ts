@@ -1,6 +1,7 @@
 export const SHELL_VIEWS = [
   'dashboard',
   'portfolio',
+  'wallet-analyzer',
   'investments',
   'transactions',
   'staking',

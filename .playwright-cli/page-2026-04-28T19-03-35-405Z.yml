@@ -1,0 +1,348 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img "Pulseport logo" [ref=e7]
+      - generic [ref=e9]: PulsePort
+    - navigation [ref=e11]:
+      - button "Dashboard" [ref=e12] [cursor=pointer]:
+        - img [ref=e13]
+        - text: Dashboard
+      - button "Portfolio" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+        - text: Portfolio
+      - button "Wallet Analyzer" [ref=e21] [cursor=pointer]:
+        - img [ref=e22]
+        - text: Wallet Analyzer
+      - button "HEX Staking" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: HEX Staking
+      - button "My Investments" [ref=e29] [cursor=pointer]:
+        - img [ref=e30]
+        - text: My Investments
+      - button "Transactions" [ref=e32] [cursor=pointer]:
+        - img [ref=e33]
+        - text: Transactions
+      - button "DeFi" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+        - text: DeFi
+    - button "Wallets 0" [ref=e42] [cursor=pointer]:
+      - generic [ref=e43]:
+        - img [ref=e44]
+        - generic [ref=e47]: Wallets
+      - generic [ref=e48]:
+        - generic [ref=e49]: "0"
+        - img [ref=e50]
+  - main [ref=e52]:
+    - generic [ref=e54]:
+      - generic [ref=e56]: Dashboard
+      - generic [ref=e57]:
+        - button "Switch to light mode" [ref=e60] [cursor=pointer]:
+          - img [ref=e61]
+        - button "Open API key settings" [ref=e67] [cursor=pointer]:
+          - img [ref=e68]
+          - generic [ref=e71]: API
+        - button "Refresh" [ref=e72] [cursor=pointer]:
+          - img [ref=e73]
+          - generic [ref=e78]: Refresh
+    - generic [ref=e79]:
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]: My Net Worth
+              - strong [ref=e86]: $9,920
+              - generic [ref=e87]: Add a wallet to map invested fiat against PulseChain holdings
+              - generic [ref=e88]:
+                - generic [ref=e89]:
+                  - generic [ref=e90]: Net P&L
+                  - strong [ref=e91]: "-"
+                - generic [ref=e92]:
+                  - generic [ref=e93]: 24h move
+                  - strong [ref=e94]: +$226
+                - generic [ref=e95]:
+                  - generic [ref=e96]: Liquid
+                  - strong [ref=e97]: $9,920
+                - generic [ref=e98]:
+                  - generic [ref=e99]: Staked
+                  - strong [ref=e100]: $0
+              - generic [ref=e101]:
+                - button "My Investments" [ref=e102] [cursor=pointer]:
+                  - text: My Investments
+                  - img [ref=e103]
+                - button "Transactions" [ref=e105] [cursor=pointer]:
+                  - text: Transactions
+                  - img [ref=e106]
+                - button "Profit Planner" [ref=e110] [cursor=pointer]:
+                  - text: Profit Planner
+                  - img [ref=e111]
+            - generic [ref=e114]:
+              - generic [ref=e116]:
+                - text: Portfolio mix
+                - heading "Weight, concentration, and dominant positions." [level=2] [ref=e117]
+              - generic [ref=e118]:
+                - generic [ref=e119]:
+                  - generic [ref=e120]: Largest position
+                  - strong [ref=e121]: ETH
+                  - generic [ref=e122]: Ethereum
+                - generic [ref=e123]:
+                  - strong [ref=e124]: $5,175
+                  - generic [ref=e125]: 52.2% of net worth
+              - generic [ref=e126]:
+                - generic [ref=e127]:
+                  - generic [ref=e130]:
+                    - strong [ref=e131]: ETH
+                    - generic [ref=e132]: Ethereum
+                  - generic [ref=e133]:
+                    - strong [ref=e134]: $5,175
+                    - generic [ref=e135]: 52.2%
+                - generic [ref=e136]:
+                  - generic [ref=e139]:
+                    - strong [ref=e140]: USDC
+                    - generic [ref=e141]: USD Coin (Base)
+                  - generic [ref=e142]:
+                    - strong [ref=e143]: $2,500
+                    - generic [ref=e144]: 25.2%
+                - generic [ref=e145]:
+                  - generic [ref=e148]:
+                    - strong [ref=e149]: eHEX
+                    - generic [ref=e150]: HEX (from Ethereum)
+                  - generic [ref=e151]:
+                    - strong [ref=e152]: $1,000
+                    - generic [ref=e153]: 10.1%
+                - generic [ref=e154]:
+                  - generic [ref=e157]:
+                    - strong [ref=e158]: HEX
+                    - generic [ref=e159]: HEX (PulseChain)
+                  - generic [ref=e160]:
+                    - strong [ref=e161]: $400
+                    - generic [ref=e162]: 4.0%
+                - generic [ref=e163]:
+                  - generic [ref=e166]:
+                    - strong [ref=e167]: INC
+                    - generic [ref=e168]: Incentive
+                  - generic [ref=e169]:
+                    - strong [ref=e170]: $260
+                    - generic [ref=e171]: 2.6%
+                - generic [ref=e172]:
+                  - generic [ref=e175]:
+                    - strong [ref=e176]: Other
+                    - generic [ref=e177]: Remaining holdings
+                  - generic [ref=e178]:
+                    - strong [ref=e179]: $485
+                    - generic [ref=e180]: 4.9%
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - generic [ref=e183]:
+                - text: PulseBoard
+                - heading "Core PulseChain price grid" [level=2] [ref=e184]
+              - generic [ref=e185]:
+                - button "5m" [ref=e186] [cursor=pointer]
+                - button "1h" [ref=e187] [cursor=pointer]
+                - button "6h" [ref=e188] [cursor=pointer]
+                - button "24h" [ref=e189] [cursor=pointer]
+                - button "7d" [ref=e190] [cursor=pointer]
+            - generic [ref=e191]:
+              - button "PLS PLS PulseChain +5.40% 24h $0.00006500 PulseChain market Market cap - Volume 24h -" [ref=e192] [cursor=pointer]:
+                - generic [ref=e194]:
+                  - generic [ref=e195]:
+                    - img "PLS" [ref=e197]
+                    - generic [ref=e198]:
+                      - strong [ref=e199]: PLS
+                      - generic [ref=e200]: PulseChain
+                  - generic [ref=e201]: +5.40% 24h
+                - generic [ref=e202]:
+                  - strong [ref=e203]: $0.00006500
+                  - generic [ref=e204]: PulseChain market
+                - generic [ref=e205]:
+                  - generic [ref=e206]:
+                    - generic [ref=e207]: Market cap
+                    - strong [ref=e208]: "-"
+                  - generic [ref=e209]:
+                    - generic [ref=e210]: Volume 24h
+                    - strong [ref=e211]: "-"
+              - button "PLSX PLSX PulseX -2.10% 24h $0.00003200 PulseChain market Market cap - Volume 24h -" [ref=e212] [cursor=pointer]:
+                - generic [ref=e214]:
+                  - generic [ref=e215]:
+                    - img "PLSX" [ref=e217]
+                    - generic [ref=e218]:
+                      - strong [ref=e219]: PLSX
+                      - generic [ref=e220]: PulseX
+                  - generic [ref=e221]: "-2.10% 24h"
+                - generic [ref=e222]:
+                  - strong [ref=e223]: $0.00003200
+                  - generic [ref=e224]: PulseChain market
+                - generic [ref=e225]:
+                  - generic [ref=e226]:
+                    - generic [ref=e227]: Market cap
+                    - strong [ref=e228]: "-"
+                  - generic [ref=e229]:
+                    - generic [ref=e230]: Volume 24h
+                    - strong [ref=e231]: "-"
+              - button "INC INC Incentive +12.40% 24h $5.2 PulseChain market Market cap - Volume 24h -" [ref=e232] [cursor=pointer]:
+                - generic [ref=e234]:
+                  - generic [ref=e235]:
+                    - img "INC" [ref=e237]
+                    - generic [ref=e238]:
+                      - strong [ref=e239]: INC
+                      - generic [ref=e240]: Incentive
+                  - generic [ref=e241]: +12.40% 24h
+                - generic [ref=e242]:
+                  - strong [ref=e243]: $5.2
+                  - generic [ref=e244]: PulseChain market
+                - generic [ref=e245]:
+                  - generic [ref=e246]:
+                    - generic [ref=e247]: Market cap
+                    - strong [ref=e248]: "-"
+                  - generic [ref=e249]:
+                    - generic [ref=e250]: Volume 24h
+                    - strong [ref=e251]: "-"
+              - button "HEX HEX pHEX +12.50% 24h $0.004000 PulseChain market Market cap - Volume 24h -" [ref=e252] [cursor=pointer]:
+                - generic [ref=e254]:
+                  - generic [ref=e255]:
+                    - img "HEX" [ref=e257]
+                    - generic [ref=e258]:
+                      - strong [ref=e259]: HEX
+                      - generic [ref=e260]: pHEX
+                  - generic [ref=e261]: +12.50% 24h
+                - generic [ref=e262]:
+                  - strong [ref=e263]: $0.004000
+                  - generic [ref=e264]: PulseChain market
+                - generic [ref=e265]:
+                  - generic [ref=e266]:
+                    - generic [ref=e267]: Market cap
+                    - strong [ref=e268]: "-"
+                  - generic [ref=e269]:
+                    - generic [ref=e270]: Volume 24h
+                    - strong [ref=e271]: "-"
+              - button "PRVX PRVX PrivacyX +0.00% 24h $0.1500 PulseChain market Market cap - Volume 24h -" [ref=e272] [cursor=pointer]:
+                - generic [ref=e274]:
+                  - generic [ref=e275]:
+                    - img "PRVX" [ref=e277]
+                    - generic [ref=e278]:
+                      - strong [ref=e279]: PRVX
+                      - generic [ref=e280]: PrivacyX
+                  - generic [ref=e281]: +0.00% 24h
+                - generic [ref=e282]:
+                  - strong [ref=e283]: $0.1500
+                  - generic [ref=e284]: PulseChain market
+                - generic [ref=e285]:
+                  - generic [ref=e286]:
+                    - generic [ref=e287]: Market cap
+                    - strong [ref=e288]: "-"
+                  - generic [ref=e289]:
+                    - generic [ref=e290]: Volume 24h
+                    - strong [ref=e291]: "-"
+              - button "eHEX eHEX Ethereum HEX +8.20% 24h $0.004000 PulseChain market Market cap - Volume 24h -" [ref=e292] [cursor=pointer]:
+                - generic [ref=e294]:
+                  - generic [ref=e295]:
+                    - img "eHEX" [ref=e297]
+                    - generic [ref=e298]:
+                      - strong [ref=e299]: eHEX
+                      - generic [ref=e300]: Ethereum HEX
+                  - generic [ref=e301]: +8.20% 24h
+                - generic [ref=e302]:
+                  - strong [ref=e303]: $0.004000
+                  - generic [ref=e304]: PulseChain market
+                - generic [ref=e305]:
+                  - generic [ref=e306]:
+                    - generic [ref=e307]: Market cap
+                    - strong [ref=e308]: "-"
+                  - generic [ref=e309]:
+                    - generic [ref=e310]: Volume 24h
+                    - strong [ref=e311]: "-"
+              - button "ETH ETH Ethereum +1.20% 24h $3,450 PulseChain market Market cap - Volume 24h -" [ref=e312] [cursor=pointer]:
+                - generic [ref=e314]:
+                  - generic [ref=e315]:
+                    - img "ETH" [ref=e317]
+                    - generic [ref=e318]:
+                      - strong [ref=e319]: ETH
+                      - generic [ref=e320]: Ethereum
+                  - generic [ref=e321]: +1.20% 24h
+                - generic [ref=e322]:
+                  - strong [ref=e323]: $3,450
+                  - generic [ref=e324]: PulseChain market
+                - generic [ref=e325]:
+                  - generic [ref=e326]:
+                    - generic [ref=e327]: Market cap
+                    - strong [ref=e328]: "-"
+                  - generic [ref=e329]:
+                    - generic [ref=e330]: Volume 24h
+                    - strong [ref=e331]: "-"
+              - button "USDC USDC USD Coin (Base) +0.01% 24h $1 PulseChain market Market cap - Volume 24h -" [ref=e332] [cursor=pointer]:
+                - generic [ref=e334]:
+                  - generic [ref=e335]:
+                    - img "USDC" [ref=e337]
+                    - generic [ref=e338]:
+                      - strong [ref=e339]: USDC
+                      - generic [ref=e340]: USD Coin (Base)
+                  - generic [ref=e341]: +0.01% 24h
+                - generic [ref=e342]:
+                  - strong [ref=e343]: $1
+                  - generic [ref=e344]: PulseChain market
+                - generic [ref=e345]:
+                  - generic [ref=e346]:
+                    - generic [ref=e347]: Market cap
+                    - strong [ref=e348]: "-"
+                  - generic [ref=e349]:
+                    - generic [ref=e350]: Volume 24h
+                    - strong [ref=e351]: "-"
+            - generic [ref=e352]:
+              - article [ref=e353]:
+                - generic [ref=e354]:
+                  - generic [ref=e355]: Flow
+                  - generic [ref=e356]: Apr 27
+                - strong [ref=e357]: 1,250 DAI (FROM ETHEREUM) reached PulseChain
+                - paragraph [ref=e358]: Fresh capital or bridged inventory just landed on PulseChain.
+              - article [ref=e359]:
+                - generic [ref=e360]:
+                  - generic [ref=e361]: Momentum
+                  - generic [ref=e362]: PulseBoard
+                - strong [ref=e363]: HEX is moving the board
+                - paragraph [ref=e364]: +12.50% on the active PulseBoard window.
+              - article [ref=e365]:
+                - generic [ref=e366]:
+                  - generic [ref=e367]: Bridge watch
+                  - generic [ref=e368]: Cross-chain
+                - strong [ref=e369]: $7,850 still sits on Ethereum or Base
+                - paragraph [ref=e370]: There is still capital outside PulseChain if you want to watch new bridge arrivals.
+              - article [ref=e371]:
+                - generic [ref=e372]:
+                  - generic [ref=e373]: Concentration
+                  - generic [ref=e374]: Allocation
+                - strong [ref=e375]: ETH is still the anchor position
+                - paragraph [ref=e376]: 52.2% of current net worth is concentrated in this coin.
+        - generic [ref=e378]:
+          - generic [ref=e380]:
+            - text: Market pulse
+            - heading "What matters across the chain right now." [level=2] [ref=e381]
+          - generic [ref=e382]:
+            - generic [ref=e383]:
+              - generic [ref=e384]: Core Pulse assets
+              - strong [ref=e385]: "5"
+              - generic [ref=e386]: PLS, PLSX, HEX, INC, PRVX
+            - generic [ref=e387]:
+              - generic [ref=e388]: Tracked 24h volume
+              - strong [ref=e389]: Syncing
+              - generic [ref=e390]: Across live core pairs
+            - generic [ref=e391]:
+              - generic [ref=e392]: Strongest today
+              - strong [ref=e393]: HEX
+              - generic [ref=e394]: +12.50%
+            - generic [ref=e395]:
+              - generic [ref=e396]: Needs attention
+              - strong [ref=e397]: PLSX
+              - generic [ref=e398]: "-2.10%"
+          - generic [ref=e399]:
+            - generic [ref=e400]:
+              - strong [ref=e403]: Ethereum
+              - generic [ref=e404]: 53.9%
+              - emphasis [ref=e405]
+            - generic [ref=e407]:
+              - strong [ref=e410]: Base
+              - generic [ref=e411]: 25.2%
+              - emphasis [ref=e412]
+            - generic [ref=e414]:
+              - strong [ref=e417]: Pulsechain
+              - generic [ref=e418]: 20.9%
+              - emphasis [ref=e419]
+      - generic [ref=e421]: PulsePort © 2026 • Powered by PulseChain, Ethereum & Base

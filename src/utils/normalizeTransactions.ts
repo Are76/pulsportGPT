@@ -124,6 +124,10 @@ export function normalizeTransactions(
             counterAmount: outTx.amount,
             assetPriceUsdAtTx: inTx.amount > 0 && inTx.valueUsd != null ? inTx.valueUsd / inTx.amount : undefined,
             counterPriceUsdAtTx: outTx.amount > 0 && outTx.valueUsd != null ? outTx.valueUsd / outTx.amount : undefined,
+            bridged: inTx.bridged || outTx.bridged,
+            bridge: inTx.bridge ?? outTx.bridge,
+            staking: inTx.staking ?? outTx.staking,
+            libertySwap: inTx.libertySwap ?? outTx.libertySwap,
           });
         }
         return;

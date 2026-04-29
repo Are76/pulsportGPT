@@ -21,4 +21,12 @@ describe('shell navigation', () => {
 
     expect(screen.getByText('investments')).toBeInTheDocument();
   });
+
+  it('switches to Wallet Analyzer when selected from nav', () => {
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole('button', { name: /wallet analyzer/i }));
+
+    expect(screen.getByText('wallet-analyzer')).toBeInTheDocument();
+  });
 });

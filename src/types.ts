@@ -148,6 +148,28 @@ export interface HistoryPoint {
   chainPnl?: Record<Chain, number>;
 }
 
+export interface TokenBalance {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance: number;
+  chain: Chain;
+}
+
+export interface PriceQuote {
+  tokenAddress: string;
+  chain: Chain;
+  priceUsd: number | null;
+  source: 'pulsex' | 'coingecko' | 'unpriced';
+}
+
+export interface TransactionQueryResult {
+  implemented: boolean;
+  transactions: Transaction[];
+  nextBlock?: number;
+}
+
 /** Normalized financial transaction types.
  *  - deposit   : tokens/native arriving in a wallet (transfer-in)
  *  - withdraw  : tokens/native leaving a wallet (transfer-out)
@@ -188,6 +210,14 @@ export interface Transaction {
   /** True when only the spent side of an on-chain swap was available from the explorer. */
   swapLegOnly?: boolean;
   bridged?: boolean;
+  bridge?: {
+    originChain: Chain;
+    protocol: 'official' | 'liberty';
+  };
+  staking?: {
+    protocol: 'hex';
+    action: 'stakeStart' | 'stakeEnd';
+  };
   status?: string;
   /** Present when this transaction was routed via Liberty Swap cross-chain bridge. */
   libertySwap?: {

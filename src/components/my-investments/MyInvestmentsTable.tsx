@@ -2,6 +2,13 @@
 import { ExternalLink } from 'lucide-react';
 import { CoinList, type CoinListItem } from '../CoinList';
 import type { InvestmentHoldingRow } from '../../types';
+import {
+  buildHoldingPnLProvenance,
+  buildHoldingWeightProvenance,
+  buildRawMetricProvenance,
+} from '../../features/provenance/builders';
+import { buildTransactionHistorySource } from '../../features/provenance/registry';
+import { ProvenanceTrigger } from '../../features/provenance/ProvenancePopover';
 
 const formatUsd = (value: number) => `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
@@ -93,22 +100,50 @@ function MyInvestmentsExpanded({
           <div className="mi-detail-grid">
             <div className="mi-detail-card">
               <span className="mi-detail-label">Balance</span>
-              <strong className="mi-detail-number">{row.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })}</strong>
+              <strong className="mi-detail-number">
+                <ProvenanceTrigger
+                  descriptor={buildRawMetricProvenance({
+                    label: `${row.symbol} balance`,
+                    value: row.amount.toLocaleString('en-US', { maximumFractionDigits: 4 }),
+                    primarySource: buildTransactionHistorySource(`Current tracked balance for ${row.symbol} on ${row.chain}`),
+                  })}
+                >
+                  {row.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+                </ProvenanceTrigger>
+              </strong>
               <small>{row.symbol}</small>
             </div>
             <div className="mi-detail-card">
               <span className="mi-detail-label">USD Value</span>
-              <strong className="mi-detail-number">{formatUsd(row.currentValue)}</strong>
+              <strong className="mi-detail-number">
+                <ProvenanceTrigger
+                  descriptor={buildRawMetricProvenance({
+                    label: `${row.symbol} current value`,
+                    value: formatUsd(row.currentValue),
+                    primarySource: buildTransactionHistorySource(`Current marked value for ${row.symbol}`),
+                  })}
+                >
+                  {formatUsd(row.currentValue)}
+                </ProvenanceTrigger>
+              </strong>
               <small>{valuePls.toLocaleString('en-US', { maximumFractionDigits: 2 })} PLS</small>
             </div>
             <div className="mi-detail-card">
               <span className="mi-detail-label">Portfolio %</span>
-              <strong className="mi-detail-number">{portfolioShare.toFixed(2)}%</strong>
+              <strong className="mi-detail-number">
+                <ProvenanceTrigger descriptor={buildHoldingWeightProvenance(row, portfolioValue)}>
+                  {portfolioShare.toFixed(2)}%
+                </ProvenanceTrigger>
+              </strong>
               <small>of net worth</small>
             </div>
             <div className={`mi-detail-card ${pnlTone}`}>
               <span className="mi-detail-label">Entry vs Current</span>
-              <strong className="mi-detail-number">{row.pnlUsd >= 0 ? '+' : '-'}{formatUsd(Math.abs(row.pnlUsd))}</strong>
+              <strong className="mi-detail-number">
+                <ProvenanceTrigger descriptor={buildHoldingPnLProvenance(row)}>
+                  {row.pnlUsd >= 0 ? '+' : '-'}{formatUsd(Math.abs(row.pnlUsd))}
+                </ProvenanceTrigger>
+              </strong>
               <small>{formatPercent(row.pnlPercent)} return</small>
             </div>
           </div>
@@ -151,9 +186,23 @@ function MyInvestmentsExpanded({
           <div className="mi-detail-grid mi-detail-grid--actions">
             <div className="mi-detail-card mi-detail-card--sources">
               <span className="mi-detail-label">Source Capital</span>
-              <div className="mi-detail-text">{row.routeSummary}</div>
+              <div className="mi-detail-text">
+                <ProvenanceTrigger
+                  descriptor={buildRawMetricProvenance({
+                    label: `${row.symbol} route summary`,
+                    value: row.routeSummary,
+                    primarySource: buildTransactionHistorySource(`Route summary inferred from normalized transaction history for ${row.symbol}`),
+                  })}
+                >
+                  {row.routeSummary}
+                </ProvenanceTrigger>
+              </div>
               <div className="mi-detail-divider" />
-              <div className="mi-detail-text">Then {formatUsd(row.thenValue)} • Now {formatUsd(row.nowValue)}</div>
+              <div className="mi-detail-text">
+                <ProvenanceTrigger descriptor={buildHoldingPnLProvenance(row)}>
+                  Then {formatUsd(row.thenValue)} • Now {formatUsd(row.nowValue)}
+                </ProvenanceTrigger>
+              </div>
             </div>
             <div className="mi-detail-card mi-detail-card--sources">
               <span className="mi-detail-label">Attribution</span>

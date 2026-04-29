@@ -1,0 +1,141 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e1432]:
+    - complementary [ref=e1433]:
+      - generic [ref=e1434]:
+        - img "Pulseport logo" [ref=e1436]
+        - generic [ref=e1438]: PulsePort
+      - navigation [ref=e1440]:
+        - button "Dashboard" [ref=e1441] [cursor=pointer]:
+          - img [ref=e1442]
+          - text: Dashboard
+        - button "Portfolio" [ref=e1444] [cursor=pointer]:
+          - img [ref=e1445]
+          - text: Portfolio
+        - button "Wallet Analyzer" [ref=e1450] [cursor=pointer]:
+          - img [ref=e1451]
+          - text: Wallet Analyzer
+        - button "HEX Staking" [ref=e1454] [cursor=pointer]:
+          - img [ref=e1455]
+          - text: HEX Staking
+        - button "My Investments" [ref=e1458] [cursor=pointer]:
+          - img [ref=e1459]
+          - text: My Investments
+        - button "Transactions" [ref=e1461] [cursor=pointer]:
+          - img [ref=e1462]
+          - text: Transactions
+        - button "DeFi" [ref=e1466] [cursor=pointer]:
+          - img [ref=e1467]
+          - text: DeFi
+      - button "Wallets 0" [ref=e1471] [cursor=pointer]:
+        - generic [ref=e1472]:
+          - img [ref=e1473]
+          - generic [ref=e1476]: Wallets
+        - generic [ref=e1477]:
+          - generic [ref=e1478]: "0"
+          - img [ref=e1479]
+    - main [ref=e1481]:
+      - generic [ref=e1483]:
+        - generic [ref=e1485]: Transactions
+        - generic [ref=e1486]:
+          - button "Switch to light mode" [ref=e1489] [cursor=pointer]:
+            - img [ref=e1490]
+          - button "Open API key settings" [ref=e1496] [cursor=pointer]:
+            - img [ref=e1497]
+            - generic [ref=e1500]: API
+          - button "Refresh" [ref=e1501] [cursor=pointer]:
+            - img [ref=e1502]
+            - generic [ref=e1507]: Refresh
+      - generic [ref=e1508]:
+        - generic [ref=e3382]:
+          - generic [ref=e3383]:
+            - generic [ref=e3384]:
+              - generic [ref=e3385]: Transactions
+              - heading "pulsechain Swap Ledger" [level=1] [ref=e3537]
+              - paragraph [ref=e3387]: Review transaction flow by asset, chain, bridge route, and staking context without leaving the ledger.
+              - generic [ref=e3388]:
+                - generic [ref=e3389]: swap only
+                - generic [ref=e3390]: All wallets
+                - generic [ref=e3391]: pulsechain
+                - generic [ref=e3392]: All years
+                - generic [ref=e3393]: All coin families
+            - generic [ref=e3394]:
+              - generic [ref=e3395]:
+                - generic [ref=e3396]:
+                  - generic [ref=e3397]: Tracked swaps
+                  - strong [ref=e3398]: "0"
+                - generic [ref=e3399]:
+                  - generic [ref=e3400]: Realized P&L
+                  - strong [ref=e3401]: +$0
+                - generic [ref=e3402]:
+                  - generic [ref=e3403]: Holdings value
+                  - strong [ref=e3404]: $2,070.15
+                - generic [ref=e3405]:
+                  - generic [ref=e3406]: Gas total
+                  - strong [ref=e3407]: 0 PLS
+                  - generic [ref=e3408]: $0
+              - generic [ref=e3409]:
+                - button "View as You" [ref=e3410] [cursor=pointer]
+                - button "Compact" [ref=e3411] [cursor=pointer]
+                - button "Export CSV" [ref=e3412] [cursor=pointer]:
+                  - img [ref=e3413]
+                  - text: Export CSV
+                - button "Export JSON" [ref=e3416] [cursor=pointer]:
+                  - img [ref=e3417]
+                  - text: Export JSON
+          - generic [ref=e3440]:
+            - generic [ref=e3441]:
+              - generic [ref=e3442]:
+                - generic [ref=e3443]: swap only
+                - generic [ref=e3444]: All wallets
+                - generic [ref=e3445]: All tokens
+                - generic [ref=e3446]: pulsechain
+              - generic [ref=e3447]:
+                - generic [ref=e3448]:
+                  - generic [ref=e3449]: Swaps
+                  - strong [ref=e3450]: "0"
+                - generic [ref=e3451]:
+                  - generic [ref=e3452]: Realized P&L
+                  - strong [ref=e3453]: +$0
+                - generic [ref=e3454]:
+                  - generic [ref=e3455]: Holdings
+                  - strong [ref=e3456]: $2,070.15
+                - generic [ref=e3457]:
+                  - generic [ref=e3458]: Gas total
+                  - strong [ref=e3459]: 0 PLS
+                  - generic [ref=e3460]: $0
+            - generic [ref=e3461]:
+              - generic [ref=e3462]:
+                - img [ref=e3463]
+                - generic [ref=e3467]:
+                  - strong [ref=e3468]: Swap Ledger
+                  - generic [ref=e3469]: Typed history drill-downs for asset, chain, bridge, and staking contexts.
+              - generic [ref=e3470]: pulsechain
+            - generic [ref=e3471]:
+              - generic [ref=e3472]:
+                - generic [ref=e3473]: Token Scope
+                - combobox "Token Scope" [ref=e3474]:
+                  - option "All Tokens" [selected]
+              - generic [ref=e3475]:
+                - generic [ref=e3476]: Execution Year
+                - combobox "Execution Year" [ref=e3477]:
+                  - option "All Years" [selected]
+              - generic [ref=e3478]:
+                - generic [ref=e3479]: Chain
+                - combobox "Chain" [ref=e3480]:
+                  - option "All Chains"
+                  - option "PulseChain" [selected]
+                  - option "Ethereum"
+                  - option "Base"
+              - generic [ref=e3481]:
+                - generic [ref=e3482]: Coin Family
+                - combobox "Coin Family" [ref=e3483]:
+                  - option "All Coins" [selected]
+                  - option "Stablecoins"
+                  - option "ETH/WETH"
+                  - option "HEX/eHEX"
+                  - option "PLS/WPLS"
+                  - option "Bridged"
+              - button "Clear all" [disabled] [ref=e3484]
+            - generic [ref=e3486]: No swaps found for these filters.
+        - generic [ref=e2368]: PulsePort © 2026 • Powered by PulseChain, Ethereum & Base
+  - generic [ref=e1361]: Apr 14

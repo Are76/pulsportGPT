@@ -34,7 +34,7 @@ describe('TransactionList', () => {
 
     expect(screen.getByText('$119.59')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(/15,000 most/i));
+    fireEvent.click(screen.getByText(/jan 23, 2026/i));
 
     expect(screen.getAllByText('$119.59').length).toBeGreaterThan(1);
   });
@@ -56,10 +56,88 @@ describe('TransactionList', () => {
 
     render(<TransactionList transactions={[tx]} assets={[]} />);
 
-    fireEvent.click(screen.getByText(/25,007.5506 dai/i));
+    fireEvent.click(screen.getByText(/apr 16, 2026/i));
 
     expect(screen.getByText('Paid')).toBeInTheDocument();
     expect(screen.getByText(/counterparty token was not returned by the explorer/i)).toBeInTheDocument();
     expect(screen.queryByText('Amount')).not.toBeInTheDocument();
+  });
+
+  it('renders bridge and staking metadata in transfer detail', () => {
+    const bridgeTx: Transaction = {
+      id: 'bridge-metadata',
+      hash: '0xbridge',
+      timestamp: new Date('2026-04-24T12:00:00Z').getTime(),
+      type: 'deposit',
+      from: '0xbridge',
+      to: '0xme',
+      asset: 'USDC',
+      amount: 250,
+      valueUsd: 250,
+      chain: 'pulsechain',
+      bridged: true,
+      bridge: {
+        originChain: 'base',
+        protocol: 'official',
+      },
+    };
+
+    const stakeTx: Transaction = {
+      id: 'stake-metadata',
+      hash: '0xstake',
+      timestamp: new Date('2026-04-24T13:00:00Z').getTime(),
+      type: 'withdraw',
+      from: '0xme',
+      to: '0xhex',
+      asset: 'HEX',
+      amount: 10000,
+      chain: 'pulsechain',
+      staking: {
+        protocol: 'hex',
+        action: 'stakeStart',
+      },
+    };
+
+    const { rerender } = render(<TransactionList transactions={[bridgeTx]} assets={[]} />);
+
+    fireEvent.click(screen.getByText(/apr 24, 2026/i));
+    expect(screen.getByText('Bridge')).toBeInTheDocument();
+    expect(screen.getByText('Base via official')).toBeInTheDocument();
+
+    rerender(<TransactionList transactions={[stakeTx]} assets={[]} />);
+    fireEvent.click(screen.getByText(/apr 24, 2026/i));
+    expect(screen.getByText('Staking')).toBeInTheDocument();
+    expect(screen.getByText('HEX stakeStart')).toBeInTheDocument();
+  });
+
+  it('opens provenance for transaction amounts and metadata', () => {
+    const tx: Transaction = {
+      id: 'bridge-metadata',
+      hash: '0xbridge',
+      timestamp: new Date('2026-04-24T12:00:00Z').getTime(),
+      type: 'deposit',
+      from: '0xbridge',
+      to: '0xme',
+      asset: 'USDC',
+      amount: 250,
+      valueUsd: 250,
+      chain: 'pulsechain',
+      bridged: true,
+      bridge: {
+        originChain: 'base',
+        protocol: 'official',
+      },
+    };
+
+    render(<TransactionList transactions={[tx]} assets={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /open source details for usdc amount/i }));
+    expect(screen.getByRole('dialog', { name: /usdc amount provenance/i })).toBeInTheDocument();
+    expect(screen.getByText(/normalized on-chain transaction record/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/apr 24, 2026/i));
+    fireEvent.click(screen.getByRole('button', { name: /open source details for bridge metadata/i }));
+    expect(screen.getByRole('dialog', { name: /bridge metadata provenance/i })).toBeInTheDocument();
+    expect(screen.getByText(/bridge metadata normalized from the selected transaction/i)).toBeInTheDocument();
   });
 });

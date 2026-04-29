@@ -1,0 +1,190 @@
+- generic [ref=e1]:
+  - generic [ref=e1432]:
+    - complementary [ref=e1433]:
+      - generic [ref=e1434]:
+        - img "Pulseport logo" [ref=e1436]
+        - generic [ref=e1438]: PulsePort
+      - navigation [ref=e1440]:
+        - button "Dashboard" [ref=e1441] [cursor=pointer]:
+          - img [ref=e1442]
+          - text: Dashboard
+        - button "Portfolio" [ref=e1444] [cursor=pointer]:
+          - img [ref=e1445]
+          - text: Portfolio
+        - button "Wallet Analyzer" [active] [ref=e1450] [cursor=pointer]:
+          - img [ref=e1451]
+          - text: Wallet Analyzer
+        - button "HEX Staking" [ref=e1454] [cursor=pointer]:
+          - img [ref=e1455]
+          - text: HEX Staking
+        - button "My Investments" [ref=e1458] [cursor=pointer]:
+          - img [ref=e1459]
+          - text: My Investments
+        - button "Transactions" [ref=e1461] [cursor=pointer]:
+          - img [ref=e1462]
+          - text: Transactions
+        - button "DeFi" [ref=e1466] [cursor=pointer]:
+          - img [ref=e1467]
+          - text: DeFi
+      - button "Wallets 0" [ref=e1471] [cursor=pointer]:
+        - generic [ref=e1472]:
+          - img [ref=e1473]
+          - generic [ref=e1476]: Wallets
+        - generic [ref=e1477]:
+          - generic [ref=e1478]: "0"
+          - img [ref=e1479]
+    - main [ref=e1481]:
+      - generic [ref=e1483]:
+        - generic [ref=e1485]: Wallet Analyzer
+        - generic [ref=e1486]:
+          - button "Switch to light mode" [ref=e1489] [cursor=pointer]:
+            - img [ref=e1490]
+          - button "Open API key settings" [ref=e1496] [cursor=pointer]:
+            - img [ref=e1497]
+            - generic [ref=e1500]: API
+          - button "Refresh" [ref=e1501] [cursor=pointer]:
+            - img [ref=e1502]
+            - generic [ref=e1507]: Refresh
+      - generic [ref=e1508]:
+        - generic [ref=e2369]:
+          - generic [ref=e2370]:
+            - generic [ref=e2371]:
+              - generic [ref=e2372]: Transactions
+              - heading "ETH Swap Ledger" [level=1] [ref=e2373]
+              - paragraph [ref=e2374]: Review transaction flow by asset, chain, bridge route, and staking context without leaving the ledger.
+              - generic [ref=e2375]:
+                - generic [ref=e2376]: swap only
+                - generic [ref=e2377]: All wallets
+                - generic [ref=e2378]: ethereum
+                - generic [ref=e2379]: All years
+                - generic [ref=e2380]: All coin families
+            - generic [ref=e2381]:
+              - generic [ref=e2382]:
+                - generic [ref=e2383]:
+                  - generic [ref=e2384]: Tracked swaps
+                  - strong [ref=e2385]: "1"
+                - generic [ref=e2386]:
+                  - generic [ref=e2387]: Realized P&L
+                  - strong [ref=e2388]: +$0
+                - generic [ref=e2389]:
+                  - generic [ref=e2390]: Holdings value
+                  - strong [ref=e2391]: $5,175
+                - generic [ref=e2392]:
+                  - generic [ref=e2393]: Gas total
+                  - strong [ref=e2394]: 0 PLS
+                  - generic [ref=e2395]: $0
+              - generic [ref=e2396]:
+                - button "View as You" [ref=e2397] [cursor=pointer]
+                - button "Compact" [ref=e2398] [cursor=pointer]
+                - button "Export CSV" [ref=e2399] [cursor=pointer]:
+                  - img [ref=e2400]
+                  - text: Export CSV
+                - button "Export JSON" [ref=e2403] [cursor=pointer]:
+                  - img [ref=e2404]
+                  - text: Export JSON
+          - generic [ref=e2407]:
+            - generic [ref=e2408]:
+              - img "ETH" [ref=e2409]
+              - generic [ref=e2410]:
+                - strong [ref=e2411]: ETH Swap P&L
+                - generic [ref=e2412]: 0 swap rows tracked
+            - generic [ref=e2413]:
+              - generic [ref=e2414]:
+                - generic [ref=e2415]: Realized P&L
+                - strong [ref=e2416]: +$0
+              - generic [ref=e2417]:
+                - generic [ref=e2418]: Holdings
+                - strong [ref=e2419]: $5,175
+              - generic [ref=e2420]:
+                - generic [ref=e2421]: Gas
+                - strong [ref=e2422]: 0 PLS
+            - button "Clear filter" [ref=e2423] [cursor=pointer]:
+              - text: Clear filter
+              - img [ref=e2424]
+          - generic [ref=e2427]:
+            - generic [ref=e2428]:
+              - generic [ref=e2429]:
+                - generic [ref=e2430]: swap only
+                - generic [ref=e2431]: All wallets
+                - generic [ref=e2432]: ETH
+                - generic [ref=e2433]: ethereum
+              - generic [ref=e2434]:
+                - generic [ref=e2435]:
+                  - generic [ref=e2436]: Swaps
+                  - strong [ref=e2437]: "1"
+                - generic [ref=e2438]:
+                  - generic [ref=e2439]: Realized P&L
+                  - strong [ref=e2440]: +$0
+                - generic [ref=e2441]:
+                  - generic [ref=e2442]: Holdings
+                  - strong [ref=e2443]: $5,175
+                - generic [ref=e2444]:
+                  - generic [ref=e2445]: Gas total
+                  - strong [ref=e2446]: 0 PLS
+                  - generic [ref=e2447]: $0
+            - generic [ref=e2448]:
+              - generic [ref=e2449]:
+                - img [ref=e2450]
+                - generic [ref=e2454]:
+                  - strong [ref=e2455]: Swap Ledger
+                  - generic [ref=e2456]: Typed history drill-downs for asset, chain, bridge, and staking contexts.
+              - generic [ref=e2457]: ethereum
+            - generic [ref=e2458]:
+              - generic [ref=e2459]:
+                - generic [ref=e2460]: Token Scope
+                - combobox "Token Scope" [ref=e2461]:
+                  - option "All Tokens" [selected]
+              - generic [ref=e2462]:
+                - generic [ref=e2463]: Execution Year
+                - combobox "Execution Year" [ref=e2464]:
+                  - option "All Years" [selected]
+              - generic [ref=e2465]:
+                - generic [ref=e2466]: Chain
+                - combobox "Chain" [ref=e2467]:
+                  - option "All Chains"
+                  - option "PulseChain"
+                  - option "Ethereum" [selected]
+                  - option "Base"
+              - generic [ref=e2468]:
+                - generic [ref=e2469]: Coin Family
+                - combobox "Coin Family" [ref=e2470]:
+                  - option "All Coins" [selected]
+                  - option "Stablecoins"
+                  - option "ETH/WETH"
+                  - option "HEX/eHEX"
+                  - option "PLS/WPLS"
+                  - option "Bridged"
+              - button "Clear all" [ref=e2471] [cursor=pointer]
+            - generic [ref=e2475] [cursor=pointer]:
+              - generic [ref=e2476]:
+                - img [ref=e2478]
+                - generic [ref=e2483]:
+                  - generic [ref=e2484]:
+                    - generic [ref=e2485]: Swap
+                    - generic "ethereum" [ref=e2486]
+                    - generic [ref=e2487]: ETH
+                    - generic [ref=e2488]: Apr 18, 2026
+                  - generic [ref=e2489]:
+                    - strong [ref=e2490]: Swap
+                    - generic [ref=e2491]: from
+                    - strong [ref=e2492]: 0xdemo...0001
+                    - generic [ref=e2493]: to
+                    - strong [ref=e2494]: 0xdemo...0001
+                  - generic [ref=e2495]:
+                    - button "Open source details for ETH amount" [ref=e2497]:
+                      - generic [ref=e2498]:
+                        - generic [ref=e2499]: Paid 1,725 USDC
+                        - text: "->"
+                        - generic [ref=e2500]: Got 0.5 ETH
+                    - button "Open source details for ETH USD value" [ref=e2504]: ~ $1,725
+              - generic [ref=e2506]:
+                - generic [ref=e2507]:
+                  - button "Open source details for ETH USD value" [ref=e2510]: $1,725
+                  - generic [ref=e2512]: 10 days ago
+                - button "Filter transactions by ETH" [ref=e2513]:
+                  - img "ETH" [ref=e2514]
+                - button "Hide transaction 0x789..." [ref=e2515]:
+                  - img [ref=e2516]
+                - img [ref=e2522]
+        - generic [ref=e2368]: PulsePort © 2026 • Powered by PulseChain, Ethereum & Base
+  - generic [ref=e1361]: Apr 14
