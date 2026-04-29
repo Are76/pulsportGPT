@@ -3731,16 +3731,7 @@ export default function App() {
                 <p className="transaction-page-subtitle">
                   Review transaction flow by asset, chain, bridge route, and staking context without leaving the ledger.
                 </p>
-                <div className="transaction-page-chip-row">
-                  <span className="tx-band-chip tx-band-chip--accent">{txTypeFilter === 'all' ? 'All transaction types' : `${txTypeFilter} only`}</span>
-                  <span className="tx-band-chip">{selectedWalletAddr === 'all' ? 'All wallets' : shortenAddr(selectedWalletAddr)}</span>
-                  <span className="tx-band-chip">{txChainFilter === 'all' ? 'All chains' : txChainFilter}</span>
-                  <span className="tx-band-chip">{txYearFilter === 'all' ? 'All years' : txYearFilter}</span>
-                  <span className="tx-band-chip">{txCoinCategory === 'all' ? 'All coin families' : txCoinCategory === 'stablecoins' ? 'Stablecoins' : txCoinCategory === 'eth_weth' ? 'ETH/WETH' : txCoinCategory === 'hex' ? 'HEX/eHEX' : txCoinCategory === 'pls_wpls' ? 'PLS/WPLS' : 'Bridged'}</span>
-                  {txBridgeProtocolFilter !== 'all' && <span className="tx-band-chip">{txBridgeProtocolFilter} bridge</span>}
-                  {txOriginChainFilter !== 'all' && <span className="tx-band-chip">origin {txOriginChainFilter}</span>}
-                  {txStakingActionFilter !== 'all' && <span className="tx-band-chip">{txStakingActionFilter}</span>}
-                </div>
+
               </div>
               <div className="transaction-page-head-side">
                 <div className="transaction-page-stats">
@@ -3801,77 +3792,7 @@ export default function App() {
               </div>
             </div>
 
-            {txAssetFilter !== 'all' && (
-              <div className="tx-context-strip">
-                <div className="tx-context-title">
-                  {activeHistoryAsset && (
-                    <img
-                      src={getTokenLogoUrl(activeHistoryAsset)}
-                      alt={txAssetFilter}
-                      className="tx-context-logo"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  )}
-                  <div>
-                    <strong>{txAssetFilter} Swap P&amp;L</strong>
-                    <span>{historySummary.tokenTxs.length} swap rows tracked</span>
-                  </div>
-                </div>
-                <div className="tx-context-metrics">
-                  <div className="tx-context-metric">
-                    <span>Realized P&amp;L</span>
-                    <strong style={{ color: historySummary.realizedPnl >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                      {historySummary.realizedPnl >= 0 ? '+' : '-'}${Math.abs(historySummary.realizedPnl).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-                  <div className="tx-context-metric">
-                    <span>Holdings</span>
-                    <strong>${historySummary.holdingsValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</strong>
-                  </div>
-                  <div className="tx-context-metric">
-                    <span>Gas</span>
-                    <strong>{historySummary.gasPls.toLocaleString('en-US', { maximumFractionDigits: 4 })} PLS</strong>
-                  </div>
-                </div>
-                <button type="button" className="tx-context-clear" onClick={resetHistoryFilters}>
-                  Clear filter <X size={12} />
-                </button>
-              </div>
-            )}
-
             <div className="transaction-ledger-shell transaction-ledger-shell--dense">
-              <div className="tx-context-band">
-                <div className="tx-band-chip-group">
-                  <span className="tx-band-chip tx-band-chip--accent">{txTypeFilter === 'all' ? 'All transaction types' : `${txTypeFilter} only`}</span>
-                  <span className="tx-band-chip">{selectedWalletAddr === 'all' ? 'All wallets' : shortenAddr(selectedWalletAddr)}</span>
-                  <span className="tx-band-chip">{txAssetFilter === 'all' ? 'All tokens' : txAssetFilter}</span>
-                  <span className="tx-band-chip">{txChainFilter === 'all' ? 'All chains' : txChainFilter}</span>
-                  {txBridgeProtocolFilter !== 'all' && <span className="tx-band-chip">{txBridgeProtocolFilter} bridge</span>}
-                  {txOriginChainFilter !== 'all' && <span className="tx-band-chip">origin {txOriginChainFilter}</span>}
-                  {txStakingActionFilter !== 'all' && <span className="tx-band-chip">{txStakingActionFilter}</span>}
-                </div>
-                <div className="tx-band-metrics">
-                  <div className="tx-band-metric">
-                    <span>Swaps</span>
-                    <strong>{filteredTransactions.length}</strong>
-                  </div>
-                  <div className="tx-band-metric">
-                    <span>Realized P&amp;L</span>
-                    <strong style={{ color: historySummary.realizedPnl >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                      {historySummary.realizedPnl >= 0 ? '+' : '-'}${Math.abs(historySummary.realizedPnl).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-                  <div className="tx-band-metric">
-                    <span>Holdings</span>
-                    <strong>${historySummary.holdingsValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</strong>
-                  </div>
-                  <div className="tx-band-metric">
-                    <span>Gas total</span>
-                    <strong>{historySummary.gasPls.toLocaleString('en-US', { maximumFractionDigits: 4 })} PLS</strong>
-                    <small>${historySummary.gasUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</small>
-                  </div>
-                </div>
-              </div>
 
               <div className="transaction-ledger-toolbar transaction-ledger-toolbar--dense">
                 <div className="transaction-ledger-title">
@@ -3882,32 +3803,6 @@ export default function App() {
                   </div>
                 </div>
                 <span className="transaction-ledger-badge">{txChainFilter === 'all' ? 'Cross-chain' : txChainFilter}</span>
-              </div>
-
-              <div className="transaction-ledger-filters history-filter-row">
-                {([
-                  { id: 'asset', label: 'Token Scope', value: txAssetFilter, onChange: setTxAssetFilter, options: swapAssetFilterOptions },
-                  { id: 'year', label: 'Execution Year', value: txYearFilter, onChange: setTxYearFilter, options: swapYearFilterOptions },
-                  { id: 'chain', label: 'Chain', value: txChainFilter, onChange: setTxChainFilter, options: [['all', 'All Chains'], ['pulsechain', 'PulseChain'], ['ethereum', 'Ethereum'], ['base', 'Base']] as [string, string][] },
-                  { id: 'category', label: 'Coin Family', value: txCoinCategory, onChange: setTxCoinCategory, options: [['all','All Coins'],['stablecoins','Stablecoins'],['eth_weth','ETH/WETH'],['hex','HEX/eHEX'],['pls_wpls','PLS/WPLS'],['bridged','Bridged']] as [string,string][] },
-                ]).map(({ id, label, value, onChange, options }) => (
-                  <label key={id} className="history-filter-control">
-                    <span>{label}</span>
-                    <select value={value} onChange={e => onChange(e.target.value)}
-                      className="history-filter-select"
-                      aria-label={label}>
-                      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </label>
-                ))}
-                <button
-                  type="button"
-                  onClick={resetHistoryFilters}
-                  className="history-clear-btn"
-                  disabled={!hasActiveSwapFilters}
-                >
-                  Clear all
-                </button>
               </div>
 
               <div className="transaction-ledger-list custom-scrollbar">
@@ -4071,15 +3966,7 @@ export default function App() {
                     )}
                   </div>
                 )}
-                {/* Chain filter chips */}
-                <div className="wallet-chain-strip">
-                  {(['all', 'pulsechain', 'ethereum', 'base'] as const).map(c => (
-                    <button key={c} onClick={() => setWalletChainFilter(c)}
-                      className={`filter-pill${walletChainFilter === c ? ' active' : ''}`}>
-                      {c === 'all' ? 'All' : c === 'pulsechain' ? 'PulseChain' : c === 'ethereum' ? 'Ethereum' : 'Base'}
-                    </button>
-                  ))}
-                </div>
+
               </div>
 
               {/* Asset list - full Token Positions module */}
