@@ -47,3 +47,17 @@ CREATE TABLE IF NOT EXISTS hex_stakes_cache (
   updated_at     INTEGER NOT NULL DEFAULT (unixepoch()),
   PRIMARY KEY (wallet_address, chain)
 );
+
+-- Daily portfolio history for transaction-replay reconstruction (up to 365 days)
+CREATE TABLE IF NOT EXISTS portfolio_history (
+  address        TEXT    NOT NULL,
+  date           TEXT    NOT NULL,   -- ISO date YYYY-MM-DD (UTC)
+  total_usd      REAL    NOT NULL,
+  native_usd     REAL    NOT NULL DEFAULT 0,
+  chain_dist     TEXT    NOT NULL DEFAULT '{}',
+  net_flow_usd   REAL    NOT NULL DEFAULT 0,
+  created_at     INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (address, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ph_addr_date ON portfolio_history(address, date DESC);

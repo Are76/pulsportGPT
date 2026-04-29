@@ -83,6 +83,44 @@ export function fetchPortfolioHistory(address: string, days = 30): Promise<ApiHi
 }
 
 // ---------------------------------------------------------------------------
+// Portfolio P&L (server-side FIFO)
+// ---------------------------------------------------------------------------
+
+export interface ApiPortfolioPnl {
+  address: string;
+  realizedGainUsd: number;
+  unrealizedCostBasisUsd: number;
+  unrealizedGainUsd: number;
+  costBasisUsd: number;
+}
+
+export function fetchPortfolioPnl(address: string): Promise<ApiPortfolioPnl | null> {
+  return apiFetch<ApiPortfolioPnl>(`${BASE}/portfolio/${address}/pnl`);
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio history upsert (called after each frontend refresh)
+// ---------------------------------------------------------------------------
+
+export interface UpsertHistoryPayload {
+  date: string;
+  totalUsd: number;
+  nativeUsd: number;
+  chainDist?: Record<string, number>;
+  netFlowUsd?: number;
+}
+
+export function upsertPortfolioHistoryPoint(
+  address: string,
+  payload: UpsertHistoryPayload,
+): Promise<{ address: string; date: string } | null> {
+  return apiFetch<{ address: string; date: string }>(`${BASE}/portfolio/${address}/history`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Prices
 // ---------------------------------------------------------------------------
 
