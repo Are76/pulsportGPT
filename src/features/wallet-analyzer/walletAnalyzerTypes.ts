@@ -14,6 +14,7 @@ export interface WalletAnalyzerPageProps {
   onOpenTransactions: (intent: HistoryDrilldownIntent) => void;
   onOpenTransactionsForHolding: (holding: WalletAnalyzerHoldingDrilldown) => void;
   onOpenTransactionsForChain: (chain: Chain) => void;
+  onOpenPlanner: () => void;
 }
 
 export interface BuildWalletAnalyzerPagePropsArgs {
@@ -21,4 +22,5 @@ export interface BuildWalletAnalyzerPagePropsArgs {
   investmentRows: InvestmentHoldingRow[];
   plsUsdPrice: number;
   onOpenTransactions: (intent: HistoryDrilldownIntent) => void;
+  onOpenPlanner: () => void;
 }

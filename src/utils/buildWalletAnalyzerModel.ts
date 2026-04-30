@@ -4,10 +4,13 @@ import {
   calculateBenchmarkComparison,
   calculateDiversificationScore,
   calculatePortfolioHistory,
+  calculatePulsechainCoreRotationPnlPls,
   calculateRiskMetrics,
+  extractPulsechainCoreRotationSwaps,
   type BehaviorStats,
   type BenchmarkComparison,
   type PortfolioAnalyticsPoint,
+  type PulsechainCoreRotationPnl,
   type RiskMetrics,
 } from './portfolioAnalytics';
 
@@ -65,6 +68,7 @@ export interface WalletAnalyzerModel {
       weight: number;
     }>;
   };
+  rotation: PulsechainCoreRotationPnl;
   alerts: WalletAnalyzerAlert[];
 }
 
@@ -90,6 +94,14 @@ function buildBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[] {
   }));
 }
 
+function resolveCurrentPlsUsdPrice(currentPrices: Record<string, number>): number {
+  return currentPrices['pulsechain']
+    ?? currentPrices['pulsechain:native']
+    ?? currentPrices.PLS
+    ?? currentPrices.WPLS
+    ?? 0;
+}
+
 export function buildWalletAnalyzerModel({
   history,
   assets,
@@ -98,6 +110,7 @@ export function buildWalletAnalyzerModel({
   investmentRows,
   currentPrices,
 }: BuildWalletAnalyzerModelArgs): WalletAnalyzerModel {
+  const canonicalRows = investmentRows.filter((row) => row.currentValue > 0);
   const performancePoints = calculatePortfolioHistory(history).map((point) => ({
     ...point,
     label: formatPointLabel(point.timestamp),
@@ -111,19 +124,26 @@ export function buildWalletAnalyzerModel({
   }));
   const comparison = calculateBenchmarkComparison(history, benchmarkHistory);
   const behavior = calculateBehaviorStats(transactions, currentPrices);
-  const allocationTotal = assets.reduce((sum, asset) => sum + asset.value, 0);
-  const topHoldings = [...assets]
-    .sort((a, b) => b.value - a.value)
+  const currentPlsUsdPrice = resolveCurrentPlsUsdPrice(currentPrices);
+  const rotation = calculatePulsechainCoreRotationPnlPls(
+    extractPulsechainCoreRotationSwaps(transactions),
+    currentPrices,
+    currentPlsUsdPrice,
+    () => currentPlsUsdPrice,
+  );
+  const allocationTotal = canonicalRows.reduce((sum, row) => sum + row.currentValue, 0);
+  const topHoldings = [...canonicalRows]
+    .sort((a, b) => b.currentValue - a.currentValue)
     .slice(0, 5)
-    .map((asset) => ({
-      symbol: asset.symbol,
-      name: asset.name,
-      chain: asset.chain,
-      valueUsd: asset.value,
-      weight: allocationTotal > 0 ? asset.value / allocationTotal : 0,
+    .map((row) => ({
+      symbol: row.symbol,
+      name: row.name,
+      chain: row.chain,
+      valueUsd: row.currentValue,
+      weight: allocationTotal > 0 ? row.currentValue / allocationTotal : 0,
     }));
   const concentration = topHoldings[0]?.weight ?? 0;
-  const contributors = [...investmentRows]
+  const contributors = [...canonicalRows]
     .sort((a, b) => b.currentValue - a.currentValue)
     .slice(0, 5)
     .map((row) => ({
@@ -136,17 +156,24 @@ export function buildWalletAnalyzerModel({
       pnlUsd: row.pnlUsd,
       shareOfNav: summary.totalValue > 0 ? row.currentValue / summary.totalValue : 0,
     }));
-  const chainMixRows = (Object.entries(summary.chainDistribution) as Array<[Asset['chain'], number]>)
+  const chainMixByValue = canonicalRows.reduce<Record<Asset['chain'], number>>(
+    (acc, row) => {
+      acc[row.chain] += row.currentValue;
+      return acc;
+    },
+    { pulsechain: 0, ethereum: 0, base: 0 },
+  );
+  const chainMixRows = (Object.entries(chainMixByValue) as Array<[Asset['chain'], number]>)
     .filter(([, valueUsd]) => valueUsd > 0)
     .sort((a, b) => b[1] - a[1])
     .map(([chain, valueUsd]) => ({
       chain,
       valueUsd,
-      weight: summary.totalValue > 0 ? valueUsd / summary.totalValue : 0,
+      weight: allocationTotal > 0 ? valueUsd / allocationTotal : 0,
     }));
   const diversificationScore = calculateDiversificationScore(
-    assets.reduce<Record<string, number>>((acc, asset) => {
-      acc[`${asset.chain}:${asset.symbol}`] = asset.value;
+    canonicalRows.reduce<Record<string, number>>((acc, row) => {
+      acc[`${row.chain}:${row.symbol}`] = row.currentValue;
       return acc;
     }, {}),
   );
@@ -180,7 +207,7 @@ export function buildWalletAnalyzerModel({
 
   return {
     nav: {
-      totalValue: summary.totalValue,
+      totalValue: allocationTotal > 0 ? allocationTotal : summary.totalValue,
       cumulativeReturn: comparison.portfolioReturn,
       maxDrawdown: risk.maxDrawdown,
       volatility: risk.volatility,
@@ -204,6 +231,7 @@ export function buildWalletAnalyzerModel({
     chainMix: {
       rows: chainMixRows,
     },
+    rotation,
     alerts,
   };
 }

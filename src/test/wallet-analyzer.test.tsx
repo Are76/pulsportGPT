@@ -122,7 +122,7 @@ describe('buildWalletAnalyzerModel', () => {
     expect(model.performance.points).toHaveLength(4);
     expect(model.risk.maxDrawdown).toBeLessThan(0);
     expect(model.behavior.realizedGainUsd).toBeGreaterThan(0);
-    expect(model.allocation.topHoldings[0]).toMatchObject({ symbol: 'ETH' });
+    expect(model.allocation.topHoldings[0]).toMatchObject({ symbol: 'HEX' });
     expect(model.alerts.length).toBeGreaterThan(0);
   });
 
@@ -144,6 +144,119 @@ describe('buildWalletAnalyzerModel', () => {
 
     expect(model.performance.points.length).toBeGreaterThanOrEqual(5);
   });
+
+  it('uses investment rows as the canonical holdings source for allocation and chain mix', () => {
+    const model = buildWalletAnalyzerModel({
+      history,
+      assets: [
+        {
+          id: 'raw-eth',
+          symbol: 'ETH',
+          name: 'Ethereum',
+          balance: 1,
+          price: 3500,
+          value: 3500,
+          chain: 'ethereum',
+        },
+      ],
+      summary: {
+        ...summary,
+        totalValue: 3500,
+        chainDistribution: {
+          pulsechain: 0,
+          ethereum: 3500,
+          base: 0,
+        },
+      },
+      transactions,
+      investmentRows: [
+        {
+          ...rows[0]!,
+          id: 'hex',
+          symbol: 'HEX',
+          name: 'HEX',
+          chain: 'pulsechain',
+          currentValue: 120,
+          costBasis: 100,
+          pnlUsd: 20,
+          pnlPercent: 20,
+          thenValue: 100,
+          nowValue: 120,
+        },
+      ],
+      currentPrices: {
+        'pulsechain:HEX': 1.2,
+      },
+    });
+
+    expect(model.nav.totalValue).toBe(120);
+    expect(model.allocation.topHoldings[0]).toMatchObject({
+      symbol: 'HEX',
+      chain: 'pulsechain',
+      valueUsd: 120,
+    });
+    expect(model.chainMix.rows).toEqual([
+      expect.objectContaining({
+        chain: 'pulsechain',
+        valueUsd: 120,
+      }),
+    ]);
+  });
+
+  it('carries PulseChain core rotation pnl into the analyzer model', () => {
+    const model = buildWalletAnalyzerModel({
+      history,
+      assets,
+      summary,
+      transactions: [
+        {
+          id: 'buy-plsx',
+          hash: '0x11',
+          timestamp: Date.UTC(2026, 0, 1),
+          type: 'swap',
+          from: '0xwallet',
+          to: '0xwallet',
+          asset: 'PLSX',
+          amount: 100,
+          counterAsset: 'PLS',
+          counterAmount: 1000,
+          chain: 'pulsechain',
+        },
+        {
+          id: 'rotate-inc',
+          hash: '0x12',
+          timestamp: Date.UTC(2026, 0, 2),
+          type: 'swap',
+          from: '0xwallet',
+          to: '0xwallet',
+          asset: 'INC',
+          amount: 50,
+          counterAsset: 'PLSX',
+          counterAmount: 100,
+          assetPriceUsdAtTx: 3,
+          counterPriceUsdAtTx: 1.5,
+          valueUsd: 150,
+          chain: 'pulsechain',
+        },
+      ],
+      investmentRows: rows,
+      currentPrices: {
+        pulsechain: 0.1,
+        'pulsechain:INC': 4,
+        'pulsechain:HEX': 1.2,
+      },
+    });
+
+    expect(model.rotation.realizedPnlPls).toBeCloseTo(500, 5);
+    expect(model.rotation.pairStats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pair: 'PLSX->INC',
+          realizedPnlPls: 500,
+        }),
+      ]),
+    );
+  });
 });
 
 describe('WalletAnalyzerPage', () => {
@@ -151,17 +264,19 @@ describe('WalletAnalyzerPage', () => {
     model: ReturnType<typeof buildWalletAnalyzerModel>,
     investmentRows: InvestmentHoldingRow[],
     onOpenTransactions = vi.fn(),
+    onOpenPlanner = vi.fn(),
   ) {
     const pageProps = buildWalletAnalyzerPageProps({
       model,
       investmentRows,
       plsUsdPrice: 0.00008,
       onOpenTransactions,
+      onOpenPlanner,
     }).pageProps;
 
     render(<WalletAnalyzerPage {...pageProps} />);
 
-    return { onOpenTransactions };
+    return { onOpenTransactions, onOpenPlanner };
   }
 
   it('renders the first user-facing analyzer slice with range controls and allocation bars', () => {
@@ -185,12 +300,13 @@ describe('WalletAnalyzerPage', () => {
     expect(screen.getByText(/allocation breakdown/i)).toBeInTheDocument();
     expect(screen.getByText(/top contributors/i)).toBeInTheDocument();
     expect(screen.getByText(/chain mix/i)).toBeInTheDocument();
+    expect(screen.getByText(/core rotation vs pls/i)).toBeInTheDocument();
     expect(screen.getByText(/what changed this range/i)).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { name: /holdings attribution/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /^1w$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^1m$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^all$/i })).toBeInTheDocument();
-    expect(screen.getByTestId('allocation-bar-ETH')).toBeInTheDocument();
+    expect(screen.getByTestId('allocation-bar-HEX')).toBeInTheDocument();
     expect(screen.getByText(/portfolio nav/i)).toBeInTheDocument();
     expect(screen.getAllByText(/^benchmark$/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/1m move/i).length).toBeGreaterThan(0);
@@ -218,39 +334,33 @@ describe('WalletAnalyzerPage', () => {
   });
 
   it('opens transaction drill-downs from allocation rows', () => {
+    const ethRow = {
+      ...rows[0]!,
+      id: 'eth',
+      symbol: 'ETH',
+      name: 'Ethereum',
+      chain: 'ethereum' as const,
+      currentValue: 700,
+      costBasis: 600,
+      pnlUsd: 100,
+      pnlPercent: 16.6,
+      sourceMix: [{ asset: 'ETH', chain: 'ethereum' as const, amountUsd: 600 }],
+      routeSummary: 'Ethereum',
+      thenValue: 600,
+      nowValue: 700,
+    };
     const model = buildWalletAnalyzerModel({
       history,
       assets,
       summary,
       transactions,
-      investmentRows: rows,
+      investmentRows: [rows[0]!, ethRow],
       currentPrices: {
         'pulsechain:HEX': 1.2,
       },
     });
     const onOpenTransactions = vi.fn();
-    renderWalletAnalyzerPage(
-      model,
-      [
-        rows[0]!,
-        {
-          ...rows[0]!,
-          id: 'eth',
-          symbol: 'ETH',
-          name: 'Ethereum',
-          chain: 'ethereum',
-          currentValue: 700,
-          costBasis: 600,
-          pnlUsd: 100,
-          pnlPercent: 16.6,
-          sourceMix: [{ asset: 'ETH', chain: 'ethereum', amountUsd: 600 }],
-          routeSummary: 'Ethereum',
-          thenValue: 600,
-          nowValue: 700,
-        },
-      ],
-      onOpenTransactions,
-    );
+    renderWalletAnalyzerPage(model, [rows[0]!, ethRow], onOpenTransactions);
 
     fireEvent.click(screen.getByRole('button', { name: /view eth transactions/i }));
 
@@ -278,6 +388,86 @@ describe('WalletAnalyzerPage', () => {
     expect(screen.getByRole('dialog', { name: /net asset value provenance/i })).toBeInTheDocument();
     expect(screen.getByText(/primary source/i)).toBeInTheDocument();
     expect(screen.getByText(/aggregated cross-chain portfolio snapshot/i)).toBeInTheDocument();
+  });
+
+  it('opens the profit planner from the analyzer hero', () => {
+    const model = buildWalletAnalyzerModel({
+      history,
+      assets,
+      summary,
+      transactions,
+      investmentRows: rows,
+      currentPrices: {
+        'pulsechain:HEX': 1.2,
+      },
+    });
+    const onOpenPlanner = vi.fn();
+
+    renderWalletAnalyzerPage(model, rows, vi.fn(), onOpenPlanner);
+
+    fireEvent.click(screen.getByRole('button', { name: /open profit planner/i }));
+
+    expect(onOpenPlanner).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens PulseChain swap ledger drill-downs from the core rotation card', () => {
+    const model = buildWalletAnalyzerModel({
+      history,
+      assets,
+      summary,
+      transactions: [
+        {
+          id: 'buy-plsx',
+          hash: '0x21',
+          timestamp: Date.UTC(2026, 0, 1),
+          type: 'swap',
+          from: '0xwallet',
+          to: '0xwallet',
+          asset: 'PLSX',
+          amount: 100,
+          counterAsset: 'PLS',
+          counterAmount: 1000,
+          chain: 'pulsechain',
+        },
+        {
+          id: 'rotate-inc',
+          hash: '0x22',
+          timestamp: Date.UTC(2026, 0, 2),
+          type: 'swap',
+          from: '0xwallet',
+          to: '0xwallet',
+          asset: 'INC',
+          amount: 50,
+          counterAsset: 'PLSX',
+          counterAmount: 100,
+          assetPriceUsdAtTx: 3,
+          counterPriceUsdAtTx: 1.5,
+          valueUsd: 150,
+          chain: 'pulsechain',
+        },
+      ],
+      investmentRows: rows,
+      currentPrices: {
+        pulsechain: 0.1,
+        'pulsechain:INC': 4,
+        'pulsechain:HEX': 1.2,
+      },
+    });
+    const onOpenTransactions = vi.fn();
+
+    renderWalletAnalyzerPage(model, rows, onOpenTransactions);
+
+    fireEvent.click(screen.getByRole('button', { name: /open core swaps/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /open flow/i })[0]!);
+
+    expect(onOpenTransactions).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ kind: 'chain', chain: 'pulsechain', txType: 'swap' }),
+    );
+    expect(onOpenTransactions).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ kind: 'asset', symbol: 'INC', chain: 'pulsechain', txType: 'swap' }),
+    );
   });
 
   it('shows performance point provenance from the chart panel action', () => {
@@ -459,8 +649,7 @@ describe('WalletAnalyzerPage', () => {
 
     renderWalletAnalyzerPage(model, rows);
 
-    expect(screen.getByTestId('chain-bar-ethereum')).toBeInTheDocument();
-    expect(screen.getByTestId('chain-bar-base')).toBeInTheDocument();
+    expect(screen.getByTestId('chain-bar-pulsechain')).toBeInTheDocument();
   });
 
   it('opens transaction drill-downs from the range-change band', () => {

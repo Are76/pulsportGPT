@@ -43,6 +43,7 @@ describe('buildWalletAnalyzerPageProps', () => {
       investmentRows,
       plsUsdPrice: 0.00008,
       onOpenTransactions,
+      onOpenPlanner: vi.fn(),
     });
 
     result.pageProps.onOpenTransactionsForHolding({ symbol: 'ETH', chain: 'ethereum' });

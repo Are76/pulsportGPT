@@ -1684,6 +1684,7 @@ export default function App() {
       investmentRows,
       plsUsdPrice: prices['pulsechain']?.usd || 0,
       onOpenTransactions: openHistoryDrilldown,
+      onOpenPlanner: () => setProfitPlannerOpen(true),
     }).pageProps;
   }, [investmentRows, openHistoryDrilldown, prices, walletAnalyzerModel]);
 

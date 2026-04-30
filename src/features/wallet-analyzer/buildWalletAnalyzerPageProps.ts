@@ -13,6 +13,7 @@ export function buildWalletAnalyzerPageProps({
   investmentRows,
   plsUsdPrice,
   onOpenTransactions,
+  onOpenPlanner,
 }: BuildWalletAnalyzerPagePropsArgs): { pageProps: WalletAnalyzerPageProps } {
   const investmentRowByHolding = new Map<string, InvestmentHoldingRow>(
     investmentRows.map((row) => [toHoldingKey(row.chain, row.symbol), row]),
@@ -45,6 +46,7 @@ export function buildWalletAnalyzerPageProps({
       onOpenTransactions,
       onOpenTransactionsForHolding,
       onOpenTransactionsForChain,
+      onOpenPlanner,
     },
   };
 }

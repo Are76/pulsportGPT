@@ -5,6 +5,7 @@ import { MyInvestmentsFilters } from '../components/my-investments/MyInvestments
 import { MyInvestmentsTable } from '../components/my-investments/MyInvestmentsTable';
 import { AllocationBreakdownCard } from '../components/wallet-analyzer/AllocationBreakdownCard';
 import { ChainMixCard } from '../components/wallet-analyzer/ChainMixCard';
+import { CoreRotationCard } from '../components/wallet-analyzer/CoreRotationCard';
 import { PortfolioPerformanceChart } from '../components/wallet-analyzer/PortfolioPerformanceChart';
 import { RiskMetricsPanel } from '../components/wallet-analyzer/RiskMetricsPanel';
 import { TopContributorsCard } from '../components/wallet-analyzer/TopContributorsCard';
@@ -53,6 +54,7 @@ export function WalletAnalyzerPage({
   onOpenTransactions,
   onOpenTransactionsForHolding,
   onOpenTransactionsForChain,
+  onOpenPlanner,
 }: WalletAnalyzerPageProps) {
   const [performanceRange, setPerformanceRange] = useState<PerformanceRange>('1M');
   const [holdingChainFilter, setHoldingChainFilter] = useState<InvestmentChainFilter>('all');
@@ -157,6 +159,11 @@ export function WalletAnalyzerPage({
           <p className="wa-kicker">Analyzer</p>
           <h1 className="wa-hero__title">Wallet Analyzer</h1>
           <p className="wa-hero__copy">Performance, risk, and behavior analytics across the tracked portfolio.</p>
+          <div className="wa-hero__actions">
+            <button type="button" className="wa-action-button" onClick={onOpenPlanner}>
+              Open Profit Planner
+            </button>
+          </div>
         </div>
         <div className="wa-hero__stats">
           <article className="wa-hero__stat">
@@ -319,6 +326,7 @@ export function WalletAnalyzerPage({
         <div className="wa-main-grid__secondary">
           <RiskMetricsPanel nav={model.nav} risk={model.risk} />
           <TradeBehaviorCard behavior={model.behavior} />
+          <CoreRotationCard rotation={model.rotation} onOpenTransactions={onOpenTransactions} />
         </div>
       </div>
 

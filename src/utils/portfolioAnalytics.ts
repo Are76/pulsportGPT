@@ -34,10 +34,48 @@ export interface ChainAttributionRow {
   endValueUsd: number;
 }
 
+export type PulsechainCoreRotationSymbol = 'PLS' | 'PLSX' | 'INC' | 'PRVX' | 'pHEX' | 'eHEX';
+
+export interface PulsechainCoreRotationSwap {
+  hash: string;
+  timestamp: number;
+  soldSymbol: PulsechainCoreRotationSymbol;
+  soldAmount: number;
+  boughtSymbol: PulsechainCoreRotationSymbol;
+  boughtAmount: number;
+  valueUsd?: number;
+  soldPriceUsdAtTx?: number;
+  boughtPriceUsdAtTx?: number;
+}
+
+export interface PulsechainCoreRotationPairStats {
+  pair: string;
+  soldSymbol: PulsechainCoreRotationSymbol;
+  boughtSymbol: PulsechainCoreRotationSymbol;
+  realizedPnlPls: number;
+  volumePls: number;
+  rotationCount: number;
+}
+
+export interface PulsechainCoreRotationPnl {
+  realizedPnlPls: number;
+  unrealizedCostBasisPls: number;
+  unrealizedValuePls: number;
+  unrealizedPnlPls: number;
+  totalPnlPls: number;
+  realizedRotationCount: number;
+  pairStats: PulsechainCoreRotationPairStats[];
+}
+
 type Lot = {
   amount: number;
   unitCostUsd: number;
   timestamp: number;
+};
+
+type PlsLot = {
+  amount: number;
+  unitCostPls: number;
 };
 
 function sortHistory(history: HistoryPoint[]): HistoryPoint[] {
@@ -58,6 +96,65 @@ function standardDeviation(values: number[]): number {
 
 function holdingKey(chain: string, asset: string): string {
   return `${chain}:${asset}`.toUpperCase();
+}
+
+function normalizePulsechainCoreRotationSymbol(symbol: string): PulsechainCoreRotationSymbol | null {
+  const upper = symbol.trim().toUpperCase();
+  if (upper === 'PLS' || upper === 'WPLS') return 'PLS';
+  if (upper === 'PLSX') return 'PLSX';
+  if (upper === 'INC') return 'INC';
+  if (upper === 'PRVX') return 'PRVX';
+  if (upper === 'EHEX' || upper.includes('HEX (FROM ETHEREUM)')) return 'eHEX';
+  if (upper === 'HEX' || upper === 'PHEX') return 'pHEX';
+  return null;
+}
+
+function buildCurrentPlsPriceLookup(currentPricesUsd: Record<string, number>, currentPlsUsdPrice: number): Record<string, number> {
+  const lookup: Record<string, number> = {
+    PLS: 1,
+  };
+
+  for (const [rawKey, usdPrice] of Object.entries(currentPricesUsd)) {
+    if (typeof usdPrice !== 'number' || usdPrice <= 0 || currentPlsUsdPrice <= 0) continue;
+    const key = rawKey.trim().toUpperCase();
+    const directSymbol = normalizePulsechainCoreRotationSymbol(key);
+    if (directSymbol) {
+      lookup[directSymbol] = directSymbol === 'PLS' ? 1 : usdPrice / currentPlsUsdPrice;
+      continue;
+    }
+
+    if (key === 'PULSECHAIN' || key === 'PULSECHAIN:NATIVE') {
+      lookup.PLS = 1;
+      continue;
+    }
+
+    if (key.startsWith('PULSECHAIN:')) {
+      const symbol = normalizePulsechainCoreRotationSymbol(key.slice('PULSECHAIN:'.length));
+      if (symbol) {
+        lookup[symbol] = symbol === 'PLS' ? 1 : usdPrice / currentPlsUsdPrice;
+      }
+    }
+  }
+
+  return lookup;
+}
+
+function resolvePlsValueFromSwapLeg(
+  symbol: PulsechainCoreRotationSymbol,
+  amount: number,
+  directPriceUsd: number | undefined,
+  fallbackValueUsd: number | undefined,
+  plsUsdAtTimestamp: number,
+): number {
+  if (amount <= 0) return 0;
+  if (symbol === 'PLS') return amount;
+  if (typeof directPriceUsd === 'number' && directPriceUsd > 0 && plsUsdAtTimestamp > 0) {
+    return (amount * directPriceUsd) / plsUsdAtTimestamp;
+  }
+  if (typeof fallbackValueUsd === 'number' && fallbackValueUsd > 0 && plsUsdAtTimestamp > 0) {
+    return fallbackValueUsd / plsUsdAtTimestamp;
+  }
+  return 0;
 }
 
 function getAcquisitionValueUsd(tx: Transaction): number {
@@ -319,4 +416,154 @@ export function calculateChainAttribution(
       };
     })
     .sort((a, b) => b.endValueUsd - a.endValueUsd);
+}
+
+export function extractPulsechainCoreRotationSwaps(transactions: Transaction[]): PulsechainCoreRotationSwap[] {
+  return [...transactions]
+    .filter(
+      (tx) =>
+        tx.chain === 'pulsechain' &&
+        tx.type === 'swap' &&
+        typeof tx.counterAsset === 'string' &&
+        typeof tx.counterAmount === 'number',
+    )
+    .map((tx): PulsechainCoreRotationSwap | null => {
+      const soldSymbol = normalizePulsechainCoreRotationSymbol(tx.counterAsset!);
+      const boughtSymbol = normalizePulsechainCoreRotationSymbol(tx.asset);
+
+      if (!soldSymbol || !boughtSymbol || soldSymbol === boughtSymbol) return null;
+
+      return {
+        hash: tx.hash,
+        timestamp: tx.timestamp,
+        soldSymbol,
+        soldAmount: tx.counterAmount!,
+        boughtSymbol,
+        boughtAmount: tx.amount,
+        valueUsd: tx.valueUsd,
+        soldPriceUsdAtTx: tx.counterPriceUsdAtTx,
+        boughtPriceUsdAtTx: tx.assetPriceUsdAtTx,
+      };
+    })
+    .filter((swap): swap is PulsechainCoreRotationSwap => swap !== null)
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export function calculatePulsechainCoreRotationPnlPls(
+  rotations: PulsechainCoreRotationSwap[],
+  currentPricesUsd: Record<string, number>,
+  currentPlsUsdPrice: number,
+  resolvePlsUsdAtTimestamp: (timestamp: number) => number,
+): PulsechainCoreRotationPnl {
+  const lotsBySymbol = new Map<PulsechainCoreRotationSymbol, PlsLot[]>();
+  const pairStats = new Map<string, PulsechainCoreRotationPairStats>();
+  const currentPricePls = buildCurrentPlsPriceLookup(currentPricesUsd, currentPlsUsdPrice);
+
+  let realizedPnlPls = 0;
+  let realizedRotationCount = 0;
+
+  const getLots = (symbol: PulsechainCoreRotationSymbol): PlsLot[] => {
+    const existing = lotsBySymbol.get(symbol);
+    if (existing) return existing;
+    const created: PlsLot[] = [];
+    lotsBySymbol.set(symbol, created);
+    return created;
+  };
+
+  const addLot = (symbol: PulsechainCoreRotationSymbol, amount: number, totalCostPls: number): void => {
+    if (amount <= 0 || totalCostPls < 0) return;
+    getLots(symbol).push({
+      amount,
+      unitCostPls: amount > 0 ? totalCostPls / amount : 0,
+    });
+  };
+
+  const consumeLots = (symbol: PulsechainCoreRotationSymbol, amount: number): { costBasisPls: number; consumedAmount: number } => {
+    const lots = getLots(symbol);
+    let remaining = amount;
+    let costBasisPls = 0;
+    let consumedAmount = 0;
+
+    while (remaining > 0 && lots.length > 0) {
+      const lot = lots[0]!;
+      const takeAmount = Math.min(lot.amount, remaining);
+      costBasisPls += takeAmount * lot.unitCostPls;
+      consumedAmount += takeAmount;
+      lot.amount -= takeAmount;
+      remaining -= takeAmount;
+
+      if (lot.amount <= 0) {
+        lots.shift();
+      }
+    }
+
+    return { costBasisPls, consumedAmount };
+  };
+
+  for (const rotation of rotations) {
+    const plsUsdAtTimestamp = resolvePlsUsdAtTimestamp(rotation.timestamp);
+    const soldValuePls = resolvePlsValueFromSwapLeg(
+      rotation.soldSymbol,
+      rotation.soldAmount,
+      rotation.soldPriceUsdAtTx,
+      rotation.valueUsd,
+      plsUsdAtTimestamp,
+    );
+    const boughtValuePls = resolvePlsValueFromSwapLeg(
+      rotation.boughtSymbol,
+      rotation.boughtAmount,
+      rotation.boughtPriceUsdAtTx,
+      rotation.valueUsd,
+      plsUsdAtTimestamp,
+    );
+    const referenceValuePls = soldValuePls > 0 ? soldValuePls : boughtValuePls;
+
+    const consumed = consumeLots(rotation.soldSymbol, rotation.soldAmount);
+    if (consumed.consumedAmount > 0 && referenceValuePls > 0) {
+      realizedRotationCount += 1;
+      realizedPnlPls += referenceValuePls - consumed.costBasisPls;
+    }
+
+    if (referenceValuePls > 0) {
+      addLot(rotation.boughtSymbol, rotation.boughtAmount, referenceValuePls);
+    }
+
+    const pair = `${rotation.soldSymbol}->${rotation.boughtSymbol}`;
+    const existingPair = pairStats.get(pair) ?? {
+      pair,
+      soldSymbol: rotation.soldSymbol,
+      boughtSymbol: rotation.boughtSymbol,
+      realizedPnlPls: 0,
+      volumePls: 0,
+      rotationCount: 0,
+    };
+    existingPair.rotationCount += 1;
+    existingPair.volumePls += referenceValuePls;
+    if (consumed.consumedAmount > 0 && referenceValuePls > 0) {
+      existingPair.realizedPnlPls += referenceValuePls - consumed.costBasisPls;
+    }
+    pairStats.set(pair, existingPair);
+  }
+
+  let unrealizedCostBasisPls = 0;
+  let unrealizedValuePls = 0;
+
+  for (const [symbol, lots] of lotsBySymbol.entries()) {
+    const pricePls = currentPricePls[symbol];
+    if (typeof pricePls !== 'number' || pricePls <= 0) continue;
+    for (const lot of lots) {
+      unrealizedCostBasisPls += lot.amount * lot.unitCostPls;
+      unrealizedValuePls += lot.amount * pricePls;
+    }
+  }
+
+  return {
+    realizedPnlPls,
+    unrealizedCostBasisPls,
+    unrealizedValuePls,
+    unrealizedPnlPls: unrealizedValuePls - unrealizedCostBasisPls,
+    totalPnlPls: realizedPnlPls + (unrealizedValuePls - unrealizedCostBasisPls),
+    realizedRotationCount,
+    pairStats: [...pairStats.values()].sort((a, b) => b.realizedPnlPls - a.realizedPnlPls),
+  };
 }

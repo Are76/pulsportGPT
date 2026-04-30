@@ -6,7 +6,9 @@ import {
   calculateChainAttribution,
   calculateDiversificationScore,
   calculatePortfolioHistory,
+  calculatePulsechainCoreRotationPnlPls,
   calculateRiskMetrics,
+  extractPulsechainCoreRotationSwaps,
 } from '../utils/portfolioAnalytics';
 
 describe('portfolioAnalytics', () => {
@@ -191,5 +193,140 @@ describe('portfolioAnalytics', () => {
         endValueUsd: 200,
       }),
     ]);
+  });
+
+  it('extracts only PulseChain core-to-core swaps and normalizes PLS and HEX symbols', () => {
+    const rotations = extractPulsechainCoreRotationSwaps([
+      {
+        id: '1',
+        hash: '0x1',
+        timestamp: Date.UTC(2026, 0, 1),
+        type: 'swap',
+        from: '0xwallet',
+        to: '0xwallet',
+        asset: 'WPLS',
+        amount: 1000,
+        counterAsset: 'PLSX',
+        counterAmount: 100,
+        chain: 'pulsechain',
+      },
+      {
+        id: '2',
+        hash: '0x2',
+        timestamp: Date.UTC(2026, 0, 2),
+        type: 'swap',
+        from: '0xwallet',
+        to: '0xwallet',
+        asset: 'HEX',
+        amount: 10_000,
+        counterAsset: 'INC',
+        counterAmount: 50,
+        chain: 'pulsechain',
+      },
+      {
+        id: '3',
+        hash: '0x3',
+        timestamp: Date.UTC(2026, 0, 3),
+        type: 'swap',
+        from: '0xwallet',
+        to: '0xwallet',
+        asset: 'ETH',
+        amount: 1,
+        counterAsset: 'USDC',
+        counterAmount: 1000,
+        chain: 'ethereum',
+      },
+    ]);
+
+    expect(rotations).toEqual([
+      expect.objectContaining({
+        soldSymbol: 'PLSX',
+        boughtSymbol: 'PLS',
+      }),
+      expect.objectContaining({
+        soldSymbol: 'INC',
+        boughtSymbol: 'pHEX',
+      }),
+    ]);
+  });
+
+  it('calculates realized and unrealized PulseChain core rotation pnl in PLS terms', () => {
+    const rotations = extractPulsechainCoreRotationSwaps([
+      {
+        id: 'buy-plsx',
+        hash: '0x1',
+        timestamp: Date.UTC(2026, 0, 1),
+        type: 'swap',
+        from: '0xwallet',
+        to: '0xwallet',
+        asset: 'PLSX',
+        amount: 100,
+        counterAsset: 'PLS',
+        counterAmount: 1000,
+        chain: 'pulsechain',
+      },
+      {
+        id: 'rotate-inc',
+        hash: '0x2',
+        timestamp: Date.UTC(2026, 0, 2),
+        type: 'swap',
+        from: '0xwallet',
+        to: '0xwallet',
+        asset: 'INC',
+        amount: 50,
+        counterAsset: 'PLSX',
+        counterAmount: 100,
+        assetPriceUsdAtTx: 3,
+        counterPriceUsdAtTx: 1.5,
+        valueUsd: 150,
+        chain: 'pulsechain',
+      },
+      {
+        id: 'rotate-prvx',
+        hash: '0x3',
+        timestamp: Date.UTC(2026, 0, 3),
+        type: 'swap',
+        from: '0xwallet',
+        to: '0xwallet',
+        asset: 'PRVX',
+        amount: 100,
+        counterAsset: 'PLS',
+        counterAmount: 1000,
+        chain: 'pulsechain',
+      },
+    ]);
+
+    const pnl = calculatePulsechainCoreRotationPnlPls(
+      rotations,
+      {
+        'pulsechain:INC': 4,
+        'pulsechain:PRVX': 1.4,
+      },
+      0.1,
+      () => 0.1,
+    );
+
+    expect(pnl.realizedPnlPls).toBeCloseTo(500, 5);
+    expect(pnl.unrealizedCostBasisPls).toBeCloseTo(2500, 5);
+    expect(pnl.unrealizedValuePls).toBeCloseTo(3400, 5);
+    expect(pnl.unrealizedPnlPls).toBeCloseTo(900, 5);
+    expect(pnl.totalPnlPls).toBeCloseTo(1400, 5);
+    expect(pnl.realizedRotationCount).toBe(1);
+    expect(pnl.pairStats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          pair: 'PLSX->INC',
+          realizedPnlPls: 500,
+        }),
+        expect.objectContaining({
+          pair: 'PLS->PRVX',
+          realizedPnlPls: 0,
+        }),
+        expect.objectContaining({
+          pair: 'PLS->PLSX',
+          realizedPnlPls: 0,
+        }),
+      ]),
+    );
   });
 });

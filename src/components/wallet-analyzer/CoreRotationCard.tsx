@@ -1,0 +1,117 @@
+import { fmtTok } from '../../lib/utils';
+import type { HistoryDrilldownIntent } from '../../features/history/historyDrilldown';
+import type { WalletAnalyzerModel } from '../../utils/buildWalletAnalyzerModel';
+
+function formatSignedPls(value: number): string {
+  return `${value >= 0 ? '+' : '-'}${fmtTok(Math.abs(value))} PLS`;
+}
+
+export function CoreRotationCard({
+  rotation,
+  onOpenTransactions,
+}: {
+  rotation: WalletAnalyzerModel['rotation'];
+  onOpenTransactions: (intent: HistoryDrilldownIntent) => void;
+}) {
+  const bestPair = rotation.pairStats[0];
+  const worstPair = [...rotation.pairStats].sort((a, b) => a.realizedPnlPls - b.realizedPnlPls)[0];
+
+  return (
+    <section className="wa-panel">
+      <div className="wa-panel__head">
+        <div>
+          <p className="wa-kicker">Rotation</p>
+          <h2 className="wa-title">Core Rotation vs PLS</h2>
+          <p className="wa-panel__description">
+            Measures whether rotating between PLS, PLSX, INC, PRVX, pHEX, and eHEX added or destroyed PLS.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="wa-inline-action"
+          onClick={() => onOpenTransactions({ kind: 'chain', chain: 'pulsechain', txType: 'swap' })}
+        >
+          Open core swaps
+        </button>
+      </div>
+
+      <div className="wa-rotation-summary">
+        <article className="wa-rotation-card">
+          <span>Total alpha</span>
+          <strong className={rotation.totalPnlPls >= 0 ? 'wa-value-up' : 'wa-value-down'}>
+            {formatSignedPls(rotation.totalPnlPls)}
+          </strong>
+          <p>Realized plus unrealized PLS result across the tracked core rotation basket.</p>
+        </article>
+        <article className="wa-rotation-card">
+          <span>Realized</span>
+          <strong className={rotation.realizedPnlPls >= 0 ? 'wa-value-up' : 'wa-value-down'}>
+            {formatSignedPls(rotation.realizedPnlPls)}
+          </strong>
+          <p>{rotation.realizedRotationCount} closed rotation{rotation.realizedRotationCount === 1 ? '' : 's'} banked.</p>
+        </article>
+        <article className="wa-rotation-card">
+          <span>Open edge</span>
+          <strong className={rotation.unrealizedPnlPls >= 0 ? 'wa-value-up' : 'wa-value-down'}>
+            {formatSignedPls(rotation.unrealizedPnlPls)}
+          </strong>
+          <p>Current mark-to-market edge left in open core positions.</p>
+        </article>
+      </div>
+
+      <div className="wa-rotation-table">
+        {rotation.pairStats.length === 0 ? (
+          <p className="wa-empty-copy">No core-to-core PulseChain rotations found yet.</p>
+        ) : (
+          rotation.pairStats.slice(0, 6).map((pair) => {
+            const drilldownSymbol = pair.boughtSymbol === 'PLS' ? pair.soldSymbol : pair.boughtSymbol;
+            return (
+              <article className="wa-rotation-row" key={pair.pair}>
+                <div>
+                  <strong>{pair.pair}</strong>
+                  <p>
+                    {pair.rotationCount} rotation{pair.rotationCount === 1 ? '' : 's'} · {fmtTok(pair.volumePls)} PLS notional
+                  </p>
+                </div>
+                <div className="wa-rotation-row__meta">
+                  <strong className={pair.realizedPnlPls >= 0 ? 'wa-value-up' : 'wa-value-down'}>
+                    {formatSignedPls(pair.realizedPnlPls)}
+                  </strong>
+                  <button
+                    type="button"
+                    className="wa-inline-action"
+                    onClick={() =>
+                      onOpenTransactions({
+                        kind: 'asset',
+                        symbol: drilldownSymbol,
+                        chain: 'pulsechain',
+                        txType: 'swap',
+                      })
+                    }
+                  >
+                    Open flow
+                  </button>
+                </div>
+              </article>
+            );
+          })
+        )}
+      </div>
+
+      {bestPair || worstPair ? (
+        <div className="wa-rotation-notes">
+          {bestPair ? (
+            <p>
+              Best realized route: <strong>{bestPair.pair}</strong> at {formatSignedPls(bestPair.realizedPnlPls)}.
+            </p>
+          ) : null}
+          {worstPair ? (
+            <p>
+              Weakest route: <strong>{worstPair.pair}</strong> at {formatSignedPls(worstPair.realizedPnlPls)}.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
