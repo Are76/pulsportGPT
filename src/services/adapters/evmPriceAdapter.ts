@@ -2,13 +2,35 @@ import { TOKENS } from '../../constants';
 import type { Chain, PriceQuote } from '../../types';
 import { fetchDefiLlamaPrices } from '../marketDataService';
 import { resolvePriceQuotes } from '../priceService';
+import { FETCH_TIMEOUT } from './rpcUtils';
 
 type FetchLike = typeof fetch;
 
-function getDefiLlamaKey(chain: Extract<Chain, 'ethereum' | 'base'>, tokenAddress: string): string {
-  return tokenAddress === 'native'
-    ? 'coingecko:ethereum'
-    : `${chain}:${tokenAddress}`;
+async function fetchCoinGeckoPriceMap(
+  coinGeckoIds: string[],
+  fetchImpl: FetchLike,
+): Promise<Record<string, number>> {
+  if (coinGeckoIds.length === 0) {
+    return {};
+  }
+
+  const response = await fetchImpl(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoIds.join(',')}&vs_currencies=usd`,
+    { signal: AbortSignal.timeout(FETCH_TIMEOUT) },
+  );
+
+  if (!response.ok) {
+    throw new Error(`CoinGecko HTTP ${response.status}`);
+  }
+
+  const json = await response.json() as Record<string, { usd?: number }>;
+
+  return Object.entries(json).reduce<Record<string, number>>((acc, [coinGeckoId, value]) => {
+    if (typeof value?.usd === 'number' && Number.isFinite(value.usd) && value.usd > 0) {
+      acc[coinGeckoId] = value.usd;
+    }
+    return acc;
+  }, {});
 }
 
 export async function getEvmPrices(

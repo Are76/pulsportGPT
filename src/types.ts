@@ -23,6 +23,8 @@ export interface Asset {
   priceChange7d?: number;
   isCore?: boolean;
   isBridged?: boolean;
+  isSpam?: boolean;
+  wrappedBalance?: number;
   entryPls?: number;
 }
 
@@ -171,11 +173,12 @@ export interface TransactionQueryResult {
 }
 
 /** Normalized financial transaction types.
- *  - deposit   : tokens/native arriving in a wallet (transfer-in)
- *  - withdraw  : tokens/native leaving a wallet (transfer-out)
- *  - swap      : atomic exchange of one asset for another
+ *  - deposit           : tokens/native arriving in a wallet (transfer-in)
+ *  - withdraw          : tokens/native leaving a wallet (transfer-out)
+ *  - swap              : atomic exchange of one asset for another
+ *  - internal-transfer : move between two wallets owned by the same user (excluded from P&L)
  */
-export type TransactionType = 'deposit' | 'withdraw' | 'swap' | 'interaction';
+export type TransactionType = 'deposit' | 'withdraw' | 'swap' | 'internal-transfer';
 
 export interface Transaction {
   /** Unique identifier (hash-based). */
@@ -224,4 +227,27 @@ export interface Transaction {
     dstChainId: number;
     orderId: string;
   };
+  /** Which wallet address this transaction belongs to (for multi-wallet de-dupe). */
+  walletAddress?: string;
+  /** On-chain block number (for resumable incremental sync). */
+  blockNumber?: number;
+}
+
+/** Replaces TransactionQueryResult — carries pagination cursor for incremental sync. */
+export interface TransactionPage {
+  transactions: Transaction[];
+  /** Block number to resume from on next fetch; null when all history has been fetched. */
+  nextBlock: number | null;
+  /** True when the page was artificially capped (e.g. max-pages limit hit). */
+  isTruncated: boolean;
+}
+
+/** Persisted per wallet+chain to enable resumable incremental transaction sync. */
+export interface SyncCursor {
+  chain: Chain;
+  address: string;
+  /** Highest block number already fetched. Next sync starts from this block. */
+  lastBlock: number;
+  /** Unix epoch ms when this cursor was last updated. */
+  fetchedAt: number;
 }

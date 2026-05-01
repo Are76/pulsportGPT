@@ -393,11 +393,11 @@ describe('data access foundation', () => {
     });
 
     await expect(dataAccess.getTokenBalances('0xwallet', 'ethereum')).rejects.toThrow(
-      'Unsupported chain for Phase 1 data access: ethereum',
+      'Ethereum token balances adapter is not wired',
     );
   });
 
-  it('throws for unsupported chains on token search in Phase 1', async () => {
+  it('delegates token search to pulsechain regardless of chain argument', async () => {
     const dataAccess = createDataAccess({
       searchPulsechainTokens: async () => [],
       getPulsechainLPPositions: async () => [],
@@ -406,9 +406,7 @@ describe('data access foundation', () => {
       getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
-    await expect(dataAccess.searchTokens('hex', 'ethereum')).rejects.toThrow(
-      'Unsupported chain for Phase 1 data access: ethereum',
-    );
+    await expect(dataAccess.searchTokens('hex', 'ethereum')).resolves.toEqual([]);
   });
 
   it('delegates pulsechain requests through the injected dependencies', async () => {
@@ -751,6 +749,7 @@ describe('data access foundation', () => {
         }>;
 
         return {
+          ok: true,
           json: async () => body.map(({ id, params: [{ to, data }] }) => {
             const normalizedTo = to.toLowerCase();
             const normalizedData = data.toLowerCase();
@@ -829,6 +828,7 @@ describe('data access foundation', () => {
       }>;
 
       return {
+        ok: true,
         json: async () => body.map(({ id, method, params }) => {
           if (method === 'eth_getBalance') {
             return { id, result: encodeUint256(2n * 10n ** 18n) };
@@ -893,6 +893,7 @@ describe('data access foundation', () => {
       }>;
 
       return {
+        ok: true,
         json: async () => body.map(({ id, params: [{ to, data }] }) => {
           const normalizedTo = to.toLowerCase();
           const normalizedData = data.toLowerCase();
@@ -1527,7 +1528,7 @@ describe('data access foundation', () => {
     expect(signals[1].aborted).toBe(false);
   });
 
-  it('throws for unsupported chains on LP positions in Phase 1', async () => {
+  it('delegates LP position lookup to pulsechain regardless of chain argument', async () => {
     const dataAccess = createDataAccess({
       searchPulsechainTokens: async () => [],
       getPulsechainLPPositions: async () => [],
@@ -1536,9 +1537,7 @@ describe('data access foundation', () => {
       getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
-    await expect(dataAccess.getLPPositions(['0xwallet'], 'base', { '0xtoken': 1 })).rejects.toThrow(
-      'Unsupported chain for Phase 1 data access: base',
-    );
+    await expect(dataAccess.getLPPositions(['0xwallet'], 'base', { '0xtoken': 1 })).resolves.toEqual([]);
   });
 
   it('throws for unsupported chains on prices when adapters are not wired', async () => {
@@ -1550,7 +1549,7 @@ describe('data access foundation', () => {
       getPulsechainTransactions: async () => ({ implemented: true, transactions: [], nextBlock: undefined }),
     });
 
-    await expect(dataAccess.getPrices(['0xtoken'], 'base')).rejects.toThrow('Unsupported chain for Phase 1 data access: base');
+    await expect(dataAccess.getPrices(['0xtoken'], 'base')).rejects.toThrow('Base price adapter is not wired');
   });
 
   it('returns the injected transaction query result shape', async () => {
@@ -1583,7 +1582,7 @@ describe('data access foundation', () => {
     });
 
     await expect(dataAccess.getTransactions('0xwallet', 'ethereum')).rejects.toThrow(
-      'Unsupported chain for Phase 1 data access: ethereum',
+      'Ethereum transaction adapter is not wired',
     );
   });
 });

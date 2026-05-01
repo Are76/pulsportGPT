@@ -50,4 +50,24 @@ describe('dataAccess.getTransactions', () => {
     expect(getEthereumTransactions).toHaveBeenCalledWith('0xwallet', 654, undefined);
     expect(getBaseTransactions).toHaveBeenCalledWith('0xwallet', 987);
   });
+
+  it('forwards the apiKey to getEthereumTransactions', async () => {
+    const getEthereumTransactions = vi.fn(async () => ({
+      implemented: true,
+      transactions: [],
+    }));
+
+    const dataAccess = createDataAccess({
+      searchPulsechainTokens: async () => [],
+      getPulsechainLPPositions: async () => [],
+      getPulsechainTokenBalances: async () => [],
+      getPulsechainPrices: async () => [],
+      getPulsechainTransactions: async () => ({ implemented: true, transactions: [] }),
+      getEthereumTransactions,
+    });
+
+    await dataAccess.getTransactions('0xwallet', 'ethereum', undefined, 'MY_API_KEY');
+
+    expect(getEthereumTransactions).toHaveBeenCalledWith('0xwallet', undefined, 'MY_API_KEY');
+  });
 });

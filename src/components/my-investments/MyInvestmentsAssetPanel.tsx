@@ -17,7 +17,7 @@ export function MyInvestmentsAssetPanel({ row, onClose, onOpenTransactions }: My
         <div>
           <p className="mi-label">Asset Detail</p>
           <h2>{row.symbol}</h2>
-          <p className="mi-asset-panel-subtitle">{row.name} · {row.chain}</p>
+          <p className="mi-asset-panel-subtitle">{row.name} Â· {row.chain}</p>
         </div>
         <button type="button" className="mi-close-button" onClick={onClose}>Close</button>
       </div>

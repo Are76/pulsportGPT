@@ -190,14 +190,37 @@ export const PULSEX_V2_PAIR_ABI = [
   }
 ] as const;
 
+/**
+ * Minimal ERC-20 ABI for `balanceOf` calls.
+ * Shared across all chains – import from here instead of defining inline.
+ */
+export const ERC20_ABI = [
+  {
+    "constant": true,
+    "inputs": [{ "name": "_owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "balance", "type": "uint256" }],
+    "type": "function",
+  },
+] as const;
+
 export const CHAINS = {
   ethereum: {
     id: 1,
     name: 'Ethereum',
-    rpc: 'https://ethereum-rpc.publicnode.com',
-    fallbackRpcs: [
-      'https://eth.drpc.org'
-    ],
+    rpc: import.meta.env.VITE_NOWNODES_API_KEY
+      ? `https://eth.nownodes.io/${import.meta.env.VITE_NOWNODES_API_KEY}`
+      : 'https://ethereum-rpc.publicnode.com',
+    fallbackRpcs: import.meta.env.VITE_NOWNODES_API_KEY
+      ? [
+          'https://ethereum-rpc.publicnode.com',
+          'https://eth.drpc.org',
+          'https://cloudflare-eth.com',
+        ]
+      : [
+          'https://eth.drpc.org',
+          'https://cloudflare-eth.com',
+        ],
     explorer: 'https://etherscan.io',
     color: '#627EEA',
     hexAddress: '0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39'

@@ -5,6 +5,16 @@ type FetchLike = typeof fetch;
 type AssetMap = Record<string, Asset>;
 type WalletAssetMap = Record<string, Record<string, Asset>>;
 
+const DEXSCREENER_CHUNK_SIZE = 30;
+
+function chunks<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
 export async function enrichPulsechainMissingPrices(
   assetMap: AssetMap,
   walletAssetMap: WalletAssetMap,
@@ -14,93 +24,95 @@ export async function enrichPulsechainMissingPrices(
     asset.chain === 'pulsechain'
     && asset.balance > 0
     && asset.price === 0
-    && (asset as any).address
-    && (asset as any).address !== 'native',
+    && asset.address
+    && asset.address !== 'native',
   );
 
   if (pulseAssetsMissingPrice.length === 0) {
     return {};
   }
 
-  const fallbackLogos: Record<string, string> = {};
-  const assetsByAddress = new Map(
-    pulseAssetsMissingPrice.map((asset) => [String((asset as any).address).toLowerCase(), asset]),
+  // Build a lookup from address → asset so we can apply results below.
+  const assetByAddress = new Map<string, Asset>(
+    pulseAssetsMissingPrice.map((a) => [a.address!.toLowerCase(), a]),
   );
-  const addresses = [...assetsByAddress.keys()];
-  const chunks: string[][] = [];
 
-  for (let i = 0; i < addresses.length; i += 30) {
-    chunks.push(addresses.slice(i, i + 30));
-  }
+  // One bestPair per token address, selected by highest liquidity USD.
+  const bestPairs = new Map<string, any>();
 
-  await Promise.allSettled(chunks.map(async (chunk) => {
-    const pairs = await fetchDexScreenerBatchTokenPairs('pulsechain', chunk, fetchImpl);
-    const bestPairs = new Map<string, any>();
+  await Promise.allSettled(
+    chunks([...assetByAddress.keys()], DEXSCREENER_CHUNK_SIZE).map(async (chunk) => {
+      try {
+        const response = await fetchImpl(
+          `https://api.dexscreener.com/tokens/v1/pulsechain/${chunk.join(',')}`,
+        );
+        if (!response.ok) return;
 
-    pairs.forEach((pair: any) => {
-      const baseAddress = pair?.baseToken?.address?.toLowerCase?.();
-      const quoteAddress = pair?.quoteToken?.address?.toLowerCase?.();
-      const matchedAddress = assetsByAddress.has(baseAddress)
-        ? baseAddress
-        : assetsByAddress.has(quoteAddress)
-          ? quoteAddress
-          : null;
+        const pairs = await response.json();
+        if (!Array.isArray(pairs)) return;
 
-      if (!matchedAddress || pair?.chainId !== 'pulsechain') {
-        return;
+        for (const pair of pairs) {
+          const baseAddr = pair?.baseToken?.address?.toLowerCase?.();
+          const quoteAddr = pair?.quoteToken?.address?.toLowerCase?.();
+          const matchedAddr = assetByAddress.has(baseAddr)
+            ? baseAddr
+            : assetByAddress.has(quoteAddr)
+              ? quoteAddr
+              : null;
+          if (!matchedAddr) continue;
+
+          const current = bestPairs.get(matchedAddr);
+          const currentLiq = Number(current?.liquidity?.usd ?? 0);
+          const nextLiq = Number(pair?.liquidity?.usd ?? 0);
+          if (!current || nextLiq > currentLiq) {
+            bestPairs.set(matchedAddr, pair);
+          }
+        }
+      } catch {
+        /* individual chunk failure is non-fatal */
       }
+    }),
+  );
 
-      const current = bestPairs.get(matchedAddress);
-      const currentLiquidity = Number(current?.liquidity?.usd ?? 0);
-      const nextLiquidity = Number(pair?.liquidity?.usd ?? 0);
-      if (!current || nextLiquidity > currentLiquidity) {
-        bestPairs.set(matchedAddress, pair);
-      }
+  const fallbackLogos: Record<string, string> = {};
+
+  bestPairs.forEach((pair, rawAddress) => {
+    const asset = assetByAddress.get(rawAddress);
+    if (!asset) return;
+
+    const price = Number(pair?.priceUsd ?? 0);
+    if (!(price > 0)) return;
+
+    const baseAddr = pair?.baseToken?.address?.toLowerCase?.();
+    const pairToken = baseAddr === rawAddress ? pair?.baseToken : pair?.quoteToken;
+
+    const updatedFields = {
+      symbol: pairToken?.symbol || asset.symbol,
+      name: pairToken?.name || asset.name,
+      price,
+      value: asset.balance * price,
+      priceChange24h: Number(pair?.priceChange?.h24 ?? asset.priceChange24h ?? 0),
+      priceChange1h: Number(pair?.priceChange?.h1 ?? asset.priceChange1h ?? 0),
+      pnl24h: Number(pair?.priceChange?.h24 ?? asset.pnl24h ?? 0),
+      ...(pair?.info?.imageUrl ? { logoUrl: pair.info.imageUrl } : {}),
+    };
+
+    assetMap[asset.id] = { ...assetMap[asset.id], ...updatedFields };
+
+    if (pair?.info?.imageUrl) {
+      fallbackLogos[rawAddress] = pair.info.imageUrl;
+    }
+
+    Object.values(walletAssetMap).forEach((walletMap) => {
+      const walletAsset = walletMap[asset.id];
+      if (!walletAsset) return;
+      walletMap[asset.id] = {
+        ...walletAsset,
+        ...updatedFields,
+        value: walletAsset.balance * price,
+      } as Asset;
     });
-
-    bestPairs.forEach((bestPair, rawAddress) => {
-      const asset = assetsByAddress.get(rawAddress);
-      if (!asset) return;
-
-      const matchedBase = bestPair?.baseToken?.address?.toLowerCase?.() === rawAddress;
-      const pairToken = matchedBase ? bestPair?.baseToken : bestPair?.quoteToken;
-      const price = Number(bestPair?.priceUsd ?? 0);
-      if (!(price > 0)) return;
-
-      assetMap[asset.id] = {
-        ...assetMap[asset.id],
-        symbol: pairToken?.symbol || assetMap[asset.id].symbol,
-        name: pairToken?.name || assetMap[asset.id].name,
-        price,
-        value: assetMap[asset.id].balance * price,
-        priceChange24h: Number(bestPair?.priceChange?.h24 ?? assetMap[asset.id].priceChange24h ?? 0),
-        priceChange1h: Number(bestPair?.priceChange?.h1 ?? assetMap[asset.id].priceChange1h ?? 0),
-        pnl24h: Number(bestPair?.priceChange?.h24 ?? assetMap[asset.id].pnl24h ?? 0),
-      };
-
-      if (bestPair?.info?.imageUrl) {
-        fallbackLogos[rawAddress] = bestPair.info.imageUrl;
-        (assetMap[asset.id] as any).logoUrl = bestPair.info.imageUrl;
-      }
-
-      Object.values(walletAssetMap).forEach((walletMap) => {
-        const walletAsset = walletMap[asset.id];
-        if (!walletAsset) return;
-
-        walletMap[asset.id] = {
-          ...walletAsset,
-          symbol: pairToken?.symbol || walletAsset.symbol,
-          name: pairToken?.name || walletAsset.name,
-          price,
-          value: walletAsset.balance * price,
-          priceChange24h: Number(bestPair?.priceChange?.h24 ?? walletAsset.priceChange24h ?? 0),
-          priceChange1h: Number(bestPair?.priceChange?.h1 ?? walletAsset.priceChange1h ?? 0),
-          pnl24h: Number(bestPair?.priceChange?.h24 ?? walletAsset.pnl24h ?? 0),
-          ...(bestPair?.info?.imageUrl ? { logoUrl: bestPair.info.imageUrl } : {}),
-        } as Asset;
-      });
-    });
-  }));
+  });
 
   return fallbackLogos;
 }

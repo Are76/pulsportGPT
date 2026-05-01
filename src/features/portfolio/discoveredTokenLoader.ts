@@ -193,10 +193,15 @@ export async function loadEthereumDiscoveredTokens(
     TOKENS.ethereum.map((token) => [token.address.toLowerCase(), token]),
   );
 
+  // Pre-build a Map for O(1) lookups instead of O(N) Array.find per transfer.
+  const knownEthTokenByAddress = new Map(
+    TOKENS.ethereum.map((token) => [token.address.toLowerCase(), token]),
+  );
+
   tokenTransfers.forEach((tx: any) => {
     const contractAddr = String(tx.contractAddress || '').toLowerCase();
     const symbol = tx.tokenSymbol || 'TOKEN';
-    const knownEthToken = knownEthereumTokensByAddress.get(contractAddr);
+    const knownEthToken = knownEthTokenByAddress.get(contractAddr);
     const coinGeckoId = knownEthToken?.coinGeckoId || symbol.toLowerCase();
     const price = fetchedPrices[contractAddr]?.usd || fetchedPrices[coinGeckoId]?.usd || 0;
     const discovered = buildEthereumDiscoveredToken(

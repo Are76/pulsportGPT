@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Wallet as WalletIcon,
   Coins,
@@ -58,9 +58,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import PulseChainCommunityPage from './components/PulseChainCommunityPage';
 import BridgeDashboardPage from './components/BridgeDashboardPage';
 import { format } from 'date-fns';
-import { createPublicClient, http, getAddress } from 'viem';
+import { getAddress } from 'viem';
 import { cn } from './lib/utils';
-import { CHAINS, HEX_ABI, TOKENS, PULSEX_LP_PAIRS, PHEX_YIELD_PER_TSHARE, EHEX_YIELD_PER_TSHARE, PHEX_YIELD_BI_NUM, PHEX_YIELD_BI_DEN, EHEX_YIELD_BI_NUM, EHEX_YIELD_BI_DEN, FALLBACK_DESCRIPTIONS } from './constants';
+import { CHAINS, TOKENS, PULSEX_LP_PAIRS, PHEX_YIELD_PER_TSHARE, EHEX_YIELD_PER_TSHARE, PHEX_YIELD_BI_NUM, PHEX_YIELD_BI_DEN, EHEX_YIELD_BI_NUM, EHEX_YIELD_BI_DEN, FALLBACK_DESCRIPTIONS } from './constants';
+import { STORAGE_KEYS } from './constants/storageKeys';
 import type { Asset, Wallet, Chain, HexStake, LpPosition, FarmPosition, HistoryPoint, Transaction } from './types';
 import { LiquidityOverviewStrip, LiquiditySection } from './components/LiquiditySection';
 import { PnLModal } from './components/PnLModal';
@@ -73,9 +74,13 @@ import { HoldingsTable } from './components/HoldingsTable';
 import type { HoldingDisplayAsset, HoldingSortField } from './components/HoldingsTable';
 import { CoinList, type CoinListItem } from './components/CoinList';
 import { PulseBoardFeed } from './components/PulseBoardFeed';
+import { StakingLadder } from './components/StakingLadder';
+import { StakingPie } from './components/StakingPie';
+import { PriceDisplay } from './components/PriceDisplay';
 import { normalizeTransactions } from './utils/normalizeTransactions';
 import { buildInvestmentRows } from './utils/buildInvestmentRows';
 import { scheduleLocalStorageWrite, resolveBlockscoutBase } from './utils/localStorageDebounce';
+import { fmtBigNum, fmtDec, fmtTok, fmtCompact, fmtPrice, fmtMarket } from './utils/format';
 import { dataAccess } from './services/dataAccess';
 import {
   fetchBlockscoutTokenDetails,
@@ -133,15 +138,10 @@ const PriceDisplay = ({ price, className }: { price: number, className?: string 
     }
   }
 
-  return (
-    <span className={cn("font-mono", className)}>
-      ${price.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: price < 1 ? 6 : 2
-      })}
-    </span>
-  );
-};
+// Address constants used for eHEX price lookup.
+// These are kept here (not in constants.ts) as they are only used in this file.
+const ETH_HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
+const EHEX_PULSECHAIN_ADDR = '0x57fde0a71132198bbec939b98976993d8d89d225';
 
 // -- localStorage cache helpers (BigInt-safe) ----------------------------------
 const bigIntReplacer = (_key: string, value: unknown) =>
@@ -189,141 +189,6 @@ function isNoContractDataError(error: unknown): boolean {
     || text.includes('contractfunctionzerodataerror')
     || text.includes('abidecodingzerodataerror')
     || text.includes('function may not exist');
-}
-
-// -- StakingLadder -------------------------------------------------------------
-// Bar chart showing stake distribution by 30-day end-date buckets (from pulsechain-dashboard)
-function StakingLadder({ stakes }: { stakes: HexStake[] }) {
-  if (!stakes || stakes.length === 0) return null;
-  const bucketSize = 30;
-  const buckets: Record<number, { totalShares: number; stakeCount: number; bucketRange: string }> = {};
-
-  stakes.forEach(stake => {
-    const days = Math.max(0, Math.min(5555, Math.floor(stake.daysRemaining ?? 0)));
-    const bucketIdx = Math.floor(days / bucketSize);
-    if (!buckets[bucketIdx]) {
-      const start = bucketIdx * bucketSize;
-      buckets[bucketIdx] = { totalShares: 0.001, stakeCount: 0, bucketRange: `${start}-${start + bucketSize - 1}` };
-    }
-    buckets[bucketIdx].totalShares = (buckets[bucketIdx].totalShares === 0.001 ? 0 : buckets[bucketIdx].totalShares) + (stake.tShares ?? 0);
-    buckets[bucketIdx].stakeCount += 1;
-  });
-
-  const chartData = Object.entries(buckets)
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([idx, d]) => ({ daysRemaining: Number(idx) * bucketSize + bucketSize / 2, ...d }));
-
-  const CustomTip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="chart-tooltip" style={{ fontSize: 13 }}>
-        <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>Days: {d.bucketRange}</div>
-        <div>T-Shares: {d.totalShares.toFixed(2)}</div>
-        <div>Stakes: {d.stakeCount}</div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 18px 10px' }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.6px' }}>Staking Ladder</div>
-      <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
-        <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 24 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="daysRemaining" tick={{ fill: 'var(--fg-subtle)', fontSize: 13 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false}
-            label={{ value: 'Days Remaining', position: 'insideBottom', offset: -10, fill: 'var(--fg-subtle)', fontSize: 13 }} />
-          <YAxis tick={{ fill: 'var(--fg-subtle)', fontSize: 13 }} axisLine={false} tickLine={false} scale="log" domain={['auto', 'auto']} allowDataOverflow={false} />
-          <RechartsTooltip content={<CustomTip />} />
-          <Bar dataKey="totalShares" fill="#00FF9F" radius={[3, 3, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// -- StakingPie -----------------------------------------------------------------
-// Donut chart showing HEX stake distribution grouped by wallet (from pulsechain-dashboard)
-function StakingPie({ stakes, hexUsdPrice }: { stakes: HexStake[]; hexUsdPrice: number }) {
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  if (!stakes || stakes.length === 0) return null;
-
-  const byWallet: Record<string, { label: string; tShares: number; stakedHex: number; yieldHex: number; totalHex: number; totalUsd: number; count: number }> = {};
-  stakes.forEach(s => {
-    const key = s.walletAddress ?? s.id;
-    const label = s.walletLabel ?? key.slice(0, 8) + '...';
-    if (!byWallet[key]) byWallet[key] = { label, tShares: 0, stakedHex: 0, yieldHex: 0, totalHex: 0, totalUsd: 0, count: 0 };
-    const tsh = s.tShares ?? 0;
-    const staked = s.stakedHex ?? 0;
-    const yld = s.stakeHexYield ?? 0;
-    byWallet[key].tShares += tsh;
-    byWallet[key].stakedHex += staked;
-    byWallet[key].yieldHex += yld;
-    byWallet[key].totalHex += staked + yld;
-    byWallet[key].totalUsd += (staked + yld) * hexUsdPrice;
-    byWallet[key].count += 1;
-  });
-
-  const totalTShares = Object.values(byWallet).reduce((a, b) => a + b.tShares, 0);
-  const totalUsd = Object.values(byWallet).reduce((a, b) => a + b.totalUsd, 0);
-  const totalHex = Object.values(byWallet).reduce((a, b) => a + b.totalHex, 0);
-
-  const sorted = Object.values(byWallet).sort((a, b) => b.tShares - a.tShares);
-  const threshold = 0.02;
-  const large = sorted.filter(w => w.tShares / totalTShares >= threshold);
-  const small = sorted.filter(w => w.tShares / totalTShares < threshold);
-  const chartData = small.length > 0
-    ? [...large, { label: 'Others', tShares: small.reduce((a, b) => a + b.tShares, 0), totalUsd: small.reduce((a, b) => a + b.totalUsd, 0), count: small.reduce((a, b) => a + b.count, 0) }]
-    : large;
-
-  const GRADIENT = ['#00FF9F', '#627EEA', '#f739ff', '#fb923c', '#3b82f6', '#a855f7'];
-  const getColor = (i: number) => GRADIENT[i % GRADIENT.length];
-
-  const fmtK = (n: number) => n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toFixed(0);
-
-  const renderActiveShape = (props: any) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload } = props;
-    return (
-      <g>
-        <text x={cx} y={cy - 14} textAnchor="middle" fill="var(--fg-subtle)" fontSize="12">{payload.label}</text>
-        <text x={cx} y={cy + 8} textAnchor="middle" fill="var(--fg)" fontSize="18" fontWeight="700">{fmtK(payload.tShares)}</text>
-        <text x={cx} y={cy + 24} textAnchor="middle" fill="var(--fg-subtle)" fontSize="11">T-Shares</text>
-        <Pie data={[]} cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} dataKey="value" />
-      </g>
-    );
-  };
-
-  return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 18px 10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.6px' }}>Stake Distribution</div>
-        <div style={{ fontSize: 13, color: 'var(--fg-muted)' }}>
-          <span style={{ color: 'var(--fg)', fontWeight: 700 }}>${fmtK(totalUsd)}</span>
-          {'  -  '}<span style={{ color: '#fb923c' }}>{fmtK(totalHex)} HEX</span>
-          {'  -  '}<span style={{ color: 'var(--accent)' }}>{fmtK(totalTShares)} T-Shares</span>
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-        <PieChart>
-          <Pie data={chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} dataKey="tShares"
-            activeIndex={activeIndex} activeShape={renderActiveShape}
-            onMouseEnter={(_, i) => setActiveIndex(i)}>
-            {chartData.map((_, i) => <Cell key={i} fill={getColor(i)} />)}
-          </Pie>
-          <RechartsTooltip formatter={(val: any, _: any, entry: any) => [`${fmtK(Number(val))} T-Shares  -  $${fmtK(entry.payload.totalUsd)}`, entry.payload.label]} />
-        </PieChart>
-      </ResponsiveContainer>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 4 }}>
-        {chartData.map((w, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--fg-muted)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: getColor(i), flexShrink: 0 }} />
-            <span>{w.label}</span>
-            <span style={{ color: 'var(--fg-subtle)' }}>({w.count})</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 // -- Wallet Selector ---------------------------------------------------------
@@ -415,10 +280,6 @@ const STATIC_LOGOS: Record<string, string> = {
   '0x6b175474e89094c44da98b954eedeac495271d0f': 'https://tokens.app.pulsex.com/images/tokens/0x6B175474E89094C44Da98b954EedeAC495271d0F.png', // pDAI system copy (fork of Ethereum DAI) - prevents CoinGecko golden-coin from replacing this on reload
 };
 
-// Bridged HEX (eHEX) on PulseChain - no on-chain WPLS LP, falls back to CoinGecko 'hex'
-const EHEX_PULSECHAIN_ADDR = '0x57fde0a71132198bbec939b98976993d8d89d225';
-const ETH_HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';
-
 const normalizeAssetSymbol = (symbol: string, chain?: string): string => {
   const upper = (symbol || '').toUpperCase();
   return chain === 'pulsechain' && upper === 'WPLS' ? 'PLS' : upper;
@@ -436,12 +297,6 @@ type FrontMarketPeriod = '5m' | '1h' | '6h' | '24h' | '7d';
 const FRONT_MARKET_PERIODS: FrontMarketPeriod[] = ['5m', '1h', '6h', '24h', '7d'];
 
 export default function App() {
-  // -- Formatting helpers (defined once here, used throughout) ----------------
-  const fmtBigNum = (n: number) => Math.round(n).toLocaleString('en-US').replace(/,/g, ' ');
-  const fmtDec = (n: number, dp = 2) => n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
-  const fmtTok = (n: number) => n > 1e6 ? `${(n/1e6).toFixed(2)}M` : n > 1000 ? `${(n/1000).toFixed(2)}K` : n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-  const fmtCompact = (n: number) => n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-
   // -- CSV Export helper ------------------------------------------------------
   const exportCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
     const escCell = (c: string | number) => {
@@ -456,14 +311,21 @@ export default function App() {
   };
 
   const [wallets, setWallets] = useState<Wallet[]>(() => {
-    return readStoredJSON<Wallet[]>('pulseport_wallets', []);
+    const stored = readStoredJSON<Wallet[]>(STORAGE_KEYS.WALLETS, []);
+    if (stored.length > 0) return stored;
+    const demoWalletsEnv: string = import.meta.env.VITE_DEMO_WALLETS ?? '';
+    if (!demoWalletsEnv.trim()) return [];
+    return demoWalletsEnv.split(',').map((addr: string, i: number) => ({
+      address: addr.trim(),
+      name: `Wallet ${i + 1}`,
+    }));
   });
-  const [realAssets, setRealAssets] = useState<Asset[]>(() => tryReadCache<Asset[]>('pulseport_cache_assets') ?? []);
-  const [realStakes, setRealStakes] = useState<HexStake[]>(() => tryReadCache<HexStake[]>('pulseport_cache_stakes', true) ?? []);
-  const [lpPositions, setLpPositions] = useState<LpPosition[]>(() => tryReadCache<LpPosition[]>('pulseport_cache_lp') ?? []);
-  const [farmPositions, setFarmPositions] = useState<FarmPosition[]>(() => tryReadCache<FarmPosition[]>('pulseport_cache_farms') ?? []);
-  const [transactions, setTransactions] = useState<Transaction[]>(() => tryReadCache<Transaction[]>('pulseport_cache_txs') ?? []);
-  const [history, setHistory] = useState<HistoryPoint[]>(() => readStoredJSON<HistoryPoint[]>('pulseport_history', []));
+  const [realAssets, setRealAssets] = useState<Asset[]>(() => tryReadCache<Asset[]>(STORAGE_KEYS.CACHE_ASSETS) ?? []);
+  const [realStakes, setRealStakes] = useState<HexStake[]>(() => tryReadCache<HexStake[]>(STORAGE_KEYS.CACHE_STAKES, true) ?? []);
+  const [lpPositions, setLpPositions] = useState<LpPosition[]>(() => tryReadCache<LpPosition[]>(STORAGE_KEYS.CACHE_LP) ?? []);
+  const [farmPositions, setFarmPositions] = useState<FarmPosition[]>(() => tryReadCache<FarmPosition[]>(STORAGE_KEYS.CACHE_FARMS) ?? []);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => tryReadCache<Transaction[]>(STORAGE_KEYS.CACHE_TXS) ?? []);
+  const [history, setHistory] = useState<HistoryPoint[]>(() => readStoredJSON<HistoryPoint[]>(STORAGE_KEYS.HISTORY, []));
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [newWalletName, setNewWalletName] = useState('');
   const [walletFormError, setWalletFormError] = useState('');
@@ -471,11 +333,11 @@ export default function App() {
   const [editingWalletAddress, setEditingWalletAddress] = useState<string | null>(null);
   const [editWalletName, setEditWalletName] = useState('');
   const [isCustomCoinsModalOpen, setIsCustomCoinsModalOpen] = useState(false);
-  const [customCoins, setCustomCoins] = useState<any[]>(() => readStoredJSON<any[]>('custom_coins', []));
+  const [customCoins, setCustomCoins] = useState<any[]>(() => readStoredJSON<any[]>(STORAGE_KEYS.CUSTOM_COINS, []));
   const [customCoinDraft, setCustomCoinDraft] = useState({ symbol: '', name: '', balance: '', price: '' });
 
   useEffect(() => {
-    localStorage.setItem('custom_coins', JSON.stringify(customCoins));
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_COINS, JSON.stringify(customCoins));
   }, [customCoins]);
 
   const addCustomCoin = (coin: any) => {
@@ -505,7 +367,7 @@ export default function App() {
   const isFetchingRef = useRef(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>(readStoredActiveTab);
   const [selectedWalletAddr, setSelectedWalletAddr] = useState<string>('all');
-  const [walletAssets, setWalletAssets] = useState<Record<string, Asset[]>>(() => tryReadCache<Record<string, Asset[]>>('pulseport_cache_wallet_assets') ?? {});
+  const [walletAssets, setWalletAssets] = useState<Record<string, Asset[]>>(() => tryReadCache<Record<string, Asset[]>>(STORAGE_KEYS.CACHE_WALLET_ASSETS) ?? {});
   const [walletChainFilter, setWalletChainFilter] = useState<'all' | 'pulsechain' | 'ethereum' | 'base'>('all');
   const [overviewChainFilter, setOverviewChainFilter] = useState<'all' | 'pulsechain' | 'ethereum' | 'base'>('all');
   const [overviewTokenSearch, setOverviewTokenSearch] = useState<string>('');
@@ -516,14 +378,14 @@ export default function App() {
   const [receivedCoinFilter, setReceivedCoinFilter] = useState<string>('all');
   const [receivedChainFilter, setReceivedChainFilter] = useState<string>('all');
   const [timeSinceLastUpdate, setTimeSinceLastUpdate] = useState<number>(0);
-  const [manualEntries, setManualEntries] = useState<Record<string, number>>(() => readStoredJSON<Record<string, number>>('pulseport_manual_entries', {}));
-  const [prices, setPrices] = useState<Record<string, any>>(() => tryReadCache<Record<string, any>>('pulseport_cache_prices') ?? {});
-  const [etherscanApiKey, setEtherscanApiKey] = useState<string>(() => localStorage.getItem('pulseport_etherscan_key') || '');
+  const [manualEntries, setManualEntries] = useState<Record<string, number>>(() => readStoredJSON<Record<string, number>>(STORAGE_KEYS.MANUAL_ENTRIES, {}));
+  const [prices, setPrices] = useState<Record<string, any>>(() => tryReadCache<Record<string, any>>(STORAGE_KEYS.CACHE_PRICES) ?? {});
+  const [etherscanApiKey, setEtherscanApiKey] = useState<string>(() => localStorage.getItem(STORAGE_KEYS.ETHERSCAN_KEY) || import.meta.env.VITE_ETHERSCAN_API_KEY || '');
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
-  const [hideDust, setHideDust] = useState<boolean>(() => readStoredJSON<boolean>('pulseport_hide_dust', false));
+  const [hideDust, setHideDust] = useState<boolean>(() => readStoredJSON<boolean>(STORAGE_KEYS.HIDE_DUST, false));
   const [hiddenTokens, setHiddenTokens] = useState<string[]>(() => {
-    return readStoredJSON<string[]>('pulseport_hidden_tokens', []);
+    return readStoredJSON<string[]>(STORAGE_KEYS.HIDDEN_TOKENS, []);
   });
   const [showHiddenCoins, setShowHiddenCoins] = useState(false);
   const [coinVisibilityMenuOpen, setCoinVisibilityMenuOpen] = useState(false);
@@ -536,7 +398,7 @@ export default function App() {
   const [tokenLogos, setTokenLogos] = useState<Record<string, string>>(STATIC_LOGOS);
   const [stakeChainFilter, setStakeChainFilter] = useState<'all' | 'pulsechain' | 'ethereum'>('all');
   const [yieldUnit, setYieldUnit] = useState<'hex' | 'usd'>(() => {
-    return (localStorage.getItem('pulseport_yield_unit') as 'hex' | 'usd') || 'usd';
+    return (localStorage.getItem(STORAGE_KEYS.YIELD_UNIT) as 'hex' | 'usd') || 'usd';
   });
   const [expandedStakeIds, setExpandedStakeIds] = useState<Set<string>>(new Set());
   const [expandedAssetIds, setExpandedAssetIds] = useState<Set<string>>(new Set());
@@ -555,18 +417,18 @@ export default function App() {
     return format(ts, 'MMM yy');
   };
   const [hiddenTxIds, setHiddenTxIds] = useState<string[]>(() => {
-    return readStoredJSON<string[]>('pulseport_hidden_txs', []);
+    return readStoredJSON<string[]>(STORAGE_KEYS.HIDDEN_TXS, []);
   });
   const [showHiddenTxs, setShowHiddenTxs] = useState(false);
   const [showReceivedAssets, setShowReceivedAssets] = useState(true);
   const [showRecentActivity, setShowRecentActivity] = useState(true);
-  const [hideSpam, setHideSpam] = useState<boolean>(() => readStoredJSON<boolean>('pulseport_hide_spam', true));
+  const [hideSpam, setHideSpam] = useState<boolean>(() => readStoredJSON<boolean>(STORAGE_KEYS.HIDE_SPAM, true));
   const [spamTokenIds, setSpamTokenIds] = useState<string[]>(() => {
-    return readStoredJSON<string[]>('pulseport_spam_tokens', []);
+    return readStoredJSON<string[]>(STORAGE_KEYS.SPAM_TOKENS, []);
   });
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<number | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => readStoredJSON<Record<string, boolean>>('pulseport_collapsed', {}));
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => readStoredJSON<Record<string, boolean>>(STORAGE_KEYS.COLLAPSED_SECTIONS, {}));
   const [tokenMarketData, setTokenMarketData] = useState<Record<string, any>>({});
   const [tokenCardModal, setTokenCardModal] = useState<Asset | null>(null);
   const [tokenCardModalLoading, setTokenCardModalLoading] = useState(false);
@@ -575,7 +437,7 @@ export default function App() {
   const [homeSearch, setHomeSearch] = useState('');
   const [expandedWalletAssetIds, setExpandedWalletAssetIds] = useState<Set<string>>(new Set());
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const saved = localStorage.getItem('pulseport_theme');
+    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
     return (saved === 'light') ? 'light' : 'dark';
   });
 
@@ -595,7 +457,7 @@ export default function App() {
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('pulseport_theme', theme);
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
   }, [theme]);
 
   // Prevent background scroll when the mobile sidebar drawer is open.
@@ -647,7 +509,7 @@ export default function App() {
   }), [theme]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_collapsed', JSON.stringify(collapsedSections));
+    scheduleLocalStorageWrite(STORAGE_KEYS.COLLAPSED_SECTIONS, JSON.stringify(collapsedSections));
   }, [collapsedSections]);
 
   const toggleSection = (id: string) => setCollapsedSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -658,68 +520,68 @@ export default function App() {
   // with large JSON.stringify + localStorage.setItem calls on every tick.
   useEffect(() => {
     if (realAssets.length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_assets', JSON.stringify(realAssets));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_ASSETS, JSON.stringify(realAssets));
     }
   }, [realAssets]);
 
   useEffect(() => {
     if (realStakes.length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_stakes', JSON.stringify(realStakes, bigIntReplacer));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_STAKES, JSON.stringify(realStakes, bigIntReplacer));
     }
   }, [realStakes]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_cache_lp', JSON.stringify(lpPositions));
+    scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_LP, JSON.stringify(lpPositions));
   }, [lpPositions]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_cache_farms', JSON.stringify(farmPositions));
+    scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_FARMS, JSON.stringify(farmPositions));
   }, [farmPositions]);
 
   useEffect(() => {
     if (transactions.length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_txs', JSON.stringify(transactions.slice(0, 200)));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_TXS, JSON.stringify(transactions.slice(0, 200)));
     }
   }, [transactions]);
 
   useEffect(() => {
     if (Object.keys(walletAssets).length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_wallet_assets', JSON.stringify(walletAssets));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_WALLET_ASSETS, JSON.stringify(walletAssets));
     }
   }, [walletAssets]);
 
   useEffect(() => {
     if (Object.keys(prices).length > 0) {
-      scheduleLocalStorageWrite('pulseport_cache_prices', JSON.stringify(prices));
+      scheduleLocalStorageWrite(STORAGE_KEYS.CACHE_PRICES, JSON.stringify(prices));
     }
   }, [prices]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hide_dust', JSON.stringify(hideDust));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDE_DUST, JSON.stringify(hideDust));
   }, [hideDust]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hide_spam', JSON.stringify(hideSpam));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDE_SPAM, JSON.stringify(hideSpam));
   }, [hideSpam]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_spam_tokens', JSON.stringify(spamTokenIds));
+    scheduleLocalStorageWrite(STORAGE_KEYS.SPAM_TOKENS, JSON.stringify(spamTokenIds));
   }, [spamTokenIds]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hidden_tokens', JSON.stringify(hiddenTokens));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDDEN_TOKENS, JSON.stringify(hiddenTokens));
   }, [hiddenTokens]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_hidden_txs', JSON.stringify(hiddenTxIds));
+    scheduleLocalStorageWrite(STORAGE_KEYS.HIDDEN_TXS, JSON.stringify(hiddenTxIds));
   }, [hiddenTxIds]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_yield_unit', yieldUnit);
+    scheduleLocalStorageWrite(STORAGE_KEYS.YIELD_UNIT, yieldUnit);
   }, [yieldUnit]);
 
   useEffect(() => {
-    scheduleLocalStorageWrite('pulseport_manual_entries', JSON.stringify(manualEntries));
+    scheduleLocalStorageWrite(STORAGE_KEYS.MANUAL_ENTRIES, JSON.stringify(manualEntries));
   }, [manualEntries]);
 
   useEffect(() => {
@@ -737,7 +599,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('pulseport_wallets', JSON.stringify(wallets));
+      localStorage.setItem(STORAGE_KEYS.WALLETS, JSON.stringify(wallets));
     } catch {}
   }, [wallets]);
 
@@ -755,10 +617,10 @@ export default function App() {
   }, [lastUpdated]);
 
   useEffect(() => {
-    localStorage.setItem('pulseport_history', JSON.stringify(history));
+    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
   }, [history]);
 
-  const fetchPortfolio = createPortfolioFetchController({
+  const fetchPortfolio = useCallback(createPortfolioFetchController({
     wallets,
     prices,
     history,
@@ -780,9 +642,9 @@ export default function App() {
     staticLogos: STATIC_LOGOS,
     ethHexAddress: ETH_HEX_ADDR,
     ehexPulsechainAddress: EHEX_PULSECHAIN_ADDR,
-    erc20Abi: ERC20_ABI,
     isNoContractDataError,
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [wallets, etherscanApiKey]);
 
   const addWallet = () => {
     const normalizedInput = newWalletAddress.trim();
@@ -874,7 +736,9 @@ export default function App() {
 
   const assetUniverse = useMemo(() => {
     const activeWalletKey = activeWallet?.toLowerCase() ?? null;
-    const baseAssets = activeWalletKey ? (walletAssets[activeWalletKey] || []) : realAssets;
+    const baseAssets = wallets.length > 0
+      ? (activeWalletKey ? (walletAssets[activeWalletKey] || []) : realAssets)
+      : [];
     const assetsWithCustom = [...baseAssets];
 
     customCoins.forEach(coin => {
@@ -947,6 +811,7 @@ export default function App() {
   }, [assetUniverse, manualEntries, hiddenTokens, hideDust, hideSpam, spamTokenIds, prices]);
 
   const currentStakes = useMemo(() => {
+    if (wallets.length === 0) return [];
     const key = activeWallet?.toLowerCase() ?? null;
     return key ? realStakes.filter(s => s.walletAddress === key) : realStakes;
   }, [realStakes, activeWallet]);
@@ -972,9 +837,10 @@ export default function App() {
       });
   }, [manualEntries, prices]);
 
-  const currentHistory = history;
+  const currentHistory = wallets.length > 0 ? history : [];
   const currentTransactions = useMemo(() => {
-    return transactions.map(tx => ({
+    const baseTransactions = wallets.length > 0 ? transactions : [];
+    return baseTransactions.map(tx => ({
       ...tx,
       asset: normalizeAssetSymbol(tx.asset, tx.chain),
       counterAsset: tx.counterAsset ? normalizeAssetSymbol(tx.counterAsset, tx.chain) : tx.counterAsset,
@@ -1052,7 +918,7 @@ export default function App() {
   const COLORS = [CHAINS.pulsechain.color, CHAINS.ethereum.color, CHAINS.base.color];
 
   const stakeSummary = useMemo(() => {
-    const stakes = realStakes;
+    const stakes = wallets.length > 0 ? realStakes : [];
     const activeStakes = stakes.filter(s => (s.daysRemaining ?? 0) > 0);
     let totalStakedHex = 0;
     let totalTShares = 0;
@@ -1161,7 +1027,7 @@ export default function App() {
   }, [realAssets, manualEntries, prices]);
 
   const monthlyPnlData = useMemo(() => {
-    const pts = history;
+    const pts = wallets.length > 0 ? history : [];
     const byMonth: Record<string, { month: string; pnl: number }> = {};
     pts.forEach(p => {
       const key = format(p.timestamp, 'MMM yy');
@@ -1476,24 +1342,6 @@ export default function App() {
 
   // -- RENDER ----------------------------------------------------------------
 
-  // Shared compact price formatter - used by both the header ticker and core-coins panel
-  const fmtPrice = (p: number) => {
-    if (p === 0) return '-';
-    if (p < 0.00001) return `$${p.toFixed(10)}`;
-    if (p < 0.001)   return `$${p.toFixed(8)}`;
-    if (p < 0.01)    return `$${p.toFixed(6)}`;
-    if (p < 1)       return `$${p.toFixed(4)}`;
-    return `$${p.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-  };
-
-  const fmtMarket = (v?: number | null) =>
-    v == null ? '-' :
-    v >= 1e12 ? `$${(v/1e12).toFixed(2)}T` :
-    v >= 1e9 ? `$${(v/1e9).toFixed(2)}B` :
-    v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` :
-    v >= 1e3 ? `$${(v/1e3).toFixed(1)}K` :
-    `$${v.toFixed(0)}`;
-
   const getFrontMarketChange = (marketData: any, priceData: any, asset?: Asset | null): number | null => {
     if (frontMarketPeriod === '5m') return marketData?.priceChange5m ?? null;
     if (frontMarketPeriod === '1h') return marketData?.priceChange1h ?? priceData?.usd_1h_change ?? asset?.priceChange1h ?? null;
@@ -1590,8 +1438,7 @@ export default function App() {
 
     topHoldingCards.forEach(add);
 
-    const sourceAssets = currentAssets;
-    [...sourceAssets]
+    currentAssets
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value)
       .forEach(asset => {
@@ -1614,7 +1461,8 @@ export default function App() {
   }, [topHoldingCards, currentAssets, tokenMarketData, tokenLogos, frontMarketPeriod]);
 
   const frontPagePortfolioRows = useMemo(() => {
-    return currentAssets
+    const assets = currentAssets;
+    return assets
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
@@ -2835,7 +2683,6 @@ export default function App() {
                   };
                   const cutoff = cutoffs[perfPeriod];
                   const realHistory = (wallets.length > 0 ? history : []).filter(p => p.timestamp >= cutoff);
-                  const currentVal = summary.totalValue || 1;
 
                   // Deduplicate by period-appropriate bucket, keeping latest value + timestamp per bucket
                   const byBucket = new Map<string, { value: number; ts: number }>();
@@ -2847,15 +2694,7 @@ export default function App() {
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([, { value, ts }]) => ({ day: fmtLabel(ts), value }));
 
-                  let chartPoints: { day: string; value: number }[];
-
-                  if (uniquePts.length >= 3) {
-                    chartPoints = uniquePts;
-                  } else {
-                    chartPoints = uniquePts.length > 0
-                      ? uniquePts
-                      : [{ day: 'Now', value: currentVal }];
-                  }
+                  const chartPoints: { day: string; value: number }[] = uniquePts;
 
                   const periodChange = chartPoints.length >= 2
                     ? ((chartPoints[chartPoints.length - 1].value - chartPoints[0].value) / Math.max(1, chartPoints[0].value)) * 100
@@ -2878,7 +2717,7 @@ export default function App() {
                           <div className="overview-performance-delta" style={{ color: periodChange >= 0 ? t.green : t.red }}>
                             {periodChange >= 0 ? '+' : ''}{periodChange.toFixed(2)}%
                           </div>
-                        </div>
+                                                  </div>
                         <div className="overview-performance-actions">
                           {/* Period tabs */}
                           {!isCollapsed('perf-chart') && (
@@ -3698,7 +3537,7 @@ export default function App() {
                           </button>
                         )}
                         <button
-                          onClick={resetHistoryFilters}
+                          onClick={() => { setTxTypeFilter('all'); setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }}
                           style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '3px 6px', textDecoration: 'underline' }}>
                           Clear all
                         </button>
@@ -3771,9 +3610,8 @@ export default function App() {
                     {/* Filter row */}
                     <div className="tx-filter-row history-filter-row" style={{ padding: '8px 18px', borderBottom: `1px solid ${t.border}`, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {[
-                        { value: txAssetFilter, onChange: setTxAssetFilter, options: swapAssetFilterOptions },
-                        { value: txYearFilter, onChange: setTxYearFilter, options: swapYearFilterOptions },
-                        { value: txChainFilter, onChange: setTxChainFilter, options: [['all','All Chains'],['pulsechain','PulseChain'],['ethereum','Ethereum'],['base','Base']] as [string,string][] },
+                        { value: txAssetFilter, onChange: setTxAssetFilter, options: [['all','All Tokens'], ...Array.from(new Set(currentTransactions.flatMap(tx => [tx.asset, tx.counterAsset].filter(Boolean) as string[]))).sort().map(a => [a,a])] as [string,string][] },
+                        { value: txYearFilter, onChange: setTxYearFilter, options: [['all','All Years'],['2026','2026'],['2025','2025'],['2024','2024'],['2023','2023'],['2022','2022'],['2021','2021']] as [string,string][] },
                         { value: txCoinCategory, onChange: setTxCoinCategory, options: [['all','All Coins'],['stablecoins','Stablecoins'],['eth_weth','ETH/WETH'],['hex','HEX/eHEX'],['pls_wpls','PLS/WPLS'],['bridged','Bridged']] as [string,string][] },
                       ].map(({ value, onChange, options }, i) => (
                         <select key={i} value={value} onChange={e => onChange(e.target.value)}
@@ -3877,16 +3715,7 @@ export default function App() {
                 <p className="transaction-page-subtitle">
                   Review transaction flow by asset, chain, bridge route, and staking context without leaving the ledger.
                 </p>
-                <div className="transaction-page-chip-row">
-                  <span className="tx-band-chip tx-band-chip--accent">{txTypeFilter === 'all' ? 'All transaction types' : `${txTypeFilter} only`}</span>
-                  <span className="tx-band-chip">{selectedWalletAddr === 'all' ? 'All wallets' : shortenAddr(selectedWalletAddr)}</span>
-                  <span className="tx-band-chip">{txChainFilter === 'all' ? 'All chains' : txChainFilter}</span>
-                  <span className="tx-band-chip">{txYearFilter === 'all' ? 'All years' : txYearFilter}</span>
-                  <span className="tx-band-chip">{txCoinCategory === 'all' ? 'All coin families' : txCoinCategory === 'stablecoins' ? 'Stablecoins' : txCoinCategory === 'eth_weth' ? 'ETH/WETH' : txCoinCategory === 'hex' ? 'HEX/eHEX' : txCoinCategory === 'pls_wpls' ? 'PLS/WPLS' : 'Bridged'}</span>
-                  {txBridgeProtocolFilter !== 'all' && <span className="tx-band-chip">{txBridgeProtocolFilter} bridge</span>}
-                  {txOriginChainFilter !== 'all' && <span className="tx-band-chip">origin {txOriginChainFilter}</span>}
-                  {txStakingActionFilter !== 'all' && <span className="tx-band-chip">{txStakingActionFilter}</span>}
-                </div>
+
               </div>
               <div className="transaction-page-head-side">
                 <div className="transaction-page-stats">
@@ -3947,77 +3776,7 @@ export default function App() {
               </div>
             </div>
 
-            {txAssetFilter !== 'all' && (
-              <div className="tx-context-strip">
-                <div className="tx-context-title">
-                  {activeHistoryAsset && (
-                    <img
-                      src={getTokenLogoUrl(activeHistoryAsset)}
-                      alt={txAssetFilter}
-                      className="tx-context-logo"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  )}
-                    <div>
-                    <strong>{txAssetFilter} {txTypeFilter === 'all' ? 'Transaction' : txTypeFilter.charAt(0).toUpperCase() + txTypeFilter.slice(1)} P&amp;L</strong>
-                    <span>{historySummary.tokenTxs.length} {txTypeFilter === 'all' ? 'transaction' : txTypeFilter} rows tracked</span>
-                  </div>
-                </div>
-                <div className="tx-context-metrics">
-                  <div className="tx-context-metric">
-                    <span>Realized P&amp;L</span>
-                    <strong style={{ color: historySummary.realizedPnl >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                      {historySummary.realizedPnl >= 0 ? '+' : '-'}${Math.abs(historySummary.realizedPnl).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-                  <div className="tx-context-metric">
-                    <span>Holdings</span>
-                    <strong>${historySummary.holdingsValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</strong>
-                  </div>
-                  <div className="tx-context-metric">
-                    <span>Gas</span>
-                    <strong>{historySummary.gasPls.toLocaleString('en-US', { maximumFractionDigits: 4 })} PLS</strong>
-                  </div>
-                </div>
-                <button type="button" className="tx-context-clear" onClick={resetHistoryFilters}>
-                  Clear filter <X size={12} />
-                </button>
-              </div>
-            )}
-
             <div className="transaction-ledger-shell transaction-ledger-shell--dense">
-              <div className="tx-context-band">
-                <div className="tx-band-chip-group">
-                  <span className="tx-band-chip tx-band-chip--accent">{txTypeFilter === 'all' ? 'All transaction types' : `${txTypeFilter} only`}</span>
-                  <span className="tx-band-chip">{selectedWalletAddr === 'all' ? 'All wallets' : shortenAddr(selectedWalletAddr)}</span>
-                  <span className="tx-band-chip">{txAssetFilter === 'all' ? 'All tokens' : txAssetFilter}</span>
-                  <span className="tx-band-chip">{txChainFilter === 'all' ? 'All chains' : txChainFilter}</span>
-                  {txBridgeProtocolFilter !== 'all' && <span className="tx-band-chip">{txBridgeProtocolFilter} bridge</span>}
-                  {txOriginChainFilter !== 'all' && <span className="tx-band-chip">origin {txOriginChainFilter}</span>}
-                  {txStakingActionFilter !== 'all' && <span className="tx-band-chip">{txStakingActionFilter}</span>}
-                </div>
-                <div className="tx-band-metrics">
-                  <div className="tx-band-metric">
-                    <span>{txTypeFilter === 'all' ? 'Transactions' : txTypeFilter === 'swap' ? 'Swaps' : `${txTypeFilter.charAt(0).toUpperCase()}${txTypeFilter.slice(1)}s`}</span>
-                    <strong>{filteredTransactions.length}</strong>
-                  </div>
-                  <div className="tx-band-metric">
-                    <span>Realized P&amp;L</span>
-                    <strong style={{ color: historySummary.realizedPnl >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                      {historySummary.realizedPnl >= 0 ? '+' : '-'}${Math.abs(historySummary.realizedPnl).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-                  <div className="tx-band-metric">
-                    <span>Holdings</span>
-                    <strong>${historySummary.holdingsValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</strong>
-                  </div>
-                  <div className="tx-band-metric">
-                    <span>Gas total</span>
-                    <strong>{historySummary.gasPls.toLocaleString('en-US', { maximumFractionDigits: 4 })} PLS</strong>
-                    <small>${historySummary.gasUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</small>
-                  </div>
-                </div>
-              </div>
 
               <div className="transaction-ledger-toolbar transaction-ledger-toolbar--dense">
                 <div className="transaction-ledger-title">
@@ -4028,32 +3787,6 @@ export default function App() {
                   </div>
                 </div>
                 <span className="transaction-ledger-badge">{txChainFilter === 'all' ? 'Cross-chain' : txChainFilter}</span>
-              </div>
-
-              <div className="transaction-ledger-filters history-filter-row">
-                {([
-                  { id: 'asset', label: 'Token Scope', value: txAssetFilter, onChange: setTxAssetFilter, options: swapAssetFilterOptions },
-                  { id: 'year', label: 'Execution Year', value: txYearFilter, onChange: setTxYearFilter, options: swapYearFilterOptions },
-                  { id: 'chain', label: 'Chain', value: txChainFilter, onChange: setTxChainFilter, options: [['all', 'All Chains'], ['pulsechain', 'PulseChain'], ['ethereum', 'Ethereum'], ['base', 'Base']] as [string, string][] },
-                  { id: 'category', label: 'Coin Family', value: txCoinCategory, onChange: setTxCoinCategory, options: [['all','All Coins'],['stablecoins','Stablecoins'],['eth_weth','ETH/WETH'],['hex','HEX/eHEX'],['pls_wpls','PLS/WPLS'],['bridged','Bridged']] as [string,string][] },
-                ]).map(({ id, label, value, onChange, options }) => (
-                  <label key={id} className="history-filter-control">
-                    <span>{label}</span>
-                    <select value={value} onChange={e => onChange(e.target.value)}
-                      className="history-filter-select"
-                      aria-label={label}>
-                      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </label>
-                ))}
-                <button
-                  type="button"
-                  onClick={resetHistoryFilters}
-                  className="history-clear-btn"
-                  disabled={!hasActiveSwapFilters}
-                >
-                  Clear all
-                </button>
               </div>
 
               <div className="transaction-ledger-list custom-scrollbar">
@@ -4218,15 +3951,7 @@ export default function App() {
                     )}
                   </div>
                 )}
-                {/* Chain filter chips */}
-                <div className="wallet-chain-strip">
-                  {(['all', 'pulsechain', 'ethereum', 'base'] as const).map(c => (
-                    <button key={c} onClick={() => setWalletChainFilter(c)}
-                      className={`filter-pill${walletChainFilter === c ? ' active' : ''}`}>
-                      {c === 'all' ? 'All' : c === 'pulsechain' ? 'PulseChain' : c === 'ethereum' ? 'Ethereum' : 'Base'}
-                    </button>
-                  ))}
-                </div>
+
               </div>
 
               {/* Asset list - full Token Positions module */}
@@ -5307,8 +5032,8 @@ export default function App() {
                 <button type="button" onClick={() => {
                   const ethKey = apiKeyInput.trim();
                   setEtherscanApiKey(ethKey);
-                  if (ethKey) localStorage.setItem('pulseport_etherscan_key', ethKey);
-                  else localStorage.removeItem('pulseport_etherscan_key');
+                  if (ethKey) localStorage.setItem(STORAGE_KEYS.ETHERSCAN_KEY, ethKey);
+                  else localStorage.removeItem(STORAGE_KEYS.ETHERSCAN_KEY);
                   localStorage.removeItem('pulseport_basescan_key');
                   setIsApiKeyModalOpen(false);
                   setTimeout(fetchPortfolio, 100);

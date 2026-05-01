@@ -90,6 +90,7 @@ export function useHistoryController({
 
   const setTxChainFilter = useCallback((value: 'all' | Chain) => {
     setTxChainFilterState(value);
+    setTxAssetFilterState(DEFAULT_HISTORY_FILTER_STATE.txAssetFilter);
   }, []);
 
   const setTxBridgeProtocolFilter = useCallback((value: HistoryBridgeProtocolFilter) => {
@@ -184,27 +185,25 @@ export function useHistoryController({
     );
   }, [currentTransactions, matchesHistoryTransactionFilters, normalizedTxTypeFilter]);
 
-  const holdingsPulsechainTransactions = useMemo(() => {
-    return currentTransactions.filter((tx) =>
-      matchesHistoryTransactionFilters(tx) && matchesHistoryTransactionType(tx, normalizedTxTypeFilter),
-    );
-  }, [currentTransactions, matchesHistoryTransactionFilters, normalizedTxTypeFilter]);
+  const holdingsPulsechainTransactions = filteredTransactions;
 
   const swapAssetFilterOptions = useMemo<[string, string][]>(() => {
     const symbols = Array.from(new Set<string>(
       currentTransactions
+        .filter((tx) => (txChainFilter === 'all' || tx.chain === txChainFilter) && (tx.type === 'swap' || tx.swapLegOnly))
         .flatMap((tx) => [tx.asset, tx.counterAsset].filter(Boolean) as string[]),
     )).sort((a, b) => a.localeCompare(b));
     return [['all', 'All Tokens'], ...symbols.map((symbol) => [symbol, symbol] as [string, string])];
-  }, [currentTransactions]);
+  }, [currentTransactions, txChainFilter]);
 
   const swapYearFilterOptions = useMemo<[string, string][]>(() => {
     const years = Array.from(new Set(
       currentTransactions
+        .filter((tx) => (txChainFilter === 'all' || tx.chain === txChainFilter) && (tx.type === 'swap' || tx.swapLegOnly))
         .map((tx) => new Date(tx.timestamp).getFullYear().toString()),
     )).sort((a, b) => Number(b) - Number(a));
     return [['all', 'All Years'], ...years.map((year) => [year, year] as [string, string])];
-  }, [currentTransactions]);
+  }, [currentTransactions, txChainFilter]);
 
   const hasActiveSwapFilters = txAssetFilter !== 'all'
     || txYearFilter !== 'all'
@@ -221,7 +220,7 @@ export function useHistoryController({
 
   const historySummary = useMemo<HistorySummary>(() => {
     const swaps = filteredTransactions;
-    const swapCount = swaps.length;
+    const swapCount = swaps.filter(tx => tx.type === 'swap' || !!tx.swapLegOnly).length;
     const gasPls = swaps.reduce((sum, tx) => sum + (tx.fee ?? 0), 0);
     const gasUsd = gasPls * (prices['pulsechain']?.usd ?? 0);
     const tokenTxs = txAssetFilter === 'all'

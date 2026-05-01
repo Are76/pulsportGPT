@@ -3,12 +3,13 @@ import { PULSEX_LP_PAIRS, TOKENS } from '../../constants';
 import type { LpPositionEnriched, PriceQuote, TokenBalance } from '../../types';
 import { resolvePriceQuotes } from '../priceService';
 import {
-  FETCH_TIMEOUT_MS,
+  batchRpcCall,
+  FETCH_TIMEOUT,
   padAddress,
   parseBigIntResult,
   type RpcBatchRequest,
   type RpcBatchResponse,
-} from './rpcShared';
+} from './rpcUtils';
 
 export interface PulsechainTokenSearchResult {
   id: string;
@@ -167,26 +168,10 @@ async function batchRPC(
     method: 'eth_call',
     params: [{ to: c.to, data: c.data }, 'latest'],
   }));
-  const json = await batchRpcRequest(body, rpc);
+  const json = await batchRpcCall(body, rpc, fetch);
   return [...json]
     .sort((a, b) => a.id - b.id)
-    .map(r => r.result ?? '0x');
-}
-
-async function batchRpcRequest(
-  body: RpcBatchRequest[],
-  rpc: string,
-): Promise<RpcBatchResponse[]> {
-  const res = await fetch(rpc, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (res.ok === false) {
-    throw new Error(`RPC HTTP ${res.status}`);
-  }
-  return res.json();
+    .map((r) => r.result ?? '0x');
 }
 
 async function batchRpcRequestWithFallback(
@@ -817,7 +802,7 @@ export async function getPulsechainTokenBalances(address: string): Promise<Token
       })),
   ];
 
-  const responses = await batchRpcRequestWithFallback(requests);
+  const responses = await batchRpcCall(requests, PRIMARY_RPC, fetch).catch(() => batchRpcCall(requests, FALLBACK_RPC, fetch));
   const resultsById = responses.reduce<Record<number, string>>((acc, response) => {
     acc[response.id] = response.result ?? '0x';
     return acc;

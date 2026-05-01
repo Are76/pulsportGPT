@@ -2,51 +2,14 @@ import { formatUnits } from 'viem';
 import { CHAINS, TOKENS } from '../../constants';
 import type { Chain, TokenBalance } from '../../types';
 import {
-  FETCH_TIMEOUT_MS,
+  batchRpcWithFallback,
   padAddress,
   parseBigIntResult,
   type RpcBatchRequest,
   type RpcBatchResponse,
-} from './rpcShared';
+} from './rpcUtils';
 
 type FetchLike = typeof fetch;
-
-async function batchRpcRequest(
-  body: RpcBatchRequest[],
-  rpc: string,
-  fetchImpl: FetchLike,
-): Promise<RpcBatchResponse[]> {
-  const response = await fetchImpl(rpc, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new Error(`RPC HTTP ${response.status}`);
-  }
-
-  return response.json() as Promise<RpcBatchResponse[]>;
-}
-
-async function batchRpcWithFallback(
-  body: RpcBatchRequest[],
-  rpcs: string[],
-  fetchImpl: FetchLike,
-): Promise<RpcBatchResponse[]> {
-  let lastError: unknown;
-
-  for (const rpc of rpcs) {
-    try {
-      return await batchRpcRequest(body, rpc, fetchImpl);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('EVM balance request failed');
-}
 
 export async function getEvmTokenBalances(
   chain: Extract<Chain, 'ethereum' | 'base'>,

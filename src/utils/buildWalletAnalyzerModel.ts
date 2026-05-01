@@ -79,13 +79,16 @@ interface BuildWalletAnalyzerModelArgs {
   transactions: Transaction[];
   investmentRows: InvestmentHoldingRow[];
   currentPrices: Record<string, number>;
+  /** Real PLS/ETH benchmark HistoryPoint[]. Falls back to synthetic if omitted. */
+  benchmarkHistory?: HistoryPoint[];
 }
 
 function formatPointLabel(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function buildBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[] {
+/** Fallback: synthetic +1.5%/point benchmark used when real price data is unavailable. */
+function buildSyntheticBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[] {
   if (history.length === 0) return [];
   const firstValue = history[0]!.value || 1;
   return history.map((point, index) => ({
@@ -109,6 +112,7 @@ export function buildWalletAnalyzerModel({
   transactions,
   investmentRows,
   currentPrices,
+  benchmarkHistory: externalBenchmarkHistory,
 }: BuildWalletAnalyzerModelArgs): WalletAnalyzerModel {
   const canonicalRows = investmentRows.filter((row) => row.currentValue > 0);
   const performancePoints = calculatePortfolioHistory(history).map((point) => ({
@@ -116,7 +120,10 @@ export function buildWalletAnalyzerModel({
     label: formatPointLabel(point.timestamp),
   }));
   const risk = calculateRiskMetrics(history);
-  const benchmarkHistory = buildBenchmarkHistory(history);
+  // Use real benchmark if provided, otherwise fall back to synthetic
+  const benchmarkHistory = externalBenchmarkHistory && externalBenchmarkHistory.length > 0
+    ? externalBenchmarkHistory
+    : buildSyntheticBenchmarkHistory(history);
   const benchmarkPoints = benchmarkHistory.map((point) => ({
     timestamp: point.timestamp,
     value: point.value,
