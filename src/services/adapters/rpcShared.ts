@@ -23,10 +23,10 @@ export function padAddress(addr: string): string {
 }
 
 /**
- * Parse an optional hex-encoded RPC numeric result.
+ * Parses an optional hex-encoded RPC numeric result into a bigint.
  *
- * @param hex - A hex string (e.g., `'0x1a'`, `'1a'`, `''`) or `undefined`; a missing or empty value is treated as zero. The `'0x'` prefix is optional.
- * @returns The numeric value as a `bigint`.
+ * @param hex - Hex string with optional `0x` prefix, empty string, or `undefined`; missing or empty value is treated as zero.
+ * @returns The parsed numeric value as a `bigint`.
  */
 export function parseBigIntResult(hex: string | undefined): bigint {
   const normalized = (hex ?? '0x0').replace('0x', '') || '0';

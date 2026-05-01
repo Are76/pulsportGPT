@@ -81,6 +81,16 @@ function fmtPnl(n: number): string {
   return `${n >= 0 ? '+' : ''}$${Math.abs(n).toFixed(dp)}`;
 }
 
+/**
+ * Determines the best-estimate USD value for a transaction.
+ *
+ * Attempts sources in priority order: explicit `tx.valueUsd` if > 0, historical asset price at transaction time multiplied by amounts (`assetPriceUsdAtTx * amount` or `counterPriceUsdAtTx * counterAmount`), then current `coinAsset.price * amount`, then `counterAsset.price * counterAmount`. Returns the first usable computed value.
+ *
+ * @param tx - The transaction to evaluate.
+ * @param coinAsset - Optional asset metadata for the transaction's primary asset; used as a fallback with current price when historical data is absent.
+ * @param counterAsset - Optional asset metadata for the transaction's counter asset; used as a fallback with current price when historical data is absent.
+ * @returns The resolved USD value for the transaction, or `undefined` if no usable data is available.
+ */
 function resolveTransactionUsdValue(
   tx: Transaction,
   coinAsset?: Asset,
@@ -108,14 +118,10 @@ function resolveTransactionUsdValue(
 }
 
 /**
- * Map a transaction type to its visual metadata (icon component, background color, foreground color, and display label).
+ * Provide visual metadata (icon component, background color, foreground color, and label) for a transaction type.
  *
- * @param type - One of the transaction types: `deposit`, `withdraw`, `swap`, or `interaction`
- * @returns An object with:
- *  - `Icon`: the React icon component for the type
- *  - `bg`: CSS background color (rgba)
- *  - `color`: CSS foreground color
- *  - `label`: short display label for the transaction type
+ * @param type - Transaction type: `deposit`, `withdraw`, `swap`, or `interaction`
+ * @returns An object with `Icon` (React icon component), `bg` (CSS background color), `color` (CSS foreground color), and `label` (short display label)
  */
 function txVisual(type: Transaction['type']) {
   switch (type) {
@@ -167,6 +173,15 @@ const LS_CHAIN_NAMES: Record<number, string> = {
   10:    'Optimism',
 };
 
+/**
+ * Renders a compact Liberty Swap Bridge summary panel showing destination chain and shortened order ID.
+ *
+ * Displays the destination chain name (looked up from known LibertySwap chain names, falling back to `Chain {id}`) and a truncated order ID when longer than 14 characters, plus a link to libertyswap.finance and a short explanatory note.
+ *
+ * @param dstChainId - Numeric LibertySwap destination chain ID used to derive the displayed chain name.
+ * @param orderId - LibertySwap order identifier (displayed truncated if longer than 14 characters).
+ * @returns A JSX element containing the Liberty Swap Bridge UI panel.
+ */
 function LibertySwapPanel({ dstChainId, orderId }: { dstChainId: number; orderId: string }) {
   const dstChainName = LS_CHAIN_NAMES[dstChainId] ?? `Chain ${dstChainId}`;
   const shortOrder = orderId.length > 14 ? `${orderId.slice(0, 8)}...${orderId.slice(-6)}` : orderId;
@@ -218,25 +233,25 @@ function LibertySwapPanel({ dstChainId, orderId }: { dstChainId: number; orderId
 }
 
 /**
- * Render a configurable list of transactions with expandable detail panels, per-asset filtering, hide/unhide controls, and optional progressive pagination.
+ * Render a configurable list of transaction cards with expandable detail panels and per-asset controls.
  *
- * Renders each transaction as a card row with type/chain badges, a condensed or full amount row, side USD/time metadata, optional asset logo filter button, hide/unhide action, and an expandable detail panel (SwapDetail, InteractionDetail, or TransferDetail). Supports treating known wallet addresses as "You", resolving token logos, computing an entry USD estimate, and showing LibertySwap markers when present.
+ * Renders each transaction as a row that can show a condensed or full amount line, USD/value metadata, optional asset logo filter button, hide/unhide control, and an expandable detail area (SwapDetail, InteractionDetail, or TransferDetail). Supports labeling tracked wallet addresses as "You", resolving asset metadata/logos, estimating entry USD value, marking LibertySwap entries, and progressive "load more" pagination.
  *
- * @param transactions - Array of transaction objects to display.
+ * @param transactions - Array of transactions to display.
  * @param viewAsYou - When true, known wallet addresses are labeled with wallet names or "You" instead of shortened addresses.
- * @param wallets - List of tracked wallets used to resolve address ownership and display names.
- * @param compact - When true, render a compact row layout (hides some metadata and USD values).
- * @param assets - Price/logo context used to find token metadata and compute USD values.
- * @param getTokenLogoUrl - Optional callback to produce a token logo URL from an Asset.
- * @param tokenLogos - Fallback mapping of token symbol → logo URL when `getTokenLogoUrl` is not provided or asset lookup fails.
- * @param hideIds - Array of transaction IDs that should be visually hidden.
+ * @param wallets - Tracked wallets used to resolve ownership and display names.
+ * @param compact - When true, use a compact row layout that hides some metadata and USD values.
+ * @param assets - Asset metadata (price, symbol, chain) used to resolve logos and compute USD estimates.
+ * @param getTokenLogoUrl - Optional callback that returns a logo URL for a given Asset.
+ * @param tokenLogos - Fallback map of token symbol → logo URL used when `getTokenLogoUrl` or asset lookup is unavailable.
+ * @param hideIds - Transaction IDs that should be rendered in a hidden state.
  * @param onToggleHide - Optional callback invoked with a transaction ID to toggle its hidden state.
- * @param showHidden - When true, include hidden transactions in the visible list.
+ * @param showHidden - When true, include transactions whose IDs appear in `hideIds` in the visible list.
  * @param onFilterByAsset - Optional callback invoked with a token symbol when the user requests filtering by that asset.
- * @param emptyMessage - Message text rendered when there are no visible transactions.
- * @param initialVisibleCount - Optional initial number of transactions to show; when omitted all transactions are shown.
- * @param loadMoreCount - Number of additional transactions to reveal when "Load more" is clicked.
- * @returns The rendered transaction list React element.
+ * @param emptyMessage - Message to display when there are no visible transactions.
+ * @param initialVisibleCount - Optional initial number of transactions to show; when omitted all visible transactions are shown.
+ * @param loadMoreCount - Number of additional transactions to reveal when the "Load more" control is clicked.
+ * @returns The React element tree for the transaction list.
  */
 export function TransactionList({
   transactions,

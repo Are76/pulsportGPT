@@ -140,6 +140,17 @@ export async function loadBaseDiscoveredTokens(
   return { discoveredTokens };
 }
 
+/**
+ * Retrieve and concatenate all paginated results for an Etherscan account action.
+ *
+ * Fetches pages from the Etherscan V2 account API for the given `action` and `address`, following pagination until no more results are returned or a non-recoverable error occurs. Retries up to three times on rate-limit responses with incremental backoff.
+ *
+ * @param action - The Etherscan `action` query value (e.g., `tokentx`)
+ * @param address - The target Ethereum address to query
+ * @param apiKey - Optional Etherscan API key; pass an empty string to omit
+ * @param fetchImpl - A fetch-compatible implementation used to make HTTP requests
+ * @returns The concatenated array of `result` items returned across all successful pages
+ */
 async function fetchAllEtherscanPages(
   action: string,
   address: string,
@@ -226,6 +237,19 @@ export async function loadEthereumDiscoveredTokens(
   return { discoveredTokens };
 }
 
+/**
+ * Enhances Pulsechain-discovered tokens with logos and improved symbols/names by querying Dexscreener.
+ *
+ * Enriches tokens that lack pricing/logo information by fetching token pair data from Dexscreener, selecting
+ * the highest-liquidity pair per token, and using that pair's metadata to update token symbol/name and to
+ * collect logo URL patches.
+ *
+ * @param discoveredTokens - Array of discovered tokens to enrich; token objects may be mutated in-place.
+ * @param fetchedPrices - Existing price map used to determine which token addresses still need enrichment.
+ * @param fetchImpl - Optional fetch-compatible implementation used for HTTP requests to Dexscreener.
+ * @returns LoaderResult with the (possibly updated) `discoveredTokens` and a `logoPatches` object mapping
+ *          token addresses (lowercased) to image URL strings.
+ */
 export async function enrichPulsechainDiscoveredTokens(
   discoveredTokens: DiscoveredToken[],
   fetchedPrices: PriceMap,

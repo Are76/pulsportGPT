@@ -218,6 +218,12 @@ function parseOptionalPositiveNumber(value: string | null | undefined): number |
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+/**
+ * Extracts the Liberty Swap destination chain ID and order ID from a calldata-like hex string.
+ *
+ * @param input - Hex-encoded calldata (may include a leading `0x`)
+ * @returns An object with `dstChainId` (decimal chain identifier) and `orderId` (`0x`-prefixed hex string) when decoding succeeds, or `null` when the input is not valid Liberty Swap calldata or cannot be decoded.
+ */
 function decodeLibertySwapInput(input: string): { dstChainId: number; orderId: string } | null {
   try {
     const hex = input.startsWith('0x') ? input.slice(2) : input;
@@ -308,6 +314,13 @@ async function fetchPagedJson<T>(url: string, fetchImpl: FetchLike): Promise<Pag
   return response.json() as Promise<PagedResponse<T>>;
 }
 
+/**
+ * Append pagination query parameters to a base URL when provided.
+ *
+ * @param baseUrl - The base URL to append query parameters to
+ * @param nextPageParams - Key/value pairs to serialize as query parameters; when `null` or empty, no changes are made
+ * @returns The URL with `nextPageParams` serialized and appended (uses `?` or `&` as appropriate)
+ */
 function buildPagedUrl(baseUrl: string, nextPageParams: Record<string, string | number> | null): string {
   if (!nextPageParams || Object.keys(nextPageParams).length === 0) {
     return baseUrl;
@@ -430,6 +443,14 @@ function normalizeMethod(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
 
+/**
+ * Identifies HEX staking actions from transaction metadata and returns corresponding staking metadata.
+ *
+ * @param method - The transaction method name or decoded input (may be null/undefined); normalized before matching.
+ * @param tokenAddress - The token contract address involved in the transfer (may be null/undefined); compared to the known HEX contract address.
+ * @param to - The transfer destination address; used to confirm stake start targets.
+ * @returns Staking metadata `{ protocol: 'hex', action: 'stakeStart' | 'stakeEnd' }` when a HEX staking action is detected, `undefined` otherwise.
+ */
 function resolveHexStakingAction(
   method: string | null | undefined,
   tokenAddress: string | null | undefined,
@@ -798,12 +819,10 @@ async function fetchPulsechainTransactionsViaBlockscoutV2(
 }
 
 /**
- * Fetches and returns normalized Pulsechain transactions for the given wallet, preferring a fast compatibility API and falling back to Blockscout v2 pagination when necessary.
+ * Retrieve normalized Pulsechain transactions for a wallet, preferring the compat (Etherscan-like) API and falling back to Blockscout v2 when the compat path fails or yields no results.
  *
- * If `options.baseUrl` is provided this function will use the Blockscout v2 path. Otherwise it first attempts a compat-style API; if that attempt fails or returns no transactions it falls back to the Blockscout v2 implementation.
- *
- * @param options - Fetch options that may include `baseUrl`, `startBlock`, `fetch` implementation, and market-price overrides; when `baseUrl` is set the function will directly use the Blockscout v2 paginated endpoint
- * @returns A TransactionQueryResult containing normalized transactions and an optional `nextBlock` value for continued pagination
+ * @param options - Fetch options. When `baseUrl` is provided the Blockscout v2 paginated endpoint is used directly; may include `startBlock`, a custom `fetch` implementation, `compatApiBase`, market-price overrides, and other request controls.
+ * @returns A TransactionQueryResult containing normalized `transactions` and an optional `nextBlock` cursor for continued pagination
  */
 export async function fetchPulsechainTransactions(
   address: string,

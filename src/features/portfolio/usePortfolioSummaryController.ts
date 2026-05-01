@@ -38,6 +38,12 @@ function isStableAsset(asset: string): boolean {
     || u.includes('DAI');
 }
 
+/**
+ * Map an asset symbol or token name to a canonical category string for grouping.
+ *
+ * @param asset - The asset symbol or token name (case-insensitive)
+ * @returns `'USDC'`, `'USDT'`, `'DAI'`, `'ETH'` for recognized tokens; otherwise the uppercased input string
+ */
 function assetCategory(asset: string): string {
   const u = asset.toUpperCase();
   if (u.includes('USDC') || u.includes('USD COIN') || u.includes('USDBC')) return 'USDC';

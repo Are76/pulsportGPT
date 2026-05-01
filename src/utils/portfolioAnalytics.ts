@@ -95,6 +95,12 @@ function getReturn(startValue: number, endValue: number): number {
   return endValue / startValue - 1;
 }
 
+/**
+ * Computes the population standard deviation of an array of numbers.
+ *
+ * @param values - The sample of numeric values to analyze
+ * @returns The population standard deviation of `values`, or `0` if `values` is empty
+ */
 function standardDeviation(values: number[]): number {
   if (values.length === 0) return 0;
   const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -300,6 +306,24 @@ export function calculateBenchmarkComparison(
   };
 }
 
+/**
+ * Compute realized and unrealized holding statistics from a chronological list of transactions.
+ *
+ * Processes transactions in ascending timestamp order using FIFO cost basis to calculate realized gains,
+ * average holding period (in days) for realized sales, unrealized cost basis and market value using provided current prices,
+ * and the count of realized sales.
+ *
+ * @param transactions - Transaction records to analyze (must include timestamps, types, amounts, assets, chain and pricing fields used for acquisition/disposal)
+ * @param currentPrices - Current market prices keyed by asset string (lookup is case-insensitive)
+ * @param nowTimestamp - Optional reference timestamp (milliseconds); accepted but not required by the calculation
+ * @returns An object containing:
+ *   - `averageHoldingPeriodDays`: consumption-weighted average holding period for realized sales, in days
+ *   - `realizedGainUsd`: total realized gain in USD
+ *   - `unrealizedCostBasisUsd`: total cost basis of remaining lots in USD
+ *   - `unrealizedValueUsd`: current market value of remaining lots in USD (using `currentPrices`)
+ *   - `unrealizedGainUsd`: `unrealizedValueUsd - unrealizedCostBasisUsd`
+ *   - `realizedSalesCount`: number of sales that realized gains (count of disposals that consumed lots)
+ */
 export function calculateBehaviorStats(
   transactions: Transaction[],
   currentPrices: Record<string, number>,
@@ -518,22 +542,22 @@ export function extractPulsechainCoreRotationSwaps(transactions: Transaction[]):
 }
 
 /**
- * Compute realized and unrealized PLS P&L and per-pair rotation statistics from a sequence of Pulsechain core rotation swaps.
+ * Compute realized and unrealized PnL expressed in PLS and per-pair rotation aggregates from a sequence of Pulsechain core rotation swaps.
  *
- * Processes rotations in the given order using FIFO lot accounting (in PLS units), converts USD-denominated prices to PLS using historical and current PLS/USD rates, and aggregates realized PnL, unrealized cost/value, total PnL, realized rotation count, and per-pair stats.
+ * Processes rotations in FIFO order (lots tracked in PLS units), converts historical USD values to PLS via the provided resolver, and values remaining lots using current prices converted to PLS.
  *
- * @param rotations - Rotation swap legs to process (order is used as the chronological processing order).
- * @param currentPricesUsd - Mapping of asset/symbol keys to their current USD prices used to derive current symbol-to-PLS prices.
- * @param currentPlsUsdPrice - Current PLS price in USD used to convert current USD prices into PLS.
- * @param resolvePlsUsdAtTimestamp - Function that returns the PLS price in USD at a given timestamp; used to convert historical USD values into PLS.
+ * @param rotations - Rotation swap legs to process; order is used as the chronological processing order.
+ * @param currentPricesUsd - Mapping of symbol keys to their current USD prices used to derive current symbol-to-PLS prices.
+ * @param currentPlsUsdPrice - Current PLS price in USD used to convert `currentPricesUsd` values into PLS.
+ * @param resolvePlsUsdAtTimestamp - Function that returns the PLS price in USD at a given timestamp for converting historical USD amounts into PLS.
  * @returns An object containing:
  *  - `realizedPnlPls`: total realized PnL expressed in PLS,
- *  - `unrealizedCostBasisPls`: sum of lot cost bases remaining in PLS,
+ *  - `unrealizedCostBasisPls`: sum of remaining lots' cost bases in PLS,
  *  - `unrealizedValuePls`: current market value of remaining lots in PLS,
  *  - `unrealizedPnlPls`: `unrealizedValuePls - unrealizedCostBasisPls`,
  *  - `totalPnlPls`: `realizedPnlPls + unrealizedPnlPls`,
  *  - `realizedRotationCount`: number of rotations that realized PnL,
- *  - `pairStats`: array of per-pair aggregates (fields: `pair`, `soldSymbol`, `boughtSymbol`, `realizedPnlPls`, `volumePls`, `rotationCount`) sorted by `realizedPnlPls` descending.
+ *  - `pairStats`: array of per-pair aggregates (each with `pair`, `soldSymbol`, `boughtSymbol`, `realizedPnlPls`, `volumePls`, `rotationCount`) sorted by `realizedPnlPls` descending.
  */
 export function calculatePulsechainCoreRotationPnlPls(
   rotations: PulsechainCoreRotationSwap[],

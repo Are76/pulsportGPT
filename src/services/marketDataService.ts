@@ -31,10 +31,10 @@ function getBlockscoutApiBase(chain: Extract<Chain, 'pulsechain' | 'base'>): str
 }
 
 /**
- * Retrieve current prices for a set of DefiLlama price keys.
+ * Get current prices for the given DefiLlama price keys.
  *
- * @param keys - Array of price key strings recognized by the DefiLlama API; keys are joined with commas to form the request path
- * @returns An object mapping each returned key to `{ price: number; logo?: string }`; missing or failed requests yield an empty object
+ * @param keys - Price key strings recognized by the DefiLlama API
+ * @returns An object mapping each returned price key to `{ price: number; logo?: string }`; returns an empty object if no data is available
  */
 export async function fetchDefiLlamaPrices(
   keys: string[],
@@ -102,11 +102,11 @@ export async function fetchDexScreenerBatchTokenPairs(
 }
 
 /**
- * Aggregate an array of DexScreener pair objects into a single market summary for the token.
+ * Produce a consolidated market summary for a token from DexScreener pair records.
  *
- * @param pairs - Array of DexScreener pair objects (each may contain `liquidity.usd`, `volume.h24`, `marketCap`, `fdv`, `txns.h24`, `priceNative`, `priceChange`, and `info` metadata).
- * @param fallbackDescription - Description to use if no description is present on the top-liquidity pair
- * @returns A `DexScreenerSummary` containing aggregated metrics (total `liquidity`, `volume24h`, total `pools`, and `txns24h`), top-pair values (`marketCap`, `fdv`, `nativePriceUsd`, `priceChange1h/6h/24h/7d`), and metadata (`description`, `websites`, `socials`, `imageUrl`), or `null` if `pairs` is not a non-empty array.
+ * @param pairs - Array of DexScreener pair objects; each object may include `liquidity.usd`, `volume.h24`, `marketCap`, `fdv`, `txns.h24`, `priceNative`, `priceChange`, and `info` metadata.
+ * @param fallbackDescription - Description to use when the selected top-liquidity pair has no `info.description`
+ * @returns A `DexScreenerSummary` with aggregated totals (`liquidity`, `volume24h`, `pools`, `txns24h`), top-pair values (`marketCap`, `fdv`, `nativePriceUsd`, `priceChange1h/6h/24h/7d`), and metadata (`description`, `websites`, `socials`, `imageUrl`), or `null` if `pairs` is not a non-empty array.
  */
 export function summarizeDexScreenerPairs(
   pairs: any[],

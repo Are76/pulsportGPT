@@ -3,10 +3,10 @@ import type { HistoryDrilldownIntent } from '../../features/history/historyDrill
 import type { WalletAnalyzerModel } from '../../utils/buildWalletAnalyzerModel';
 
 /**
- * Format a PLS amount with an explicit plus or minus sign and the `PLS` unit.
+ * Formats a PLS amount with a leading `+` or `-` and the `PLS` unit.
  *
  * @param value - The PLS amount (positive, zero, or negative)
- * @returns A string with a leading `+` or `-`, the absolute value formatted as tokens, and the `PLS` suffix (e.g. `+123.45 PLS`)
+ * @returns A string starting with `+` if `value >= 0` or `-` otherwise, followed by the absolute formatted amount and the `PLS` suffix (e.g. `+123.45 PLS`)
  */
 function formatSignedPls(value: number): string {
   return `${value >= 0 ? '+' : '-'}${fmtTok(Math.abs(value))} PLS`;

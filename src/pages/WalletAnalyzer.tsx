@@ -42,20 +42,26 @@ function formatSignedPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${percent}%`;
 }
 
+/**
+ * Formats a USD amount as a currency string prefixed with a sign.
+ *
+ * @param value - The numeric USD amount; may be positive, negative, or zero.
+ * @returns A USD-formatted string with a leading `+` for values greater than or equal to zero, or `-` for values less than zero.
+ */
 function formatSignedUsd(value: number): string {
   const formatted = fmtUsd(Math.abs(value));
   return `${value >= 0 ? '+' : '-'}${formatted}`;
 }
 
 /**
- * Render the Wallet Analyzer page, presenting portfolio performance, risk, behavior, chain attribution, and holdings details with interactive controls and drilldowns.
+ * Render the Wallet Analyzer user interface showing portfolio performance, attribution, risk, behavior, holdings, and related drilldowns.
  *
- * Provides range selection, chain and holding filters, highlights (alpha, chain driver, behavior), performance and attribution charts, risk/rotation panels, holdings table with expandable rows, allocation and contributor cards, and an asset detail panel. Also exposes action callbacks for opening transaction views and the Profit Planner.
+ * The page includes range selection, chain and holding filters, highlights (alpha, chain driver, behavior), performance and chain attribution charts, risk/rotation panels, holdings table with expandable rows, allocation and contributors cards, and an optional asset detail panel. Action callbacks are exposed for opening transaction views and the Profit Planner.
  *
  * @param model - Analyzer model containing performance, nav, chainMix, contributors, alerts, behavior, allocation, rotation, and risk data used to populate the page
- * @param investmentRows - Array of investment/holding rows shown in the holdings table and used for selections and counts
+ * @param investmentRows - Array of investment/holding rows displayed in the holdings table and used for counts and selections
  * @param plsUsdPrice - Current PLS-to-USD price used for valuation displays
- * @param onOpenTransactions - Generic callback invoked with a transaction intent to open a transaction history view
+ * @param onOpenTransactions - Callback invoked with a transaction intent to open a transaction history view
  * @param onOpenTransactionsForHolding - Callback invoked with an investment row to open transactions for a specific holding
  * @param onOpenTransactionsForChain - Callback invoked with a chain identifier to open transactions filtered by chain
  * @param onOpenPlanner - Callback triggered when the hero "Open Profit Planner" action is clicked

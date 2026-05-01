@@ -297,11 +297,11 @@ type FrontMarketPeriod = '5m' | '1h' | '6h' | '24h' | '7d';
 const FRONT_MARKET_PERIODS: FrontMarketPeriod[] = ['5m', '1h', '6h', '24h', '7d'];
 
 /**
- * Root React component that implements the full PulsePort application UI, handling wallet management, portfolio aggregation across PulseChain/Ethereum/Base, market-data enrichment, holdings and transaction ledgers, staking views, analytics modals, and navigation between app sections.
+ * Render the PulsePort single-page application and orchestrate portfolio state, data refreshes, market-data enrichment, and UI navigation.
  *
- * The component manages application state (wallets, assets, stakes, transactions, prices, UI state and filters), persists caches to localStorage, schedules portfolio and market-data refreshes, provides CSV/JSON export helpers, exposes spam/dust detection and manual coin entry, and renders the complete app shell (sidebar, header, main tabs, modals, and mobile navigation).
+ * Manages wallets, assets, stakes, LP/farm positions, transactions, prices, persisted caches, filters, spam/dust detection, manual coin entries, market-data fetching (DexScreener / Blockscout / DeFi Llama), CSV/JSON export helpers, and the full app shell (sidebar, header, main tabs, modals, and mobile navigation).
  *
- * @returns The root JSX element for the PulsePort application.
+ * @returns The root JSX element for the PulsePort application
  */
 export default function App() {
   // -- CSV Export helper ------------------------------------------------------

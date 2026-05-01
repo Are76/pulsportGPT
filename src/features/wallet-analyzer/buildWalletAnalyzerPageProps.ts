@@ -9,15 +9,15 @@ import type {
 const toHoldingKey = (chain: string, symbol: string) => `${chain}:${symbol}`.toUpperCase();
 
 /**
- * Builds Wallet Analyzer page props including lookup maps and transaction drilldown handlers.
+ * Constructs Wallet Analyzer `pageProps` with lookup maps and transaction drilldown handlers.
  *
  * @param args - Builder inputs
- * @param args.model - Page model passed through to the resulting props
+ * @param args.model - Page model to include in the resulting props
  * @param args.investmentRows - Investment holding rows used to build lookup maps for holdings and chains
- * @param args.plsUsdPrice - Current PLS price in USD forwarded to the page props
+ * @param args.plsUsdPrice - Current PLS price in USD to include in the props
  * @param args.onOpenTransactions - Callback invoked with a `HistoryDrilldownIntent` when transactions are requested
  * @param args.onOpenPlanner - Callback forwarded to the page props for opening the planner
- * @returns An object with a `pageProps` property containing the configured WalletAnalyzerPageProps
+ * @returns An object with a `pageProps` property containing the configured `WalletAnalyzerPageProps`
  */
 export function buildWalletAnalyzerPageProps({
   model,

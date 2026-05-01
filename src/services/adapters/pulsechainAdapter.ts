@@ -154,6 +154,12 @@ function buildTokenSearchQuery(term: string): string {
   });
 }
 
+/**
+ * Format a number or bigint as a 32-byte hexadecimal word (uint256) padded with leading zeros.
+ *
+ * @param n - The numeric value to encode as a uint256
+ * @returns A 64-character lowercase hexadecimal string representing `n` without a `0x` prefix
+ */
 function padUint256(n: number | bigint): string {
   return BigInt(n).toString(16).padStart(64, '0');
 }
@@ -221,6 +227,12 @@ function chunks<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
+/**
+ * Execute RPC call payloads in fixed-size chunks and collect their hex results in input order.
+ *
+ * @param calls - Array of RPC call objects containing `to` and `data` fields
+ * @returns An array of hex result strings corresponding to each input call in the original order; missing or empty responses are represented as `"0x"`
+ */
 async function chunkedBatch(
   calls: { to: string; data: string }[],
 ): Promise<string[]> {
@@ -684,6 +696,12 @@ export async function getPulsechainLPPositions(
   return positions;
 }
 
+/**
+ * Derives USD prices for Pulsechain tokens by reading on-chain reserves from configured Pulsex LP pairs and using WPLS as the pricing anchor.
+ *
+ * Attempts to compute WPLS/USD from USDC/USDT pairs and then derives token prices by reserve ratios for known LP pairs. If a valid WPLS price cannot be determined, returns an empty map.
+ *
+ * @returns A map where keys are token identifiers (`'native'` for the native chain token and lowercased contract addresses for tokens) and values are the derived USD prices. Keys are only included when a positive, finite price could be derived. */
 async function getPulsechainPriceSourceMap(): Promise<Record<string, number>> {
   const lpKeys = Object.keys(PULSEX_LP_PAIRS) as Array<keyof typeof PULSEX_LP_PAIRS>;
   const reserveResults = await batchRPC(

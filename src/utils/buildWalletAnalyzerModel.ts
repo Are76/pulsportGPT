@@ -83,6 +83,12 @@ interface BuildWalletAnalyzerModelArgs {
   benchmarkHistory?: HistoryPoint[];
 }
 
+/**
+ * Format a timestamp as a localized month-and-day label.
+ *
+ * @param timestamp - The timestamp in milliseconds since the Unix epoch.
+ * @returns A month-and-day string formatted for the en-US locale (e.g., "Apr 5").
+ */
 function formatPointLabel(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }

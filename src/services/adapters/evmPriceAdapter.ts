@@ -6,6 +6,14 @@ import { FETCH_TIMEOUT } from './rpcUtils';
 
 type FetchLike = typeof fetch;
 
+/**
+ * Fetches USD prices for the provided CoinGecko IDs and returns a map from ID to USD price.
+ *
+ * @param coinGeckoIds - Array of CoinGecko token IDs to query (e.g., `bitcoin`, `ethereum`)
+ * @param fetchImpl - A `fetch`-compatible implementation to perform the HTTP request
+ * @returns A mapping from each CoinGecko ID to its USD price; only entries with a finite value greater than 0 are included
+ * @throws Error when the CoinGecko HTTP response status is not OK (message: `CoinGecko HTTP <status>`)
+ */
 async function fetchCoinGeckoPriceMap(
   coinGeckoIds: string[],
   fetchImpl: FetchLike,
