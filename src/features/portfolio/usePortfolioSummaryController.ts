@@ -47,6 +47,17 @@ function assetCategory(asset: string): string {
   return u;
 }
 
+/**
+ * Compute a comprehensive portfolio summary from assets, stakes, transactions, prices, and wallets.
+ *
+ * @param args - Arguments required to compute the summary:
+ *   - `currentAssets`: current asset positions with value, balance, symbol, chain, price, and 24h PnL
+ *   - `currentStakes`: staking positions with on-chain quantities, remaining days and estimated USD value
+ *   - `currentTransactions`: transaction history used to qualify inflows and compute cost-basis / realized PnL
+ *   - `prices`: lookup table for USD prices keyed by token and chain
+ *   - `wallets`: wallet records used to determine which addresses are considered "own"
+ * @returns An AppPortfolioSummary containing aggregate values (total and liquid value, staking USD), 24h PnL and percent, per-chain distribution and PnL, PLS-native splits (native value, native balance, staked and token PLS value), net investment, unified PnL, and realized PnL.
+ */
 export function calculatePortfolioSummary({
   currentAssets,
   currentStakes,

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Wallet as WalletIcon,
   Coins,
@@ -296,6 +296,13 @@ const MIN_INVESTMENT_THRESHOLD = 100;
 type FrontMarketPeriod = '5m' | '1h' | '6h' | '24h' | '7d';
 const FRONT_MARKET_PERIODS: FrontMarketPeriod[] = ['5m', '1h', '6h', '24h', '7d'];
 
+/**
+ * Root React component that implements the full PulsePort application UI, handling wallet management, portfolio aggregation across PulseChain/Ethereum/Base, market-data enrichment, holdings and transaction ledgers, staking views, analytics modals, and navigation between app sections.
+ *
+ * The component manages application state (wallets, assets, stakes, transactions, prices, UI state and filters), persists caches to localStorage, schedules portfolio and market-data refreshes, provides CSV/JSON export helpers, exposes spam/dust detection and manual coin entry, and renders the complete app shell (sidebar, header, main tabs, modals, and mobile navigation).
+ *
+ * @returns The root JSX element for the PulsePort application.
+ */
 export default function App() {
   // -- CSV Export helper ------------------------------------------------------
   const exportCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {

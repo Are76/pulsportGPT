@@ -232,6 +232,13 @@ export function buildPerformancePointDescriptor(point: { label: string; value: n
   });
 }
 
+/**
+ * Builds a provenance descriptor describing the on-chain amount involved in a transaction.
+ *
+ * @param tx - The transaction record to describe; used to derive the label, formatted value, primary source (including a swap or interaction description), and explorer href.
+ * @param options - Optional controls for additional actions.
+ * @param options.onDrilldown - If provided, adds a "Filter {asset} history" drilldown action that invokes this callback when selected.
+ * @returns A ProvenanceDescriptor containing a label (`{asset} amount`), a formatted amount value, a primary source tied to the transaction (with a swap or interaction description when applicable), an explanatory note about the normalized record, an external "Open explorer" action, and an optional drilldown action. */
 export function buildTransactionAmountDescriptor(tx: Transaction, options?: { onDrilldown?: () => void }): ProvenanceDescriptor {
   const swapDescription = tx.type === 'swap' && tx.counterAsset
     ? `Paid ${(tx.counterAmount ?? 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.counterAsset} and received ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}.`

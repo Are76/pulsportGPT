@@ -33,6 +33,16 @@ async function fetchCoinGeckoPriceMap(
   }, {});
 }
 
+/**
+ * Produces USD price quotes for the specified EVM token addresses on the given chain using DeFiLlama-sourced prices.
+ *
+ * Resolves prices by looking up DeFiLlama price entries keyed by token address and returns PriceQuote objects only for tokens with a finite USD price greater than 0.
+ *
+ * @param tokenAddresses - Array of token contract addresses to price (entries may include whitespace or mixed case)
+ * @param chain - The target chain ('ethereum' or 'base') for which prices should be resolved
+ * @param fetchImpl - Optional fetch implementation to use for network requests
+ * @returns An array of PriceQuote objects for the provided addresses; only tokens with a positive finite USD price are included
+ */
 export async function getEvmPrices(
   tokenAddresses: string[],
   chain: Extract<Chain, 'ethereum' | 'base'>,

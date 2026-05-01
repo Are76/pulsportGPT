@@ -233,6 +233,13 @@ function decodeLibertySwapInput(input: string): { dstChainId: number; orderId: s
   }
 }
 
+/**
+ * Load USD prices for the configured CoinGecko IDs, using an in-memory cache to avoid frequent requests.
+ *
+ * Uses an in-memory cache valid for 5 minutes; if a cached in-flight request exists it is reused. On HTTP error or any failure the cache is cleared and the error is propagated.
+ *
+ * @returns A map from CoinGecko ID to its USD price — includes only entries with finite values greater than zero.
+ */
 async function loadMarketPrices(fetchImpl: FetchLike): Promise<MarketPriceMap> {
   const now = Date.now();
   if (marketPriceCache && marketPriceCache.expiresAt > now) {
@@ -271,6 +278,12 @@ async function loadMarketPrices(fetchImpl: FetchLike): Promise<MarketPriceMap> {
   }
 }
 
+/**
+ * Resolve the display asset label and optional bridge metadata for a token reference.
+ *
+ * @param token - Token reference object (may be `null`/`undefined`) containing address, symbol, or name fields.
+ * @returns An object with `asset` set to the resolved label; `bridged` is `true` when the token is recognized as a bridged token, and `bridge` contains bridge metadata when available.
+ */
 function resolveTokenAsset(token: TokenRef | null | undefined): { asset: string; bridged?: boolean; bridge?: Transaction['bridge'] } {
   const tokenAddress = (token?.address_hash ?? token?.address)?.toLowerCase();
   if (tokenAddress && BRIDGED_TOKENS[tokenAddress]) {
@@ -309,6 +322,21 @@ function buildPagedUrl(baseUrl: string, nextPageParams: Record<string, string | 
   ).toString()}`;
 }
 
+/**
+ * Fetches and accumulates items from a Blockscout-style paged JSON endpoint.
+ *
+ * Iterates pages following `next_page_params` until there are no more pages or a stopping condition is met.
+ * Stops early when the configured maximum page count is reached, when `next_page_params` is absent,
+ * when a parsed next-page block is earlier than `startBlock`, or (when `toleratePartialFailure` is true)
+ * when a page fetch fails after at least one successful page.
+ *
+ * @param url - The base endpoint URL that returns a `PagedResponse<T>`.
+ * @param fetchImpl - Fetch implementation to use for HTTP requests.
+ * @param startBlock - If provided, halts paging when the next page's `block_number` is less than `startBlock`.
+ * @param toleratePartialFailure - When true, treat a failing page request as end-of-pagination if some items were already collected.
+ * @param timeoutMs - Per-request timeout in milliseconds.
+ * @returns An object with `items` (all accumulated page items) and `nextBlock` (the last seen `next_page_params.block_number` parsed as an integer, if available).
+ */
 async function fetchPaginatedItems<T>(
   url: string,
   fetchImpl: FetchLike,
@@ -429,6 +457,16 @@ function resolveHexStakingAction(
   return undefined;
 }
 
+/**
+ * Convert raw token transfer items into normalized Pulsechain Transaction records.
+ *
+ * Each returned transaction is classified as a deposit when `to` equals `walletAddress`, otherwise as a withdraw. Token metadata is resolved to an asset label and optional bridged/bridge information; amounts are parsed using the token decimals; `valueUsd` is computed when an exchange rate is present. Transaction-level metadata from `txMetaByHash` (fee, status, method) is attached and HEX staking actions are detected when applicable. `blockNumber` is included only when it can be parsed.
+ *
+ * @param items - Token transfer items from Blockscout/Etherscan-compatible responses.
+ * @param walletAddress - Normalized wallet address used to determine deposit vs withdraw.
+ * @param txMetaByHash - Map keyed by transaction hash with optional `{ fee, status, method }` used to enrich each transaction.
+ * @returns An array of normalized `Transaction` objects for the Pulsechain chain, including `id`, `hash`, `timestamp`, `type`, `from`, `to`, `asset`, `amount`, optional `valueUsd`, optional `fee`, `bridged`/`bridge` metadata, optional `staking` info, optional `status`, and `blockNumber` when available.
+ */
 function normalizeTokenTransfers(
   items: AddressTokenTransferItem[],
   walletAddress: string,
@@ -476,6 +514,16 @@ type FetchPulsechainTransactionsOptions = {
   startBlock?: number;
 };
 
+/**
+ * Resolve a compatibility-layer method name from an explicit function name or raw calldata input.
+ *
+ * If `functionName` is provided, returns the substring before the first `(` after trimming.
+ * Otherwise, returns the trimmed, lowercased `input` when it is non-empty and not exactly `0x`.
+ *
+ * @param functionName - The declared function name (may include parameter list) to prefer when available
+ * @param input - Raw calldata or function identifier used as a fallback when `functionName` is absent
+ * @returns The resolved method name, or `undefined` if no usable name can be derived
+ */
 function resolveCompatMethodName(
   functionName: string | undefined,
   input: string | undefined,
@@ -493,6 +541,16 @@ function resolveCompatMethodName(
   return normalizedInput;
 }
 
+/**
+ * Resolve the display asset and optional bridge metadata for a Pulsechain token.
+ *
+ * If the token address matches a known bridged token, returns the bridged token entry; otherwise returns an object with `asset` derived from `symbol`, `name`, or `'UNKNOWN'`.
+ *
+ * @param contractAddress - Token contract address (any case)
+ * @param symbol - Token symbol, if available
+ * @param name - Token name, if available
+ * @returns An object with `asset` and optional `bridged`/`bridge` metadata for known bridged tokens
+ */
 function resolvePulsechainCompatTokenAsset(
   contractAddress: string,
   symbol: string | undefined,
@@ -508,6 +566,13 @@ function resolvePulsechainCompatTokenAsset(
   };
 }
 
+/**
+ * Fetches and normalizes Pulsechain transactions using the Etherscan-compatible compat API.
+ *
+ * @param address - The wallet address to query (will be normalized).
+ * @param options - Fetch and query options (may include `fetchImpl`, `compatApiBase`, and `startBlock`).
+ * @returns An object with `implemented: true`, the normalized `transactions` array for the address, and `nextBlock` set to `undefined`.
+ */
 async function fetchPulsechainTransactionsViaCompatApi(
   address: string,
   options: FetchPulsechainTransactionsOptions,
@@ -651,6 +716,16 @@ async function fetchPulsechainTransactionsViaCompatApi(
   };
 }
 
+/**
+ * Fetches and normalizes Pulsechain transactions and ERC-20 token transfers from a Blockscout v2 API for a given wallet.
+ *
+ * Fetches paginated native transactions and token transfers (ERC-20) in parallel, tolerates a single-side failure, aggregates metadata (fee/status/method) by transaction hash, filters by `startBlock` when provided, and returns normalized transactions plus an optional `nextBlock` cursor.
+ *
+ * @param address - The wallet address to fetch transactions for.
+ * @param options - Optional settings: `baseUrl` to override the Blockscout base URL, `fetchImpl` to override the fetch implementation, and `startBlock` to filter out earlier blocks.
+ * @returns An object with `implemented: true`, a list of normalized `transactions`, and `nextBlock` set to the highest next-block cursor from the underlying paginations or `undefined` if none.
+ * @throws When both the native transactions and token transfers paginated requests fail, rethrows the native request error.
+ */
 async function fetchPulsechainTransactionsViaBlockscoutV2(
   address: string,
   options: FetchPulsechainTransactionsOptions = {},
@@ -722,6 +797,14 @@ async function fetchPulsechainTransactionsViaBlockscoutV2(
   };
 }
 
+/**
+ * Fetches and returns normalized Pulsechain transactions for the given wallet, preferring a fast compatibility API and falling back to Blockscout v2 pagination when necessary.
+ *
+ * If `options.baseUrl` is provided this function will use the Blockscout v2 path. Otherwise it first attempts a compat-style API; if that attempt fails or returns no transactions it falls back to the Blockscout v2 implementation.
+ *
+ * @param options - Fetch options that may include `baseUrl`, `startBlock`, `fetch` implementation, and market-price overrides; when `baseUrl` is set the function will directly use the Blockscout v2 paginated endpoint
+ * @returns A TransactionQueryResult containing normalized transactions and an optional `nextBlock` value for continued pagination
+ */
 export async function fetchPulsechainTransactions(
   address: string,
   options: FetchPulsechainTransactionsOptions = {},
@@ -862,6 +945,19 @@ type FetchEthereumTransactionsOptions = {
   marketPrices?: MarketPriceMap;
 };
 
+/**
+ * Fetches all paginated results for an Etherscan-compatible account `action` and returns the concatenated items.
+ *
+ * @param action - Etherscan `action` query value (e.g., `txlist`, `tokentx`, `txlistinternal`)
+ * @param address - Account address to query
+ * @param fetchImpl - Fetch-like implementation used to perform HTTP requests
+ * @param apiKey - Optional API key to append to requests
+ * @param startBlock - Minimum block number to include (`startblock` query parameter)
+ * @param apiBase - Base URL of the Etherscan-compatible API (may already include query parameters)
+ * @param pageSize - Number of items to request per page; defaults to ETH_PAGE_SIZE
+ * @param sort - Sort order for results, either `asc` or `desc`
+ * @returns An array containing all result items accumulated across fetched pages
+ */
 async function fetchAllEtherscanPages<T>(
   action: string,
   address: string,

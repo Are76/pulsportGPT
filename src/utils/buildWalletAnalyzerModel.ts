@@ -87,7 +87,12 @@ function formatPointLabel(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-/** Fallback: synthetic +1.5%/point benchmark used when real price data is unavailable. */
+/**
+ * Creates a synthetic benchmark series that increases linearly by 1.5% per index from the first point's value.
+ *
+ * @param history - Source history points used to derive timestamps and other fields
+ * @returns A history array where each point's `value` is `firstValue * (1 + index * 0.015)`; returns an empty array if `history` is empty
+ */
 function buildSyntheticBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[] {
   if (history.length === 0) return [];
   const firstValue = history[0]!.value || 1;
@@ -97,6 +102,12 @@ function buildSyntheticBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[]
   }));
 }
 
+/**
+ * Resolve the current PLS (Pulsechain) price in USD from a map of token prices.
+ *
+ * @param currentPrices - Map of token identifiers to their USD prices; the function checks keys `pulsechain`, `pulsechain:native`, `PLS`, and `WPLS` (in that order).
+ * @returns The resolved PLS price in USD, or `0` if none of the expected keys are present.
+ */
 function resolveCurrentPlsUsdPrice(currentPrices: Record<string, number>): number {
   return currentPrices['pulsechain']
     ?? currentPrices['pulsechain:native']
@@ -105,6 +116,18 @@ function resolveCurrentPlsUsdPrice(currentPrices: Record<string, number>): numbe
     ?? 0;
 }
 
+/**
+ * Builds a consolidated wallet analytics model (NAV, performance, risk, behavior, allocation, contributors, chain mix, rotation PnL, and alerts) from portfolio inputs.
+ *
+ * @param history - Time series of portfolio values used to compute performance and risk metrics
+ * @param assets - Asset metadata referenced by rows (used for labeling/typing)
+ * @param summary - Summary totals (used as a fallback for NAV when holdings sum is zero)
+ * @param transactions - Transaction history used for behavior statistics and rotation PnL extraction
+ * @param investmentRows - Current holding rows used to compute allocation, contributors, and chain mix
+ * @param currentPrices - Map of current asset USD prices used in behavior and rotation calculations
+ * @param benchmarkHistory - Optional external benchmark series; when not provided a synthetic benchmark is generated
+ * @returns A WalletAnalyzerModel containing nav (total value, cumulative return, drawdown, volatility, Sharpe, diversification), performance points and benchmark comparison, risk and behavior metrics, allocation and contributor summaries, chain mix rows, rotation PnL data, and any generated alerts
+ */
 export function buildWalletAnalyzerModel({
   history,
   assets,

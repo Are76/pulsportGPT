@@ -2,10 +2,25 @@ import { fmtTok } from '../../lib/utils';
 import type { HistoryDrilldownIntent } from '../../features/history/historyDrilldown';
 import type { WalletAnalyzerModel } from '../../utils/buildWalletAnalyzerModel';
 
+/**
+ * Format a PLS amount with an explicit plus or minus sign and the `PLS` unit.
+ *
+ * @param value - The PLS amount (positive, zero, or negative)
+ * @returns A string with a leading `+` or `-`, the absolute value formatted as tokens, and the `PLS` suffix (e.g. `+123.45 PLS`)
+ */
 function formatSignedPls(value: number): string {
   return `${value >= 0 ? '+' : '-'}${fmtTok(Math.abs(value))} PLS`;
 }
 
+/**
+ * Render the "Core Rotation vs PLS" panel that summarizes rotation performance and provides drilldowns.
+ *
+ * Displays total, realized, and unrealized PLS results for the core rotation basket, a table of up to six pair routes with per-route realized PnL and flow drilldowns, and notes for best/weakest realized routes when available.
+ *
+ * @param rotation - Wallet analyzer rotation data (totals, counts, and `pairStats` entries used to populate summary cards and the pair table)
+ * @param onOpenTransactions - Callback invoked with a `HistoryDrilldownIntent` when the user requests transaction drilldowns (chain-level or asset-level swap flows)
+ * @returns A React element containing the Core Rotation UI panel
+ */
 export function CoreRotationCard({
   rotation,
   onOpenTransactions,

@@ -52,6 +52,18 @@ const buildInteractionRows = (
       type: 'interaction' as const,
     }));
 
+/**
+ * Normalize a flat list of raw on-chain transactions into a cleaned, collapsed history for the user's wallets.
+ *
+ * Produces a deduplicated, timestamp-sorted array where same-hash in+out pairs are collapsed into single `swap` records
+ * when appropriate, zero-value native "router" calls involving the user's addresses are emitted as `interaction` rows,
+ * multi-leg outs are reduced to economically relevant token outs, and post-processing enrichments (wallet-address stamping,
+ * cross-wallet transfer tagging, and bridge correlation) are applied.
+ *
+ * @param rawTxs - Unnormalized transactions from one or more chains.
+ * @param walletAddrs - Set of the user's wallet addresses (lowercased) used to determine ownership and tagging.
+ * @returns The normalized, deduplicated, and enriched transaction list ready for display or further analysis.
+ */
 export function normalizeTransactions(
   rawTxs: Transaction[],
   walletAddrs: Set<string>,

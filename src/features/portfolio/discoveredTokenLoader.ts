@@ -181,6 +181,14 @@ async function fetchAllEtherscanPages(
   return results;
 }
 
+/**
+ * Builds discovered Ethereum tokens from an address's Etherscan token transfer history, selecting a USD price for each token when available.
+ *
+ * @param address - The Ethereum address whose token transfers will be scanned
+ * @param fetchedPrices - Lookup map used to determine a token's USD price; the function checks the token's lowercased contract address first, then the token's CoinGecko id
+ * @param apiKey - Etherscan API key used to fetch the token transfer history
+ * @returns An object containing `discoveredTokens` — an array of DiscoveredToken objects constructed from the address's token transfer events
+ */
 export async function loadEthereumDiscoveredTokens(
   address: string,
   fetchedPrices: PriceMap,
@@ -269,6 +277,13 @@ export async function enrichPulsechainDiscoveredTokens(
   return { discoveredTokens, logoPatches };
 }
 
+/**
+ * Enriches Ethereum discovered tokens with USD price and logo information from DefiLlama.
+ *
+ * @param discoveredTokens - Discovered tokens to enrich; may be returned unmodified if no lookup keys are needed
+ * @param fetchedPrices - Existing price map used to determine which tokens need price lookups
+ * @returns An object containing the original `discoveredTokens` and, when available, `pricePatches` (maps both contract addresses and DefiLlama keys to `{ usd, image }`) and `logoPatches` (maps contract addresses to logo URLs)
+ */
 export async function enrichEthereumDiscoveredTokens(
   discoveredTokens: DiscoveredToken[],
   fetchedPrices: PriceMap,

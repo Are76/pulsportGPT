@@ -47,6 +47,20 @@ function formatSignedUsd(value: number): string {
   return `${value >= 0 ? '+' : '-'}${formatted}`;
 }
 
+/**
+ * Render the Wallet Analyzer page, presenting portfolio performance, risk, behavior, chain attribution, and holdings details with interactive controls and drilldowns.
+ *
+ * Provides range selection, chain and holding filters, highlights (alpha, chain driver, behavior), performance and attribution charts, risk/rotation panels, holdings table with expandable rows, allocation and contributor cards, and an asset detail panel. Also exposes action callbacks for opening transaction views and the Profit Planner.
+ *
+ * @param model - Analyzer model containing performance, nav, chainMix, contributors, alerts, behavior, allocation, rotation, and risk data used to populate the page
+ * @param investmentRows - Array of investment/holding rows shown in the holdings table and used for selections and counts
+ * @param plsUsdPrice - Current PLS-to-USD price used for valuation displays
+ * @param onOpenTransactions - Generic callback invoked with a transaction intent to open a transaction history view
+ * @param onOpenTransactionsForHolding - Callback invoked with an investment row to open transactions for a specific holding
+ * @param onOpenTransactionsForChain - Callback invoked with a chain identifier to open transactions filtered by chain
+ * @param onOpenPlanner - Callback triggered when the hero "Open Profit Planner" action is clicked
+ * @returns The rendered Wallet Analyzer page as a React element
+ */
 export function WalletAnalyzerPage({
   model,
   investmentRows,

@@ -78,6 +78,14 @@ type PlsLot = {
   unitCostPls: number;
 };
 
+/**
+ * Produce a new array of history points ordered by timestamp in ascending order.
+ *
+ * The input array is not mutated; a sorted shallow copy is returned.
+ *
+ * @param history - Array of history points to sort
+ * @returns A new array of the same history points sorted by `timestamp` (earliest first)
+ */
 function sortHistory(history: HistoryPoint[]): HistoryPoint[] {
   return [...history].sort((a, b) => a.timestamp - b.timestamp);
 }
@@ -94,10 +102,25 @@ function standardDeviation(values: number[]): number {
   return Math.sqrt(variance);
 }
 
+/**
+ * Build an uppercase identifier for a holding by joining chain and asset with a colon.
+ *
+ * @param chain - The chain identifier (e.g., 'pulsechain', 'ethereum')
+ * @param asset - The asset symbol or address
+ * @returns An uppercase string in the form `CHAIN:ASSET`
+ */
 function holdingKey(chain: string, asset: string): string {
   return `${chain}:${asset}`.toUpperCase();
 }
 
+/**
+ * Map a token symbol (including common variant forms) to the canonical Pulsechain core rotation symbol.
+ *
+ * Accepts typical symbol variants and returns the corresponding canonical symbol when recognized.
+ *
+ * @param symbol - The input token symbol or variant to normalize
+ * @returns One of the canonical symbols `PLS`, `PLSX`, `INC`, `PRVX`, `pHEX`, or `eHEX` if recognized, `null` otherwise
+ */
 function normalizePulsechainCoreRotationSymbol(symbol: string): PulsechainCoreRotationSymbol | null {
   const upper = symbol.trim().toUpperCase();
   if (upper === 'PLS' || upper === 'WPLS') return 'PLS';
@@ -109,6 +132,13 @@ function normalizePulsechainCoreRotationSymbol(symbol: string): PulsechainCoreRo
   return null;
 }
 
+/**
+ * Builds a lookup mapping normalized Pulsechain core symbols to their price expressed in PLS units.
+ *
+ * @param currentPricesUsd - Mapping of raw asset keys to their current USD prices.
+ * @param currentPlsUsdPrice - Current USD price of PLS used to convert USD prices into PLS units.
+ * @returns A record where keys are normalized core symbols (e.g., `PLS`, `PLSX`, `INC`, ...) and values are price in PLS (PLS itself maps to `1`).
+ */
 function buildCurrentPlsPriceLookup(currentPricesUsd: Record<string, number>, currentPlsUsdPrice: number): Record<string, number> {
   const lookup: Record<string, number> = {
     PLS: 1,
@@ -139,6 +169,16 @@ function buildCurrentPlsPriceLookup(currentPricesUsd: Record<string, number>, cu
   return lookup;
 }
 
+/**
+ * Convert a swap leg's quantity or USD value into PLS-denominated units using available pricing.
+ *
+ * @param symbol - The normalized core symbol for the swap leg (e.g., `PLS`, `PLSX`).
+ * @param amount - The quantity of `symbol` involved in the leg.
+ * @param directPriceUsd - Optional per-unit USD price for the symbol at the swap; used first when positive.
+ * @param fallbackValueUsd - Optional total USD value for the leg; used when `directPriceUsd` is unavailable.
+ * @param plsUsdAtTimestamp - USD price of PLS at the reference timestamp used to convert USD → PLS; conversion requires a positive value.
+ * @returns The equivalent value expressed in PLS units, or `0` if the amount is non-positive or conversion cannot be performed.
+ */
 function resolvePlsValueFromSwapLeg(
   symbol: PulsechainCoreRotationSymbol,
   amount: number,
@@ -157,6 +197,14 @@ function resolvePlsValueFromSwapLeg(
   return 0;
 }
 
+/**
+ * Compute the USD acquisition value for a transaction.
+ *
+ * Uses `tx.valueUsd` when present; otherwise computes `tx.assetPriceUsdAtTx * tx.amount` if both fields are numeric; returns `0` if neither is available.
+ *
+ * @param tx - The transaction whose acquisition value should be determined
+ * @returns The acquisition value in USD
+ */
 function getAcquisitionValueUsd(tx: Transaction): number {
   if (typeof tx.valueUsd === 'number') return tx.valueUsd;
   if (typeof tx.assetPriceUsdAtTx === 'number') return tx.assetPriceUsdAtTx * tx.amount;
@@ -375,6 +423,17 @@ export function calculateBehaviorStats(
   };
 }
 
+/**
+ * Computes per-chain attribution rows using historical chain PnL and a final distribution.
+ *
+ * @param history - Chronological portfolio history points; chain-level PnL from these points is aggregated to compute net moves per chain.
+ * @param endDistribution - Mapping of chain keys to their ending USD values used as the reported endValueUsd for each row.
+ * @returns An array of attribution rows for chains with a positive ending value, each containing:
+ *          - `chain`: the chain key,
+ *          - `moveUsd`: aggregated net PnL/movement for that chain,
+ *          - `startValueUsd`: computed starting value (max of 0 and endValueUsd - moveUsd),
+ *          - `endValueUsd`: the provided ending value; rows are sorted by descending `endValueUsd`.
+ */
 export function calculateChainAttribution(
   history: HistoryPoint[],
   endDistribution: Record<Chain, number>,
@@ -418,6 +477,15 @@ export function calculateChainAttribution(
     .sort((a, b) => b.endValueUsd - a.endValueUsd);
 }
 
+/**
+ * Extracts Pulsechain core-rotation swap legs from a list of transactions.
+ *
+ * Filters the input for Pulsechain swap transactions and returns normalized swap records
+ * where both the sold and bought symbols are recognized core symbols and differ from each other.
+ *
+ * @param transactions - The transactions to scan for Pulsechain swap events.
+ * @returns An array of `PulsechainCoreRotationSwap` entries (sorted by ascending timestamp) representing normalized swap legs between supported core symbols.
+ */
 export function extractPulsechainCoreRotationSwaps(transactions: Transaction[]): PulsechainCoreRotationSwap[] {
   return [...transactions]
     .filter(
@@ -449,6 +517,24 @@ export function extractPulsechainCoreRotationSwaps(transactions: Transaction[]):
     .sort((a, b) => a.timestamp - b.timestamp);
 }
 
+/**
+ * Compute realized and unrealized PLS P&L and per-pair rotation statistics from a sequence of Pulsechain core rotation swaps.
+ *
+ * Processes rotations in the given order using FIFO lot accounting (in PLS units), converts USD-denominated prices to PLS using historical and current PLS/USD rates, and aggregates realized PnL, unrealized cost/value, total PnL, realized rotation count, and per-pair stats.
+ *
+ * @param rotations - Rotation swap legs to process (order is used as the chronological processing order).
+ * @param currentPricesUsd - Mapping of asset/symbol keys to their current USD prices used to derive current symbol-to-PLS prices.
+ * @param currentPlsUsdPrice - Current PLS price in USD used to convert current USD prices into PLS.
+ * @param resolvePlsUsdAtTimestamp - Function that returns the PLS price in USD at a given timestamp; used to convert historical USD values into PLS.
+ * @returns An object containing:
+ *  - `realizedPnlPls`: total realized PnL expressed in PLS,
+ *  - `unrealizedCostBasisPls`: sum of lot cost bases remaining in PLS,
+ *  - `unrealizedValuePls`: current market value of remaining lots in PLS,
+ *  - `unrealizedPnlPls`: `unrealizedValuePls - unrealizedCostBasisPls`,
+ *  - `totalPnlPls`: `realizedPnlPls + unrealizedPnlPls`,
+ *  - `realizedRotationCount`: number of rotations that realized PnL,
+ *  - `pairStats`: array of per-pair aggregates (fields: `pair`, `soldSymbol`, `boughtSymbol`, `realizedPnlPls`, `volumePls`, `rotationCount`) sorted by `realizedPnlPls` descending.
+ */
 export function calculatePulsechainCoreRotationPnlPls(
   rotations: PulsechainCoreRotationSwap[],
   currentPricesUsd: Record<string, number>,

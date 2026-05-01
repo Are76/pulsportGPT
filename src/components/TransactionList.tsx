@@ -107,6 +107,16 @@ function resolveTransactionUsdValue(
   return undefined;
 }
 
+/**
+ * Map a transaction type to its visual metadata (icon component, background color, foreground color, and display label).
+ *
+ * @param type - One of the transaction types: `deposit`, `withdraw`, `swap`, or `interaction`
+ * @returns An object with:
+ *  - `Icon`: the React icon component for the type
+ *  - `bg`: CSS background color (rgba)
+ *  - `color`: CSS foreground color
+ *  - `label`: short display label for the transaction type
+ */
 function txVisual(type: Transaction['type']) {
   switch (type) {
     case 'deposit':  return { Icon: ArrowDownLeft, bg: 'rgba(0,255,159,.10)', color: 'var(--accent)',  label: 'Received' } as const;
@@ -207,7 +217,27 @@ function LibertySwapPanel({ dstChainId, orderId }: { dstChainId: number; orderId
   );
 }
 
-// --- Component ----------------------------------------------------------------
+/**
+ * Render a configurable list of transactions with expandable detail panels, per-asset filtering, hide/unhide controls, and optional progressive pagination.
+ *
+ * Renders each transaction as a card row with type/chain badges, a condensed or full amount row, side USD/time metadata, optional asset logo filter button, hide/unhide action, and an expandable detail panel (SwapDetail, InteractionDetail, or TransferDetail). Supports treating known wallet addresses as "You", resolving token logos, computing an entry USD estimate, and showing LibertySwap markers when present.
+ *
+ * @param transactions - Array of transaction objects to display.
+ * @param viewAsYou - When true, known wallet addresses are labeled with wallet names or "You" instead of shortened addresses.
+ * @param wallets - List of tracked wallets used to resolve address ownership and display names.
+ * @param compact - When true, render a compact row layout (hides some metadata and USD values).
+ * @param assets - Price/logo context used to find token metadata and compute USD values.
+ * @param getTokenLogoUrl - Optional callback to produce a token logo URL from an Asset.
+ * @param tokenLogos - Fallback mapping of token symbol → logo URL when `getTokenLogoUrl` is not provided or asset lookup fails.
+ * @param hideIds - Array of transaction IDs that should be visually hidden.
+ * @param onToggleHide - Optional callback invoked with a transaction ID to toggle its hidden state.
+ * @param showHidden - When true, include hidden transactions in the visible list.
+ * @param onFilterByAsset - Optional callback invoked with a token symbol when the user requests filtering by that asset.
+ * @param emptyMessage - Message text rendered when there are no visible transactions.
+ * @param initialVisibleCount - Optional initial number of transactions to show; when omitted all transactions are shown.
+ * @param loadMoreCount - Number of additional transactions to reveal when "Load more" is clicked.
+ * @returns The rendered transaction list React element.
+ */
 export function TransactionList({
   transactions,
   viewAsYou = false,
@@ -539,6 +569,18 @@ export function TransactionList({
   );
 }
 
+/**
+ * Render detailed information for a contract interaction transaction.
+ *
+ * Renders a contextual line describing the call sender and recipient, a grid of stat cards
+ * (Type, Chain, From, To, Date) and an external explorer link for the transaction hash.
+ *
+ * @param tx - The transaction to describe (interaction/call)
+ * @param displayAddr - Function that returns a display-friendly string for an address or undefined
+ * @param isOwn - Predicate that returns `true` when the given address belongs to a tracked wallet
+ * @param explorerBase - Base URL for the chain explorer used to build the transaction link
+ * @returns A JSX element containing the interaction detail panel with stats and an explorer link
+ */
 function InteractionDetail({
   tx,
   displayAddr,

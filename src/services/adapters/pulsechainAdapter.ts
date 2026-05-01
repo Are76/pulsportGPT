@@ -158,6 +158,13 @@ function padUint256(n: number | bigint): string {
   return BigInt(n).toString(16).padStart(64, '0');
 }
 
+/**
+ * Execute a batch of JSON-RPC `eth_call` requests against a single RPC endpoint and return their results.
+ *
+ * @param calls - Array of call descriptors, each with `to` (target contract address) and `data` (calldata).
+ * @param rpc - RPC endpoint URL to send the batch request to.
+ * @returns An array of hex-encoded result strings corresponding to each call in the same order as `calls`. If a response has no result, the entry will be `'0x'`.
+ */
 async function batchRPC(
   calls: { to: string; data: string }[],
   rpc: string,
@@ -174,6 +181,12 @@ async function batchRPC(
     .map((r) => r.result ?? '0x');
 }
 
+/**
+ * Send a JSON-RPC batch to the primary RPC endpoint and retry against the fallback RPC if the primary call fails.
+ *
+ * @param body - Array of JSON-RPC batch request objects to send
+ * @returns The array of JSON-RPC batch response objects corresponding to `body` (order preserved)
+ */
 async function batchRpcRequestWithFallback(
   body: RpcBatchRequest[],
 ): Promise<RpcBatchResponse[]> {
@@ -184,6 +197,12 @@ async function batchRpcRequestWithFallback(
   }
 }
 
+/**
+ * Execute a batched eth_call against the primary RPC and fall back to the secondary RPC on error.
+ *
+ * @param calls - Array of RPC call objects with `to` (target address) and `data` (call data hex)
+ * @returns An array of hex result strings corresponding to each call (each entry is the RPC `result` or `'0x'` when absent)
+ */
 async function batchRPCWithFallback(
   calls: { to: string; data: string }[],
 ): Promise<string[]> {
@@ -213,6 +232,20 @@ async function chunkedBatch(
   return results;
 }
 
+/**
+ * Searches a Pulsechain Pulsex subgraph for LP pairs matching `term` and returns normalized pair results.
+ *
+ * The function POSTs a GraphQL token-pair search to `url`, validates the HTTP and subgraph responses,
+ * filters results to pairs where either token is WPLS and the WPLS-side reserve meets the minimum threshold,
+ * and tags each result with the provided `version`.
+ *
+ * @param url - Subgraph HTTP endpoint to query
+ * @param term - Search term used to match token symbols or names
+ * @param version - Subgraph schema version label to prefix result IDs (`'v1'` or `'v2'`)
+ * @param signal - Optional AbortSignal to cancel the request
+ * @returns An array of `PulsechainTokenSearchResult` objects for pairs containing WPLS and meeting reserve criteria
+ * @throws Error when the HTTP response is not OK or when the subgraph returns errors
+ */
 async function queryPulsechainTokenSearchSubgraph(
   url: string,
   term: string,
@@ -733,6 +766,17 @@ async function getPulsechainPriceSourceMap(): Promise<Record<string, number>> {
   return prices;
 }
 
+/**
+ * Fetches USD prices from CoinGecko for the given PulseChain token addresses.
+ *
+ * Looks up CoinGecko IDs for addresses present in the built-in token list and returns a map
+ * from each matched token's lowercased address to its USD price. If no matching CoinGecko IDs
+ * are found, an empty object is returned.
+ *
+ * @param tokenAddresses - Array of token contract addresses to query
+ * @returns A record mapping each matched token's lowercased address to its USD price
+ * @throws Error if the CoinGecko HTTP request returns a non-OK response
+ */
 async function getCoinGeckoPriceSourceMap(tokenAddresses: string[]): Promise<Record<string, number>> {
   const requestedAddresses = new Set(tokenAddresses.map(address => address.trim().toLowerCase()));
   const requestedTokens = TOKENS.pulsechain.filter(token => requestedAddresses.has(token.address.toLowerCase()));

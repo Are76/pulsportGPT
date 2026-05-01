@@ -20,10 +20,22 @@ export interface DexScreenerSummary {
   imageUrl: string | null;
 }
 
+/**
+ * Get the Blockscout API base URL for the specified chain.
+ *
+ * @param chain - Chain identifier, either `'base'` or `'pulsechain'`
+ * @returns The Blockscout API base URL for the given chain
+ */
 function getBlockscoutApiBase(chain: Extract<Chain, 'pulsechain' | 'base'>): string {
   return chain === 'base' ? 'https://base.blockscout.com/api/v2' : 'https://scan.pulsechain.com/api/v2';
 }
 
+/**
+ * Retrieve current prices for a set of DefiLlama price keys.
+ *
+ * @param keys - Array of price key strings recognized by the DefiLlama API; keys are joined with commas to form the request path
+ * @returns An object mapping each returned key to `{ price: number; logo?: string }`; missing or failed requests yield an empty object
+ */
 export async function fetchDefiLlamaPrices(
   keys: string[],
   fetchImpl: FetchLike = fetch,
@@ -35,6 +47,13 @@ export async function fetchDefiLlamaPrices(
   return data.coins || {};
 }
 
+/**
+ * Retrieve token details from Blockscout for a given chain and token address.
+ *
+ * @param chain - The blockchain to query (`'pulsechain'` or `'base'`)
+ * @param address - The token contract address to fetch
+ * @returns The parsed JSON response containing token details, or `null` if the HTTP request was not successful
+ */
 export async function fetchBlockscoutTokenDetails(
   chain: Extract<Chain, 'pulsechain' | 'base'>,
   address: string,
@@ -45,6 +64,12 @@ export async function fetchBlockscoutTokenDetails(
   return response.json();
 }
 
+/**
+ * Fetches the latest DexScreener DEX pairs for a token contract address.
+ *
+ * @param address - The token contract address to query on DexScreener
+ * @returns An array of pair objects returned by DexScreener; returns an empty array if the HTTP request fails or the response does not contain a `pairs` array
+ */
 export async function fetchDexScreenerTokenPairs(
   address: string,
   fetchImpl: FetchLike = fetch,
@@ -55,6 +80,13 @@ export async function fetchDexScreenerTokenPairs(
   return Array.isArray(data.pairs) ? data.pairs : [];
 }
 
+/**
+ * Fetches token pair entries from DexScreener for multiple token addresses on the given chain.
+ *
+ * @param chain - The DexScreener chain identifier (`'pulsechain'` is supported).
+ * @param addresses - Token contract addresses to query; if empty, the function returns an empty array.
+ * @returns An array of parsed DexScreener pair objects; returns an empty array when no data is available or the request fails.
+ */
 export async function fetchDexScreenerBatchTokenPairs(
   chain: 'pulsechain',
   addresses: string[],
@@ -69,6 +101,13 @@ export async function fetchDexScreenerBatchTokenPairs(
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * Aggregate an array of DexScreener pair objects into a single market summary for the token.
+ *
+ * @param pairs - Array of DexScreener pair objects (each may contain `liquidity.usd`, `volume.h24`, `marketCap`, `fdv`, `txns.h24`, `priceNative`, `priceChange`, and `info` metadata).
+ * @param fallbackDescription - Description to use if no description is present on the top-liquidity pair
+ * @returns A `DexScreenerSummary` containing aggregated metrics (total `liquidity`, `volume24h`, total `pools`, and `txns24h`), top-pair values (`marketCap`, `fdv`, `nativePriceUsd`, `priceChange1h/6h/24h/7d`), and metadata (`description`, `websites`, `socials`, `imageUrl`), or `null` if `pairs` is not a non-empty array.
+ */
 export function summarizeDexScreenerPairs(
   pairs: any[],
   fallbackDescription: string | null = null,
@@ -96,6 +135,13 @@ export function summarizeDexScreenerPairs(
   };
 }
 
+/**
+ * Fetches DexScreener pairs for a token address and produces an aggregated market summary.
+ *
+ * @param address - The token contract address to query on DexScreener
+ * @param fallbackDescription - Description to use if pair metadata does not provide one
+ * @returns A `DexScreenerSummary` containing aggregated liquidity, volume, price changes, pool/txn counts and metadata, or `null` if no pair data is available
+ */
 export async function fetchDexScreenerSummary(
   address: string,
   fallbackDescription: string | null = null,
