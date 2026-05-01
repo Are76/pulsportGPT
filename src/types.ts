@@ -178,7 +178,7 @@ export interface TransactionQueryResult {
  *  - swap              : atomic exchange of one asset for another
  *  - internal-transfer : move between two wallets owned by the same user (excluded from P&L)
  */
-export type TransactionType = 'deposit' | 'withdraw' | 'swap' | 'internal-transfer';
+export type TransactionType = 'deposit' | 'withdraw' | 'swap' | 'internal-transfer' | 'interaction';
 
 export interface Transaction {
   /** Unique identifier (hash-based). */

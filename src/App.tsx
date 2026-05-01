@@ -120,24 +120,6 @@ const ERC20_ABI = [
   }
 ] as const;
 
-const PriceDisplay = ({ price, className }: { price: number, className?: string }) => {
-  if (price === 0) return <span className={className}>$0.00</span>;
-
-  // Handle very small prices with subscript for zeros
-  if (price < 0.0001 && price > 0) {
-    const priceStr = price.toFixed(12);
-    const match = priceStr.match(/^0\.0+(?=[1-9])/);
-    if (match) {
-      const zerosCount = match[0].length - 2;
-      const remaining = priceStr.slice(match[0].length);
-      return (
-        <span className={cn("font-mono", className)}>
-          $0.0<sub className="price-sub">{zerosCount}</sub>{remaining.slice(0, 4)}
-        </span>
-      );
-    }
-  }
-
 // Address constants used for eHEX price lookup.
 // These are kept here (not in constants.ts) as they are only used in this file.
 const ETH_HEX_ADDR = '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39';

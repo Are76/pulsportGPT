@@ -6,6 +6,11 @@ import { FETCH_TIMEOUT } from './rpcUtils';
 
 type FetchLike = typeof fetch;
 
+/** Formats a DeFi Llama price lookup key for an EVM token (e.g. `"ethereum:0x..."`, `"base:0x..."`). */
+function getDefiLlamaKey(chain: Extract<Chain, 'ethereum' | 'base'>, address: string): string {
+  return `${chain}:${address}`;
+}
+
 /**
  * Fetches USD prices for the provided CoinGecko IDs and returns a map from ID to USD price.
  *

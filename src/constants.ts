@@ -219,7 +219,6 @@ export const CHAINS = {
         ]
       : [
           'https://eth.drpc.org',
-          'https://cloudflare-eth.com',
         ],
     explorer: 'https://etherscan.io',
     color: '#627EEA',
