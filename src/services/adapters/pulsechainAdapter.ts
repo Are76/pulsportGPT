@@ -154,10 +154,23 @@ function buildTokenSearchQuery(term: string): string {
   });
 }
 
+/**
+ * Format a number or bigint as a 32-byte hexadecimal word (uint256) padded with leading zeros.
+ *
+ * @param n - The numeric value to encode as a uint256
+ * @returns A 64-character lowercase hexadecimal string representing `n` without a `0x` prefix
+ */
 function padUint256(n: number | bigint): string {
   return BigInt(n).toString(16).padStart(64, '0');
 }
 
+/**
+ * Execute a batch of JSON-RPC `eth_call` requests against a single RPC endpoint and return their results.
+ *
+ * @param calls - Array of call descriptors, each with `to` (target contract address) and `data` (calldata).
+ * @param rpc - RPC endpoint URL to send the batch request to.
+ * @returns An array of hex-encoded result strings corresponding to each call in the same order as `calls`. If a response has no result, the entry will be `'0x'`.
+ */
 async function batchRPC(
   calls: { to: string; data: string }[],
   rpc: string,
@@ -174,6 +187,28 @@ async function batchRPC(
     .map((r) => r.result ?? '0x');
 }
 
+/**
+ * Send a JSON-RPC batch to the primary RPC endpoint and retry against the fallback RPC if the primary call fails.
+ *
+ * @param body - Array of JSON-RPC batch request objects to send
+ * @returns The array of JSON-RPC batch response objects corresponding to `body` (order preserved)
+ */
+async function batchRpcRequestWithFallback(
+  body: RpcBatchRequest[],
+): Promise<RpcBatchResponse[]> {
+  try {
+    return await batchRpcRequest(body, PRIMARY_RPC);
+  } catch {
+    return await batchRpcRequest(body, FALLBACK_RPC);
+  }
+}
+
+/**
+ * Execute a batched eth_call against the primary RPC and fall back to the secondary RPC on error.
+ *
+ * @param calls - Array of RPC call objects with `to` (target address) and `data` (call data hex)
+ * @returns An array of hex result strings corresponding to each call (each entry is the RPC `result` or `'0x'` when absent)
+ */
 async function batchRPCWithFallback(
   calls: { to: string; data: string }[],
 ): Promise<string[]> {
@@ -192,6 +227,12 @@ function chunks<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
+/**
+ * Execute RPC call payloads in fixed-size chunks and collect their hex results in input order.
+ *
+ * @param calls - Array of RPC call objects containing `to` and `data` fields
+ * @returns An array of hex result strings corresponding to each input call in the original order; missing or empty responses are represented as `"0x"`
+ */
 async function chunkedBatch(
   calls: { to: string; data: string }[],
 ): Promise<string[]> {
@@ -203,6 +244,20 @@ async function chunkedBatch(
   return results;
 }
 
+/**
+ * Searches a Pulsechain Pulsex subgraph for LP pairs matching `term` and returns normalized pair results.
+ *
+ * The function POSTs a GraphQL token-pair search to `url`, validates the HTTP and subgraph responses,
+ * filters results to pairs where either token is WPLS and the WPLS-side reserve meets the minimum threshold,
+ * and tags each result with the provided `version`.
+ *
+ * @param url - Subgraph HTTP endpoint to query
+ * @param term - Search term used to match token symbols or names
+ * @param version - Subgraph schema version label to prefix result IDs (`'v1'` or `'v2'`)
+ * @param signal - Optional AbortSignal to cancel the request
+ * @returns An array of `PulsechainTokenSearchResult` objects for pairs containing WPLS and meeting reserve criteria
+ * @throws Error when the HTTP response is not OK or when the subgraph returns errors
+ */
 async function queryPulsechainTokenSearchSubgraph(
   url: string,
   term: string,
@@ -215,10 +270,10 @@ async function queryPulsechainTokenSearchSubgraph(
       'Content-Type': 'application/json',
     },
     body: buildTokenSearchQuery(term),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT)]) : AbortSignal.timeout(FETCH_TIMEOUT),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]) : AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
-  if (!response.ok) {
+  if (response.ok === false) {
     throw new Error(`Subgraph HTTP ${response.status}`);
   }
 
@@ -641,6 +696,12 @@ export async function getPulsechainLPPositions(
   return positions;
 }
 
+/**
+ * Derives USD prices for Pulsechain tokens by reading on-chain reserves from configured Pulsex LP pairs and using WPLS as the pricing anchor.
+ *
+ * Attempts to compute WPLS/USD from USDC/USDT pairs and then derives token prices by reserve ratios for known LP pairs. If a valid WPLS price cannot be determined, returns an empty map.
+ *
+ * @returns A map where keys are token identifiers (`'native'` for the native chain token and lowercased contract addresses for tokens) and values are the derived USD prices. Keys are only included when a positive, finite price could be derived. */
 async function getPulsechainPriceSourceMap(): Promise<Record<string, number>> {
   const lpKeys = Object.keys(PULSEX_LP_PAIRS) as Array<keyof typeof PULSEX_LP_PAIRS>;
   const reserveResults = await batchRPC(
@@ -723,6 +784,17 @@ async function getPulsechainPriceSourceMap(): Promise<Record<string, number>> {
   return prices;
 }
 
+/**
+ * Fetches USD prices from CoinGecko for the given PulseChain token addresses.
+ *
+ * Looks up CoinGecko IDs for addresses present in the built-in token list and returns a map
+ * from each matched token's lowercased address to its USD price. If no matching CoinGecko IDs
+ * are found, an empty object is returned.
+ *
+ * @param tokenAddresses - Array of token contract addresses to query
+ * @returns A record mapping each matched token's lowercased address to its USD price
+ * @throws Error if the CoinGecko HTTP request returns a non-OK response
+ */
 async function getCoinGeckoPriceSourceMap(tokenAddresses: string[]): Promise<Record<string, number>> {
   const requestedAddresses = new Set(tokenAddresses.map(address => address.trim().toLowerCase()));
   const requestedTokens = TOKENS.pulsechain.filter(token => requestedAddresses.has(token.address.toLowerCase()));
@@ -734,10 +806,10 @@ async function getCoinGeckoPriceSourceMap(tokenAddresses: string[]): Promise<Rec
 
   const response = await fetch(
     `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoIds.join(',')}&vs_currencies=usd`,
-    { signal: AbortSignal.timeout(FETCH_TIMEOUT) },
+    { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
   );
 
-  if (!response.ok) {
+  if (response.ok === false) {
     throw new Error(`CoinGecko HTTP ${response.status}`);
   }
 

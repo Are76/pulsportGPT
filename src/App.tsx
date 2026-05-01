@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Wallet as WalletIcon,
   Coins,
@@ -82,6 +82,11 @@ import { buildInvestmentRows } from './utils/buildInvestmentRows';
 import { scheduleLocalStorageWrite, resolveBlockscoutBase } from './utils/localStorageDebounce';
 import { fmtBigNum, fmtDec, fmtTok, fmtCompact, fmtPrice, fmtMarket } from './utils/format';
 import { dataAccess } from './services/dataAccess';
+import {
+  fetchBlockscoutTokenDetails,
+  fetchDefiLlamaPrices,
+  fetchDexScreenerSummary,
+} from './services/marketDataService';
 import { buildTransactionExportRows, buildTransactionExportJson } from './utils/transactionExport';
 import { BRAND_ASSETS } from './branding/brand-assets';
 import {
@@ -105,7 +110,33 @@ import { WalletAnalyzerPage } from './pages/WalletAnalyzer';
 import { buildWalletAnalyzerModel } from './utils/buildWalletAnalyzerModel';
 import { MyInvestmentsUtilityStrip } from './components/my-investments/MyInvestmentsUtilityStrip';
 
+const ERC20_ABI = [
+  {
+    "constant": true,
+    "inputs": [{ "name": "_owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "balance", "type": "uint256" }],
+    "type": "function"
+  }
+] as const;
 
+const PriceDisplay = ({ price, className }: { price: number, className?: string }) => {
+  if (price === 0) return <span className={className}>$0.00</span>;
+
+  // Handle very small prices with subscript for zeros
+  if (price < 0.0001 && price > 0) {
+    const priceStr = price.toFixed(12);
+    const match = priceStr.match(/^0\.0+(?=[1-9])/);
+    if (match) {
+      const zerosCount = match[0].length - 2;
+      const remaining = priceStr.slice(match[0].length);
+      return (
+        <span className={cn("font-mono", className)}>
+          $0.0<sub className="price-sub">{zerosCount}</sub>{remaining.slice(0, 4)}
+        </span>
+      );
+    }
+  }
 
 // Address constants used for eHEX price lookup.
 // These are kept here (not in constants.ts) as they are only used in this file.
@@ -265,6 +296,13 @@ const MIN_INVESTMENT_THRESHOLD = 100;
 type FrontMarketPeriod = '5m' | '1h' | '6h' | '24h' | '7d';
 const FRONT_MARKET_PERIODS: FrontMarketPeriod[] = ['5m', '1h', '6h', '24h', '7d'];
 
+/**
+ * Render the PulsePort single-page application and orchestrate portfolio state, data refreshes, market-data enrichment, and UI navigation.
+ *
+ * Manages wallets, assets, stakes, LP/farm positions, transactions, prices, persisted caches, filters, spam/dust detection, manual coin entries, market-data fetching (DexScreener / Blockscout / DeFi Llama), CSV/JSON export helpers, and the full app shell (sidebar, header, main tabs, modals, and mobile navigation).
+ *
+ * @returns The root JSX element for the PulsePort application
+ */
 export default function App() {
   // -- CSV Export helper ------------------------------------------------------
   const exportCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -671,18 +709,15 @@ export default function App() {
     if (ethAssets.length > 0) {
       try {
         const keys = ethAssets.map(a => `ethereum:${(a as any).address.toLowerCase()}`);
-        const r = await fetch(`https://coins.llama.fi/prices/current/${keys.join(',')}`);
-        if (r.ok) {
-          const data = await r.json();
-          ethAssets.forEach(asset => {
-            const key = `ethereum:${(asset as any).address.toLowerCase()}`;
-            const hasPrice = data.coins?.[key]?.price != null;
-            if (!hasPrice && !newSpamIds.includes(asset.id)) {
-              newSpamIds.push(asset.id);
-              detected++;
-            }
-          });
-        }
+        const data = await fetchDefiLlamaPrices(keys);
+        ethAssets.forEach(asset => {
+          const key = `ethereum:${(asset as any).address.toLowerCase()}`;
+          const hasPrice = data[key]?.price != null;
+          if (!hasPrice && !newSpamIds.includes(asset.id)) {
+            newSpamIds.push(asset.id);
+            detected++;
+          }
+        });
       } catch { /* ignore */ }
     }
 
@@ -690,10 +725,9 @@ export default function App() {
     await Promise.allSettled(otherAssets.map(async (asset) => {
       try {
         const addr = (asset as any).address;
-        const host = asset.chain === 'base' ? 'base.blockscout.com' : 'scan.pulsechain.com';
-        const r = await fetch(`https://${host}/api/v2/tokens/${addr}`);
-        if (!r.ok) return;
-        const data = await r.json();
+        const chain = asset.chain === 'base' ? 'base' : 'pulsechain';
+        const data = await fetchBlockscoutTokenDetails(chain, addr);
+        if (!data) return;
         const hasMarket = data.exchange_rate || data.circulating_market_cap || data.volume_24h;
         if (!hasMarket && !newSpamIds.includes(asset.id)) {
           newSpamIds.push(asset.id);
@@ -787,7 +821,7 @@ export default function App() {
     if (wallets.length === 0) return [];
     const key = activeWallet?.toLowerCase() ?? null;
     return key ? realStakes.filter(s => s.walletAddress === key) : realStakes;
-  }, [wallets.length, realStakes, activeWallet]);
+  }, [realStakes, activeWallet]);
 
   const normalizeHoldingAssets = useMemo(() => {
     const plsUsdPrice = prices['pulsechain']?.usd || 0;
@@ -818,7 +852,7 @@ export default function App() {
       asset: normalizeAssetSymbol(tx.asset, tx.chain),
       counterAsset: tx.counterAsset ? normalizeAssetSymbol(tx.counterAsset, tx.chain) : tx.counterAsset,
     }));
-  }, [wallets.length, transactions]);
+  }, [transactions]);
 
   const unpricedCount = useMemo(() => {
     return currentAssets.filter(a => a.price === 0).length;
@@ -937,7 +971,7 @@ export default function App() {
       estimatedDailyPayoutHex,
       estimatedDailyPayoutUsd
     };
-  }, [wallets.length, realStakes, prices]);
+  }, [realStakes, prices]);
 
   const assetAllocation = useMemo(() => {
     // Aggregate by symbol across chains (e.g. ETH on Ethereum + ETH on Base)
@@ -1008,7 +1042,7 @@ export default function App() {
       byMonth[key].pnl += p.pnl;
     });
     return Object.values(byMonth).slice(-12);
-  }, [wallets.length, history]);
+  }, [history]);
 
   const receivedAssetsData = useMemo(() => {
     const START_2021 = new Date('2021-01-01').getTime();
@@ -1143,34 +1177,18 @@ export default function App() {
         const addr = (asset as any).address;
         if (!addr || addr === 'native') continue;
         try {
-          const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`);
-          if (!res.ok) continue;
-          const data = await res.json();
-          const pairs = data.pairs || [];
-          if (pairs.length === 0) continue;
-          const sorted = [...pairs].sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-          const top = sorted[0];
+          const summary = await fetchDexScreenerSummary(
+            addr,
+            FALLBACK_DESCRIPTIONS[addr ? addr.toLowerCase() : ''] || null,
+          );
+          if (!summary) continue;
           setTokenMarketData(prev => ({
             ...prev,
             [id]: {
-              liquidity:      sorted.reduce((s: number, p: any) => s + (p.liquidity?.usd || 0), 0),
-              volume24h:      sorted.reduce((s: number, p: any) => s + (p.volume?.h24  || 0), 0),
-              marketCap:      top?.marketCap || null,
-              fdv:            top?.fdv || null,
-              pools:          pairs.length,
-              txns24h:        sorted.reduce((s: number, p: any) => s + (p.txns?.h24?.buys || 0) + (p.txns?.h24?.sells || 0), 0),
-              nativePriceUsd: top?.priceNative || null,
-              priceChange1h:  top?.priceChange?.h1  ?? null,
-              priceChange6h:  top?.priceChange?.h6  ?? null,
-              priceChange24h: top?.priceChange?.h24 ?? null,
-              priceChange7d:  top?.priceChange?.d7  ?? null,
-              description:    top?.info?.description || FALLBACK_DESCRIPTIONS[addr ? addr.toLowerCase() : ''] || null,
-              websites:       top?.info?.websites    || [],
-              socials:        top?.info?.socials     || [],
+              ...summary,
             }
           }));
-          // Also cache the DexScreener image into tokenLogos so overview cards pick it up
-          const dsImg = top?.info?.imageUrl;
+          const dsImg = summary.imageUrl;
           if (dsImg && !STATIC_LOGOS[addr.toLowerCase()]) setTokenLogos(prev => ({ ...prev, [addr.toLowerCase()]: dsImg }));
         } catch { /* ignore */ }
       }
@@ -1195,41 +1213,23 @@ export default function App() {
       try {
         const bsBase = resolveBlockscoutBase();
         const [dsResult, holderResult] = await Promise.allSettled([
-          fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`).then(r => r.ok ? r.json() : null),
+          fetchDexScreenerSummary(addr, FALLBACK_DESCRIPTIONS[addr ? addr.toLowerCase() : ''] || null),
           tokenCardModal?.chain === 'pulsechain' && !isNativePls
             ? fetch(`${bsBase}/tokens/${addr}`).then(r => r.ok ? r.json() : null)
             : Promise.resolve(null),
         ]);
-        const data = dsResult.status === 'fulfilled' ? dsResult.value : null;
+        const summary = dsResult.status === 'fulfilled' ? dsResult.value : null;
         const holderData = holderResult.status === 'fulfilled' ? holderResult.value : null;
         const holders: number | null = holderData?.holders ? (parseInt(String(holderData.holders), 10) || null) : null;
-        if (!data) return;
-        const pairs = data.pairs || [];
-        if (pairs.length === 0) return;
-        const sorted = [...pairs].sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-        const top = sorted[0];
+        if (!summary) return;
         setTokenMarketData(prev => ({
           ...prev,
           [id]: {
-            liquidity:      sorted.reduce((s: number, p: any) => s + (p.liquidity?.usd || 0), 0),
-            volume24h:      sorted.reduce((s: number, p: any) => s + (p.volume?.h24 || 0), 0),
-            marketCap:      top?.marketCap || null,
-            fdv:            top?.fdv || null,
-            pools:          pairs.length,
-            txns24h:        sorted.reduce((s: number, p: any) => s + (p.txns?.h24?.buys || 0) + (p.txns?.h24?.sells || 0), 0),
-            nativePriceUsd: top?.priceNative || null,
-            priceChange1h:  top?.priceChange?.h1  ?? null,
-            priceChange6h:  top?.priceChange?.h6  ?? null,
-            priceChange24h: top?.priceChange?.h24 ?? null,
-            priceChange7d:  top?.priceChange?.d7  ?? null,
-            description:    top?.info?.description || FALLBACK_DESCRIPTIONS[addr ? addr.toLowerCase() : ''] || null,
-            websites:       top?.info?.websites    || [],
-            socials:        top?.info?.socials     || [],
+            ...summary,
             ...(holders != null ? { holders } : {}),
           },
         }));
-        // Cache DexScreener image into tokenLogos (helps overview cards)
-        const dsImg = top?.info?.imageUrl;
+        const dsImg = summary.imageUrl;
         if (dsImg && !isNativePls && !STATIC_LOGOS[addr.toLowerCase()]) setTokenLogos(prev => ({ ...prev, [addr.toLowerCase()]: dsImg }));
       } catch { /* ignore */ }
       finally { setTokenCardModalLoading(false); }
@@ -1251,44 +1251,25 @@ export default function App() {
       const addr = (asset as any).address as string;
       const bsBase = resolveBlockscoutBase();
       try {
-        // Fetch DexScreener data + Blockscout holder count in parallel
         const [dsResult, holderResult] = await Promise.allSettled([
-          fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`).then(r => r.ok ? r.json() : null),
+          fetchDexScreenerSummary(addr, FALLBACK_DESCRIPTIONS[addr ? addr.toLowerCase() : ''] || null),
           asset.chain === 'pulsechain'
             ? fetch(`${bsBase}/tokens/${addr}`).then(r => r.ok ? r.json() : null)
             : Promise.resolve(null),
         ]);
-        const data = dsResult.status === 'fulfilled' ? dsResult.value : null;
+        const summary = dsResult.status === 'fulfilled' ? dsResult.value : null;
         const holderData = holderResult.status === 'fulfilled' ? holderResult.value : null;
         const holders: number | null = holderData?.holders ? (parseInt(String(holderData.holders), 10) || null) : null;
-        if (!data) return;
-        const pairs: any[] = data.pairs || [];
-        if (pairs.length === 0) return;
-        const sorted = [...pairs].sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-        const top = sorted[0];
+        if (!summary) return;
         setTokenMarketData(prev => ({
           ...prev,
           [asset.id]: {
             ...prev[asset.id],
-            liquidity:      sorted.reduce((s: number, p: any) => s + (p.liquidity?.usd || 0), 0),
-            volume24h:      sorted.reduce((s: number, p: any) => s + (p.volume?.h24  || 0), 0),
-            marketCap:      top?.marketCap || null,
-            fdv:            top?.fdv || null,
-            pools:          pairs.length,
-            txns24h:        sorted.reduce((s: number, p: any) => s + (p.txns?.h24?.buys || 0) + (p.txns?.h24?.sells || 0), 0),
-            nativePriceUsd: top?.priceNative || null,
-            priceChange1h:  top?.priceChange?.h1  ?? null,
-            priceChange6h:  top?.priceChange?.h6  ?? null,
-            priceChange24h: top?.priceChange?.h24 ?? null,
-            priceChange7d:  top?.priceChange?.d7  ?? null,
-            description:    top?.info?.description || FALLBACK_DESCRIPTIONS[addr ? addr.toLowerCase() : ''] || null,
-            websites:       top?.info?.websites    || [],
-            socials:        top?.info?.socials     || [],
+            ...summary,
             ...(holders != null ? { holders } : {}),
           },
         }));
-        // Cache DexScreener image into tokenLogos - but never overwrite STATIC_LOGOS entries
-        const dsImg = top?.info?.imageUrl;
+        const dsImg = summary.imageUrl;
         if (dsImg && !STATIC_LOGOS[addr.toLowerCase()]) setTokenLogos(prev => ({ ...prev, [addr.toLowerCase()]: dsImg }));
       } catch { /* ignore */ }
     }));
@@ -1558,6 +1539,7 @@ export default function App() {
       investmentRows,
       plsUsdPrice: prices['pulsechain']?.usd || 0,
       onOpenTransactions: openHistoryDrilldown,
+      onOpenPlanner: () => setProfitPlannerOpen(true),
     }).pageProps;
   }, [investmentRows, openHistoryDrilldown, prices, walletAnalyzerModel]);
 
@@ -3116,7 +3098,7 @@ export default function App() {
                     onHide={hideToken}
                     onSetEntry={(id, value) => setManualEntries(prev => ({ ...prev, [id]: value }))}
                     onClearEntry={(id) => setManualEntries(prev => { const n = { ...prev }; delete n[id]; return n; })}
-                    onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('history'); }}
+                    onFilterByAsset={symbol => { resetHistoryFilters(); setTxAssetFilter(symbol); setActiveTab('history'); }}
                     showSkeleton={isLoading && wallets.length > 0 && currentAssets.length === 0}
                     footerValueUsd={chainAssets.reduce((sum, asset) => sum + asset.value, 0)}
                     shareBaseUsd={summary.totalValue}
@@ -3530,6 +3512,7 @@ export default function App() {
                       { value: 'deposit', label: 'Received' },
                       { value: 'withdraw', label: 'Sent' },
                       { value: 'swap', label: 'Swaps' },
+                      { value: 'interaction', label: 'Calls' },
                     ] as { value: string; label: string }[]).map(({ value, label }) => (
                       <button key={value}
                         onClick={() => setTxTypeFilter(value)}
@@ -3537,7 +3520,7 @@ export default function App() {
                         {label}
                       </button>
                     ))}
-                    {(txAssetFilter !== 'all' || txYearFilter !== 'all' || txCoinCategory !== 'all') && (
+                    {(txAssetFilter !== 'all' || txYearFilter !== 'all' || txCoinCategory !== 'all' || txChainFilter !== 'all') && (
                       <>
                         <div style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
                         {txAssetFilter !== 'all' && (
@@ -3555,6 +3538,11 @@ export default function App() {
                             {txCoinCategory === 'stablecoins' ? 'Stablecoins' : txCoinCategory === 'eth_weth' ? 'ETH/WETH' : txCoinCategory === 'hex' ? 'HEX/eHEX' : txCoinCategory === 'pls_wpls' ? 'PLS/WPLS' : 'Bridged'}<span className="chip-x">x</span>
                           </button>
                         )}
+                        {txChainFilter !== 'all' && (
+                          <button className="filter-chip" onClick={() => setTxChainFilter('all')}>
+                            {txChainFilter}<span className="chip-x">x</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => { setTxTypeFilter('all'); setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }}
                           style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '3px 6px', textDecoration: 'underline' }}>
@@ -3570,9 +3558,9 @@ export default function App() {
                         <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Transactions</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>
                           <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-                          PulseChain
+                          {txChainFilter === 'all' ? 'All Chains' : txChainFilter}
                         </span>
-                        <span style={{ fontSize: 12, color: t.textTertiary }}>{holdingsPulsechainTransactions.length} tx</span>
+                        <span style={{ fontSize: 12, color: t.textTertiary }}>{holdingsPulsechainTransactions.length} {txTypeFilter === 'all' ? 'tx' : txTypeFilter}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <button onClick={() => setViewAsYou(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
@@ -3641,13 +3629,14 @@ export default function App() {
                       ))}
                     </div>
                     {/* Active filter chips */}
-                    {(txAssetFilter !== 'all' || txYearFilter !== 'all' || txCoinCategory !== 'all') && (
+                    {(txAssetFilter !== 'all' || txYearFilter !== 'all' || txCoinCategory !== 'all' || txChainFilter !== 'all') && (
                       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, padding: '8px 18px', borderBottom: '1px solid var(--border)' }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginRight: 4 }}>Filtering by:</span>
                         {txAssetFilter !== 'all' && (<button className="filter-chip" onClick={() => setTxAssetFilter('all')}>{txAssetFilter}<span className="chip-x">&#x2715;</span></button>)}
                         {txYearFilter !== 'all' && (<button className="filter-chip" onClick={() => setTxYearFilter('all')}>{txYearFilter}<span className="chip-x">&#x2715;</span></button>)}
+                        {txChainFilter !== 'all' && (<button className="filter-chip" onClick={() => setTxChainFilter('all')}>{txChainFilter}<span className="chip-x">&#x2715;</span></button>)}
                         {txCoinCategory !== 'all' && (<button className="filter-chip" onClick={() => setTxCoinCategory('all')}>{txCoinCategory === 'stablecoins' ? 'Stablecoins' : txCoinCategory === 'eth_weth' ? 'ETH/WETH' : txCoinCategory === 'hex' ? 'HEX/eHEX' : txCoinCategory === 'pls_wpls' ? 'PLS/WPLS' : 'Bridged'}<span className="chip-x">&#x2715;</span></button>)}
-                <button onClick={() => { setTxTypeFilter('swap'); setTxAssetFilter('all'); setTxYearFilter('all'); setTxCoinCategory('all'); }} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', textDecoration: 'underline', marginLeft: 4 }}>Clear all</button>
+                <button onClick={resetHistoryFilters} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', textDecoration: 'underline', marginLeft: 4 }}>Clear all</button>
                       </div>
                     )}
                     {/* -- Wallet-style transaction cards -- */}
@@ -3663,8 +3652,10 @@ export default function App() {
                         hideIds={hiddenTxIds}
                         onToggleHide={id => setHiddenTxIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
                         showHidden={showHiddenTxs}
-                        onFilterByAsset={symbol => setTxAssetFilter(symbol)}
+                        onFilterByAsset={symbol => { resetHistoryFilters(); setTxAssetFilter(symbol); }}
                         emptyMessage="No transactions found for these filters."
+                        initialVisibleCount={150}
+                        loadMoreCount={150}
                       />
                       {/* Hidden transactions bar */}
                       {hiddenTxIds.length > 0 && (
@@ -3736,7 +3727,7 @@ export default function App() {
               <div className="transaction-page-head-side">
                 <div className="transaction-page-stats">
                   <div className="transaction-page-stat">
-                    <span>Tracked swaps</span>
+                    <span>{txTypeFilter === 'all' ? 'Tracked transactions' : txTypeFilter === 'swap' ? 'Tracked swaps' : `Tracked ${txTypeFilter}s`}</span>
                     <strong>{filteredTransactions.length}</strong>
                   </div>
                   <div className="transaction-page-stat">
@@ -3820,9 +3811,10 @@ export default function App() {
                   onFilterByAsset={symbol => {
                     resetHistoryFilters();
                     setTxAssetFilter(symbol);
-                    setTxTypeFilter('swap');
                   }}
-                  emptyMessage="No swaps found for these filters."
+                  emptyMessage={txTypeFilter === 'all' ? 'No transactions found for these filters.' : `No ${txTypeFilter}s found for these filters.`}
+                  initialVisibleCount={150}
+                  loadMoreCount={150}
                 />
               </div>
             </div>
@@ -4026,7 +4018,7 @@ export default function App() {
                   onHide={hideToken}
                   onSetEntry={(id, value) => setManualEntries(prev => ({ ...prev, [id]: value }))}
                   onClearEntry={(id) => setManualEntries(prev => { const n = { ...prev }; delete n[id]; return n; })}
-                  onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('history'); }}
+                  onFilterByAsset={symbol => { resetHistoryFilters(); setTxAssetFilter(symbol); setActiveTab('history'); }}
                   footerValueUsd={filteredViewAssets.reduce((sum, asset) => sum + asset.value, 0)}
                   shareBaseUsd={walletUsdValue}
                 />
@@ -4306,13 +4298,13 @@ export default function App() {
                                              assets={currentAssets}
                                              getTokenLogoUrl={getTokenLogoUrl}
                                              tokenLogos={tokenLogos}
-                                             onFilterByAsset={symbol => { setTxAssetFilter(symbol); setActiveTab('history'); }}
+                                             onFilterByAsset={symbol => { resetHistoryFilters(); setTxAssetFilter(symbol); setActiveTab('history'); }}
                                              emptyMessage="No transactions for this token."
                                            />
                                            {tokenTxs.length > 8 && (
                                              <div style={{ textAlign: 'center', padding: '8px', fontSize: 12, color: 'var(--fg-subtle)' }}>
                                                +{tokenTxs.length - 8} more &mdash;{' '}
-                                              <button onClick={e => { e.stopPropagation(); setTxAssetFilter(asset.symbol); setActiveTab('history'); }}
+                                              <button onClick={e => { e.stopPropagation(); resetHistoryFilters(); setTxAssetFilter(asset.symbol); setActiveTab('history'); }}
                                                  style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
                                                  view all in Holdings
                                                </button>
@@ -4379,7 +4371,7 @@ export default function App() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {!isCollapsed('wallet-txs') && [
-                          { value: txTypeFilter, onChange: setTxTypeFilter, options: [['all','All Types'],['deposit','Received'],['withdraw','Sent'],['swap','Swaps']] as [string,string][] },
+                          { value: txTypeFilter, onChange: setTxTypeFilter, options: [['all','All Types'],['deposit','Received'],['withdraw','Sent'],['swap','Swaps'],['interaction','Calls']] as [string,string][] },
                           { value: txAssetFilter, onChange: setTxAssetFilter, options: [['all','All Tokens'], ...Array.from(new Set(baseTxs.flatMap(tx => [tx.asset, tx.counterAsset].filter(Boolean) as string[]))).sort().map(a => [a,a])] as [string,string][] },
                         ].map(({ value, onChange, options }, i) => (
                           <select key={i} value={value} onChange={e => onChange(e.target.value)}
@@ -4409,6 +4401,8 @@ export default function App() {
                           onToggleHide={id => setHiddenTxIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
                           showHidden={showHiddenTxs}
                           emptyMessage="No transactions found for these filters."
+                          initialVisibleCount={100}
+                          loadMoreCount={100}
                         />
                       </div>
                     )}

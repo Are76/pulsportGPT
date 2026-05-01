@@ -1,4 +1,5 @@
 import type { Asset } from '../../types';
+import { fetchDexScreenerBatchTokenPairs } from '../../services/marketDataService';
 
 type FetchLike = typeof fetch;
 type AssetMap = Record<string, Asset>;

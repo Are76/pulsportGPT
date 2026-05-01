@@ -242,7 +242,11 @@ export const CHAINS = {
   base: {
     id: 8453,
     name: 'Base',
-    rpc: 'https://mainnet.base.org',
+    rpc: 'https://base-rpc.publicnode.com',
+    fallbackRpcs: [
+      'https://base.llamarpc.com',
+      'https://developer-access-mainnet.base.org'
+    ],
     explorer: 'https://basescan.org',
     color: '#0052FF'
   }

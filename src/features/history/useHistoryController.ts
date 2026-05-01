@@ -56,6 +56,11 @@ export interface HistoryController {
   applyHistoryDrilldownIntent: (intent: HistoryDrilldownIntent) => void;
 }
 
+/**
+ * Creates a history controller that manages drilldown filter state and derives filtered transactions, swap filter options, and a summary (swap counts, gas, realized PnL, and holdings).
+ *
+ * @returns A `HistoryController` exposing current filter values and setter callbacks, derived `filteredTransactions` and `holdingsPulsechainTransactions`, swap filter option lists, the `hasActiveSwapFilters` flag, `activeHistoryAsset` (when an asset filter is active), the computed `historySummary`, and actions to `resetHistoryFilters` or `applyHistoryDrilldownIntent`.
+ */
 export function useHistoryController({
   currentAssets,
   currentTransactions,
@@ -226,9 +231,7 @@ export function useHistoryController({
     const tokenTxs = txAssetFilter === 'all'
       ? swaps
       : currentTransactions.filter((tx) =>
-        (tx.type === 'swap' || !!tx.swapLegOnly)
-        && tx.chain === 'pulsechain'
-        && (matchesAssetSymbol(tx.asset, txAssetFilter, tx.chain)
+        (matchesAssetSymbol(tx.asset, txAssetFilter, tx.chain)
           || matchesAssetSymbol(tx.counterAsset ?? '', txAssetFilter, tx.chain)),
       );
 
@@ -263,7 +266,7 @@ export function useHistoryController({
     const realizedCost = Math.min(cost, sold * averageCost);
     const realizedPnl = txAssetFilter === 'all' ? aggregateSwapPnl : proceeds - realizedCost;
     const holdingsValue = txAssetFilter === 'all'
-      ? currentAssets.filter((asset) => asset.chain === 'pulsechain').reduce((sum, asset) => sum + asset.value, 0)
+      ? currentAssets.reduce((sum, asset) => sum + asset.value, 0)
       : activeHistoryAsset ? activeHistoryAsset.balance * activeHistoryAsset.price : 0;
 
     return {

@@ -113,6 +113,16 @@ describe('fetchPulsechainTransactions', () => {
         status: 'ok',
       }),
       expect.objectContaining({
+        id: '0xswap-native-withdraw-interaction-0',
+        hash: '0xswap',
+        type: 'interaction',
+        chain: 'pulsechain',
+        asset: 'PLS',
+        amount: 0,
+        fee: 0.000042,
+        status: 'ok',
+      }),
+      expect.objectContaining({
         id: '0xnativein-native-deposit',
         hash: '0xnativein',
         type: 'deposit',
@@ -290,7 +300,15 @@ describe('fetchPulsechainTransactions', () => {
       }),
       expect.objectContaining({
         hash: '0xpage1',
+        type: 'deposit',
         asset: 'PLS',
+        amount: 1,
+      }),
+      expect.objectContaining({
+        hash: '0xpage2',
+        type: 'interaction',
+        asset: 'PLS',
+        amount: 0,
       }),
     ]);
     expect(result.nextBlock).toBe(120);
@@ -377,6 +395,206 @@ describe('fetchPulsechainTransactions', () => {
     ]);
   });
 
+  it('keeps native PulseChain history when token transfer pagination fails', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              hash: '0xnativeonly',
+              timestamp: '2026-04-24T10:00:00.000000Z',
+              block_number: 120,
+              from: { hash: '0xexternal' },
+              to: { hash: '0xwallet' },
+              value: '1000000000000000000',
+              fee: { value: '21000000000000' },
+              status: 'ok',
+            },
+          ],
+          next_page_params: null,
+        }),
+      })
+      .mockResolvedValue({
+        ok: false,
+        status: 502,
+      });
+
+    const result = await fetchPulsechainTransactions('0xwallet', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      baseUrl: 'https://api.scan.pulsechain.com/api/v2',
+    });
+
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        hash: '0xnativeonly',
+        asset: 'PLS',
+        type: 'deposit',
+        chain: 'pulsechain',
+      }),
+    ]);
+  });
+
+  it('keeps successful PulseChain token transfer pages when a later page returns 502', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.endsWith('/addresses/0xwallet/transactions')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [],
+            next_page_params: null,
+          }),
+        };
+      }
+
+      if (url.endsWith('/addresses/0xwallet/token-transfers?type=ERC-20')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                transaction_hash: '0xfirstpage',
+                timestamp: '2026-04-24T11:00:00.000000Z',
+                block_number: 121,
+                from: { hash: '0xrouter' },
+                to: { hash: '0xwallet' },
+                token: {
+                  address_hash: '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
+                  symbol: 'HEX',
+                  name: 'HEX',
+                  decimals: '8',
+                },
+                total: {
+                  decimals: '8',
+                  value: '100000000',
+                },
+                log_index: 0,
+              },
+            ],
+            next_page_params: {
+              block_number: 120,
+              index: 194,
+            },
+          }),
+        };
+      }
+
+      if (url.includes('/addresses/0xwallet/token-transfers?type=ERC-20&block_number=120&index=194')) {
+        return {
+          ok: false,
+          status: 502,
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchPulsechainTransactions('0xwallet', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      baseUrl: 'https://api.scan.pulsechain.com/api/v2',
+    });
+
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        hash: '0xfirstpage',
+        asset: 'HEX',
+        type: 'deposit',
+        chain: 'pulsechain',
+      }),
+    ]);
+  });
+
+  it('normalizes live PulseChain token transfer field names from tx_hash and token.address', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              hash: '0xlivepulse',
+              timestamp: '2026-04-24T11:00:00.000000Z',
+              block_number: 121,
+              from: { hash: '0xwallet' },
+              to: { hash: '0xrouter' },
+              value: '500000000000000000',
+              fee: { value: '42000000000000' },
+              status: 'ok',
+              method: 'multicall',
+            },
+          ],
+          next_page_params: null,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              tx_hash: '0xlivepulse',
+              timestamp: '2026-04-24T11:00:00.000000Z',
+              block_number: 121,
+              from: { hash: '0xwallet' },
+              to: { hash: '0xrouter' },
+              token: {
+                address: '0x41527c4d9d47ef03f00f77d794c87ba94832700b',
+                symbol: 'USDC',
+                name: 'USDC',
+                decimals: '6',
+              },
+              total: {
+                decimals: '6',
+                value: '12713498',
+              },
+              log_index: 31,
+              method: 'multicall',
+            },
+            {
+              tx_hash: '0xlivepulse',
+              timestamp: '2026-04-24T11:00:00.000000Z',
+              block_number: 121,
+              from: { hash: '0x7f681a5ad615238357ba148c281e2eaefd2de55a' },
+              to: { hash: '0xwallet' },
+              token: {
+                address: '0xf6f8db0aba00007681f8faf16a0fda1c9b030b11',
+                symbol: 'PRVX',
+                name: 'ProveX',
+                decimals: '18',
+              },
+              total: {
+                decimals: '18',
+                value: '170921152373242158912538',
+              },
+              log_index: 32,
+              method: 'multicall',
+            },
+          ],
+          next_page_params: null,
+        }),
+      });
+
+    const result = await fetchPulsechainTransactions('0xwallet', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      baseUrl: 'https://api.scan.pulsechain.com/api/v2',
+    });
+
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        hash: '0xlivepulse',
+        type: 'swap',
+        asset: 'PRVX',
+        counterAsset: 'USDC (from Base)',
+        bridged: true,
+        chain: 'pulsechain',
+      }),
+    ]);
+  });
+
   it('marks HEX stake start transactions with staking metadata', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
@@ -440,6 +658,122 @@ describe('fetchPulsechainTransactions', () => {
           protocol: 'hex',
           action: 'stakeStart',
         },
+      }),
+      expect.objectContaining({
+        hash: '0xstake',
+        type: 'interaction',
+        asset: 'PLS',
+        amount: 0,
+      }),
+    ]);
+  });
+
+  it('uses compat internal transfers to reconstruct PulseChain swaps that settle back in PLS', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.includes('action=txlist&')) {
+        return {
+          json: async () => ({
+            status: '1',
+            result: [
+              {
+                hash: '0xmultisplit',
+                timeStamp: '1777289505',
+                from: '0xwallet',
+                to: '0xrouter',
+                value: '0',
+                gasUsed: '406313',
+                gasPrice: '804031584293433',
+                txreceipt_status: '1',
+                isError: '0',
+                functionName: 'multicall(uint256,bytes[])',
+                input: '0xac9650d8',
+                blockNumber: '26391910',
+              },
+            ],
+          }),
+        };
+      }
+
+      if (url.includes('action=tokentx&')) {
+        return {
+          json: async () => ({
+            status: '1',
+            result: [
+              {
+                hash: '0xmultisplit',
+                timeStamp: '1777289505',
+                from: '0xwallet',
+                to: '0xpair1',
+                value: '12000000000000000000000',
+                tokenSymbol: 'MOST',
+                tokenName: 'MostWanted',
+                tokenDecimal: '18',
+                contractAddress: '0xe33a5AE21F93aceC5CfC0b7b0FDBB65A0f0Be5cC',
+                blockNumber: '26391910',
+                logIndex: '2013',
+              },
+              {
+                hash: '0xmultisplit',
+                timeStamp: '1777289505',
+                from: '0xwallet',
+                to: '0xpair2',
+                value: '3000000000000000000000',
+                tokenSymbol: 'MOST',
+                tokenName: 'MostWanted',
+                tokenDecimal: '18',
+                contractAddress: '0xe33a5AE21F93aceC5CfC0b7b0FDBB65A0f0Be5cC',
+                blockNumber: '26391910',
+                logIndex: '2017',
+              },
+            ],
+          }),
+        };
+      }
+
+      if (url.includes('action=txlistinternal&')) {
+        return {
+          json: async () => ({
+            status: '1',
+            result: [
+              {
+                hash: '0xmultisplit',
+                timeStamp: '1777289505',
+                from: '0xrouter',
+                to: '0xwallet',
+                value: '8430922231762240000000000',
+              },
+            ],
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchPulsechainTransactions('0xwallet', {
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        hash: '0xmultisplit',
+        type: 'swap',
+        asset: 'PLS',
+        amount: 8430922.23176224,
+        counterAsset: 'MOST',
+        counterAmount: 15000,
+      }),
+      expect.objectContaining({
+        hash: '0xmultisplit',
+        type: 'interaction',
+        asset: 'PLS',
+        amount: 0,
       }),
     ]);
   });
@@ -519,6 +853,13 @@ describe('fetchPulsechainTransactions', () => {
           orderId: '0x0000000000000000000000000000000000000000000000000000000000000001',
         },
         swapLegOnly: true,
+      }),
+      expect.objectContaining({
+        hash: '0xliberty',
+        type: 'interaction',
+        chain: 'base',
+        asset: 'ETH',
+        amount: 0,
       }),
       expect.objectContaining({
         hash: '0xbaseeth',

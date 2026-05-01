@@ -144,4 +144,42 @@ describe('calculatePortfolioSummary', () => {
     expect(summary.chainDistribution.pulsechain).toBe(201);
     expect(summary.nativePlsBalance).toBe(1000);
   });
+
+  it('ignores malformed deposits without asset or address data', () => {
+    const summary = calculatePortfolioSummary({
+      currentAssets: [],
+      currentStakes: [],
+      currentTransactions: [
+        {
+          id: 'bad-deposit',
+          hash: '0xbad',
+          timestamp: Date.UTC(2026, 0, 1),
+          type: 'deposit',
+          from: undefined as any,
+          to: '0xwallet',
+          asset: undefined as any,
+          amount: 1,
+          valueUsd: 1,
+          chain: 'ethereum',
+        },
+      ],
+      prices: {},
+      wallets: [{ address: '0xwallet', name: 'Main' }],
+    });
+
+    expect(summary.netInvestment).toBe(0);
+    expect(summary.realizedPnl).toBe(0);
+  });
+
+  it('ignores wallets with missing addresses', () => {
+    const summary = calculatePortfolioSummary({
+      currentAssets: [],
+      currentStakes: [],
+      currentTransactions: [],
+      prices: {},
+      wallets: [{ address: undefined as any, name: 'Broken' }],
+    });
+
+    expect(summary.netInvestment).toBe(0);
+  });
 });

@@ -216,6 +216,15 @@ export function buildBehaviorMetricDescriptor(
   });
 }
 
+/**
+ * Builds a provenance descriptor describing a single performance point (portfolio NAV at a labeled timestamp).
+ *
+ * The descriptor includes the point's USD value, a formula noting the value represents the tracked portfolio NAV at that timestamp, and inputs for Portfolio NAV and Daily P&L. If provided, a Benchmark value input is also included.
+ *
+ * @param point - Object with `label` (timestamp or label for the point), `value` (portfolio NAV at that point, in USD), and `pnl` (daily P&L at that point, in USD)
+ * @param benchmarkValue - Optional benchmark value to include as an additional input
+ * @returns A ProvenanceDescriptor with label `Performance point {label}`, `value` formatted as USD, `formula` describing the point, and inputs for Portfolio NAV, Daily P&L, and optionally Benchmark value
+ */
 export function buildPerformancePointDescriptor(point: { label: string; value: number; pnl: number }, benchmarkValue?: number): ProvenanceDescriptor {
   const inputs: ProvenanceInput[] = [
     { label: 'Portfolio NAV', value: fmtUsd(point.value), source: buildTransactionHistorySource(`Portfolio snapshot at ${point.label}`) },
@@ -232,9 +241,19 @@ export function buildPerformancePointDescriptor(point: { label: string; value: n
   });
 }
 
+/**
+ * Create a provenance descriptor for the on-chain amount involved in a transaction.
+ *
+ * @param tx - Transaction record used to derive the label, formatted value, primary source (including a swap or interaction description when applicable), and explorer href.
+ * @param options - Optional controls for additional actions.
+ * @param options.onDrilldown - If provided, adds a "Filter {asset} history" drilldown action that invokes this callback when selected.
+ * @returns A ProvenanceDescriptor with label `{asset} amount`, a formatted amount value, a primary source tied to the transaction (with a swap or interaction description when applicable), an explanatory note about the normalized record, an external "Open explorer" action, and an optional drilldown action.
+ */
 export function buildTransactionAmountDescriptor(tx: Transaction, options?: { onDrilldown?: () => void }): ProvenanceDescriptor {
   const swapDescription = tx.type === 'swap' && tx.counterAsset
     ? `Paid ${(tx.counterAmount ?? 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.counterAsset} and received ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}.`
+    : tx.type === 'interaction'
+      ? `Contract interaction from ${tx.from} to ${tx.to}.`
     : `${tx.type} ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}.`;
   return buildRawMetricProvenance({
     label: `${tx.asset} amount`,

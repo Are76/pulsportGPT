@@ -184,7 +184,7 @@ describe('MyInvestmentsPage', () => {
       kind: 'asset',
       symbol: 'HEX',
       chain: 'pulsechain',
-      txType: 'swap',
+      txType: 'all',
     });
   });
 });

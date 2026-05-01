@@ -1,4 +1,5 @@
 import { TOKENS } from '../../constants';
+import { fetchDefiLlamaPrices } from '../../services/marketDataService';
 import { resolveBlockscoutBase } from '../../utils/localStorageDebounce';
 import {
   buildBaseDiscoveredToken,
@@ -139,6 +140,17 @@ export async function loadBaseDiscoveredTokens(
   return { discoveredTokens };
 }
 
+/**
+ * Retrieve and concatenate all paginated results for an Etherscan account action.
+ *
+ * Fetches pages from the Etherscan V2 account API for the given `action` and `address`, following pagination until no more results are returned or a non-recoverable error occurs. Retries up to three times on rate-limit responses with incremental backoff.
+ *
+ * @param action - The Etherscan `action` query value (e.g., `tokentx`)
+ * @param address - The target Ethereum address to query
+ * @param apiKey - Optional Etherscan API key; pass an empty string to omit
+ * @param fetchImpl - A fetch-compatible implementation used to make HTTP requests
+ * @returns The concatenated array of `result` items returned across all successful pages
+ */
 async function fetchAllEtherscanPages(
   action: string,
   address: string,
@@ -180,6 +192,14 @@ async function fetchAllEtherscanPages(
   return results;
 }
 
+/**
+ * Builds discovered Ethereum tokens from an address's Etherscan token transfer history, selecting a USD price for each token when available.
+ *
+ * @param address - The Ethereum address whose token transfers will be scanned
+ * @param fetchedPrices - Lookup map used to determine a token's USD price; the function checks the token's lowercased contract address first, then the token's CoinGecko id
+ * @param apiKey - Etherscan API key used to fetch the token transfer history
+ * @returns An object containing `discoveredTokens` — an array of DiscoveredToken objects constructed from the address's token transfer events
+ */
 export async function loadEthereumDiscoveredTokens(
   address: string,
   fetchedPrices: PriceMap,
@@ -188,6 +208,9 @@ export async function loadEthereumDiscoveredTokens(
 ): Promise<LoaderResult> {
   const tokenTransfers = await fetchAllEtherscanPages('tokentx', address, apiKey, fetchImpl);
   const discoveredTokens: DiscoveredToken[] = [];
+  const knownEthereumTokensByAddress = new Map(
+    TOKENS.ethereum.map((token) => [token.address.toLowerCase(), token]),
+  );
 
   // Pre-build a Map for O(1) lookups instead of O(N) Array.find per transfer.
   const knownEthTokenByAddress = new Map(
@@ -214,6 +237,19 @@ export async function loadEthereumDiscoveredTokens(
   return { discoveredTokens };
 }
 
+/**
+ * Enhances Pulsechain-discovered tokens with logos and improved symbols/names by querying Dexscreener.
+ *
+ * Enriches tokens that lack pricing/logo information by fetching token pair data from Dexscreener, selecting
+ * the highest-liquidity pair per token, and using that pair's metadata to update token symbol/name and to
+ * collect logo URL patches.
+ *
+ * @param discoveredTokens - Array of discovered tokens to enrich; token objects may be mutated in-place.
+ * @param fetchedPrices - Existing price map used to determine which token addresses still need enrichment.
+ * @param fetchImpl - Optional fetch-compatible implementation used for HTTP requests to Dexscreener.
+ * @returns LoaderResult with the (possibly updated) `discoveredTokens` and a `logoPatches` object mapping
+ *          token addresses (lowercased) to image URL strings.
+ */
 export async function enrichPulsechainDiscoveredTokens(
   discoveredTokens: DiscoveredToken[],
   fetchedPrices: PriceMap,
@@ -265,6 +301,13 @@ export async function enrichPulsechainDiscoveredTokens(
   return { discoveredTokens, logoPatches };
 }
 
+/**
+ * Enriches Ethereum discovered tokens with USD price and logo information from DefiLlama.
+ *
+ * @param discoveredTokens - Discovered tokens to enrich; may be returned unmodified if no lookup keys are needed
+ * @param fetchedPrices - Existing price map used to determine which tokens need price lookups
+ * @returns An object containing the original `discoveredTokens` and, when available, `pricePatches` (maps both contract addresses and DefiLlama keys to `{ usd, image }`) and `logoPatches` (maps contract addresses to logo URLs)
+ */
 export async function enrichEthereumDiscoveredTokens(
   discoveredTokens: DiscoveredToken[],
   fetchedPrices: PriceMap,
@@ -275,16 +318,11 @@ export async function enrichEthereumDiscoveredTokens(
     return { discoveredTokens };
   }
 
-  const response = await fetchImpl(`https://coins.llama.fi/prices/current/${lookupKeys.join(',')}`);
-  if (!response.ok) {
-    return { discoveredTokens };
-  }
-
-  const data = await response.json();
+  const data = await fetchDefiLlamaPrices(lookupKeys, fetchImpl);
   const pricePatches: Record<string, PriceEntry> = {};
   const logoPatches: Record<string, string> = {};
 
-  Object.entries(data.coins || {}).forEach(([key, val]: [string, any]) => {
+  Object.entries(data).forEach(([key, val]: [string, any]) => {
     const addr = key.replace('ethereum:', '');
     pricePatches[addr] = { usd: val.price, image: val.logo };
     pricePatches[key] = { usd: val.price, image: val.logo };

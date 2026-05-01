@@ -4,10 +4,13 @@ import {
   calculateBenchmarkComparison,
   calculateDiversificationScore,
   calculatePortfolioHistory,
+  calculatePulsechainCoreRotationPnlPls,
   calculateRiskMetrics,
+  extractPulsechainCoreRotationSwaps,
   type BehaviorStats,
   type BenchmarkComparison,
   type PortfolioAnalyticsPoint,
+  type PulsechainCoreRotationPnl,
   type RiskMetrics,
 } from './portfolioAnalytics';
 
@@ -65,6 +68,7 @@ export interface WalletAnalyzerModel {
       weight: number;
     }>;
   };
+  rotation: PulsechainCoreRotationPnl;
   alerts: WalletAnalyzerAlert[];
 }
 
@@ -79,11 +83,22 @@ interface BuildWalletAnalyzerModelArgs {
   benchmarkHistory?: HistoryPoint[];
 }
 
+/**
+ * Format a timestamp as a localized month-and-day label.
+ *
+ * @param timestamp - The timestamp in milliseconds since the Unix epoch.
+ * @returns A month-and-day string formatted for the en-US locale (e.g., "Apr 5").
+ */
 function formatPointLabel(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-/** Fallback: synthetic +1.5%/point benchmark used when real price data is unavailable. */
+/**
+ * Creates a synthetic benchmark series that increases linearly by 1.5% per index from the first point's value.
+ *
+ * @param history - Source history points used to derive timestamps and other fields
+ * @returns A history array where each point's `value` is `firstValue * (1 + index * 0.015)`; returns an empty array if `history` is empty
+ */
 function buildSyntheticBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[] {
   if (history.length === 0) return [];
   const firstValue = history[0]!.value || 1;
@@ -93,6 +108,32 @@ function buildSyntheticBenchmarkHistory(history: HistoryPoint[]): HistoryPoint[]
   }));
 }
 
+/**
+ * Resolve the current PLS (Pulsechain) price in USD from a map of token prices.
+ *
+ * @param currentPrices - Map of token identifiers to their USD prices; the function checks keys `pulsechain`, `pulsechain:native`, `PLS`, and `WPLS` (in that order).
+ * @returns The resolved PLS price in USD, or `0` if none of the expected keys are present.
+ */
+function resolveCurrentPlsUsdPrice(currentPrices: Record<string, number>): number {
+  return currentPrices['pulsechain']
+    ?? currentPrices['pulsechain:native']
+    ?? currentPrices.PLS
+    ?? currentPrices.WPLS
+    ?? 0;
+}
+
+/**
+ * Builds a consolidated wallet analytics model (NAV, performance, risk, behavior, allocation, contributors, chain mix, rotation PnL, and alerts) from portfolio inputs.
+ *
+ * @param history - Time series of portfolio values used to compute performance and risk metrics
+ * @param assets - Asset metadata referenced by rows (used for labeling/typing)
+ * @param summary - Summary totals (used as a fallback for NAV when holdings sum is zero)
+ * @param transactions - Transaction history used for behavior statistics and rotation PnL extraction
+ * @param investmentRows - Current holding rows used to compute allocation, contributors, and chain mix
+ * @param currentPrices - Map of current asset USD prices used in behavior and rotation calculations
+ * @param benchmarkHistory - Optional external benchmark series; when not provided a synthetic benchmark is generated
+ * @returns A WalletAnalyzerModel containing nav (total value, cumulative return, drawdown, volatility, Sharpe, diversification), performance points and benchmark comparison, risk and behavior metrics, allocation and contributor summaries, chain mix rows, rotation PnL data, and any generated alerts
+ */
 export function buildWalletAnalyzerModel({
   history,
   assets,
@@ -102,6 +143,7 @@ export function buildWalletAnalyzerModel({
   currentPrices,
   benchmarkHistory: externalBenchmarkHistory,
 }: BuildWalletAnalyzerModelArgs): WalletAnalyzerModel {
+  const canonicalRows = investmentRows.filter((row) => row.currentValue > 0);
   const performancePoints = calculatePortfolioHistory(history).map((point) => ({
     ...point,
     label: formatPointLabel(point.timestamp),
@@ -118,19 +160,26 @@ export function buildWalletAnalyzerModel({
   }));
   const comparison = calculateBenchmarkComparison(history, benchmarkHistory);
   const behavior = calculateBehaviorStats(transactions, currentPrices);
-  const allocationTotal = assets.reduce((sum, asset) => sum + asset.value, 0);
-  const topHoldings = [...assets]
-    .sort((a, b) => b.value - a.value)
+  const currentPlsUsdPrice = resolveCurrentPlsUsdPrice(currentPrices);
+  const rotation = calculatePulsechainCoreRotationPnlPls(
+    extractPulsechainCoreRotationSwaps(transactions),
+    currentPrices,
+    currentPlsUsdPrice,
+    () => currentPlsUsdPrice,
+  );
+  const allocationTotal = canonicalRows.reduce((sum, row) => sum + row.currentValue, 0);
+  const topHoldings = [...canonicalRows]
+    .sort((a, b) => b.currentValue - a.currentValue)
     .slice(0, 5)
-    .map((asset) => ({
-      symbol: asset.symbol,
-      name: asset.name,
-      chain: asset.chain,
-      valueUsd: asset.value,
-      weight: allocationTotal > 0 ? asset.value / allocationTotal : 0,
+    .map((row) => ({
+      symbol: row.symbol,
+      name: row.name,
+      chain: row.chain,
+      valueUsd: row.currentValue,
+      weight: allocationTotal > 0 ? row.currentValue / allocationTotal : 0,
     }));
   const concentration = topHoldings[0]?.weight ?? 0;
-  const contributors = [...investmentRows]
+  const contributors = [...canonicalRows]
     .sort((a, b) => b.currentValue - a.currentValue)
     .slice(0, 5)
     .map((row) => ({
@@ -143,17 +192,24 @@ export function buildWalletAnalyzerModel({
       pnlUsd: row.pnlUsd,
       shareOfNav: summary.totalValue > 0 ? row.currentValue / summary.totalValue : 0,
     }));
-  const chainMixRows = (Object.entries(summary.chainDistribution) as Array<[Asset['chain'], number]>)
+  const chainMixByValue = canonicalRows.reduce<Record<Asset['chain'], number>>(
+    (acc, row) => {
+      acc[row.chain] += row.currentValue;
+      return acc;
+    },
+    { pulsechain: 0, ethereum: 0, base: 0 },
+  );
+  const chainMixRows = (Object.entries(chainMixByValue) as Array<[Asset['chain'], number]>)
     .filter(([, valueUsd]) => valueUsd > 0)
     .sort((a, b) => b[1] - a[1])
     .map(([chain, valueUsd]) => ({
       chain,
       valueUsd,
-      weight: summary.totalValue > 0 ? valueUsd / summary.totalValue : 0,
+      weight: allocationTotal > 0 ? valueUsd / allocationTotal : 0,
     }));
   const diversificationScore = calculateDiversificationScore(
-    assets.reduce<Record<string, number>>((acc, asset) => {
-      acc[`${asset.chain}:${asset.symbol}`] = asset.value;
+    canonicalRows.reduce<Record<string, number>>((acc, row) => {
+      acc[`${row.chain}:${row.symbol}`] = row.currentValue;
       return acc;
     }, {}),
   );
@@ -187,7 +243,7 @@ export function buildWalletAnalyzerModel({
 
   return {
     nav: {
-      totalValue: summary.totalValue,
+      totalValue: allocationTotal > 0 ? allocationTotal : summary.totalValue,
       cumulativeReturn: comparison.portfolioReturn,
       maxDrawdown: risk.maxDrawdown,
       volatility: risk.volatility,
@@ -211,6 +267,7 @@ export function buildWalletAnalyzerModel({
     chainMix: {
       rows: chainMixRows,
     },
+    rotation,
     alerts,
   };
 }

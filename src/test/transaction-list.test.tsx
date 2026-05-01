@@ -140,4 +140,65 @@ describe('TransactionList', () => {
     expect(screen.getByRole('dialog', { name: /bridge metadata provenance/i })).toBeInTheDocument();
     expect(screen.getByText(/bridge metadata normalized from the selected transaction/i)).toBeInTheDocument();
   });
+
+  it('renders preserved contract interactions', () => {
+    const tx: Transaction = {
+      id: 'approval-interaction',
+      hash: '0xapproval',
+      timestamp: new Date('2026-04-29T12:00:00Z').getTime(),
+      type: 'interaction',
+      from: '0xme',
+      to: '0xcontract',
+      asset: 'ETH',
+      amount: 0,
+      valueUsd: 0,
+      chain: 'ethereum',
+    };
+
+    render(<TransactionList transactions={[tx]} assets={[]} />);
+
+    expect(screen.getByText('Call')).toBeInTheDocument();
+    expect(screen.getByText(/contract call to/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/apr 29, 2026/i));
+    expect(screen.getByText(/contract interaction/i)).toBeInTheDocument();
+  });
+
+  it('renders large ledgers progressively when an initial window is provided', () => {
+    const transactions: Transaction[] = Array.from({ length: 5 }, (_, index) => ({
+      id: `tx-${index}`,
+      hash: `0x${index}`,
+      timestamp: new Date(`2026-04-2${index}T12:00:00Z`).getTime(),
+      type: 'deposit',
+      from: '0xexternal',
+      to: '0xwallet',
+      asset: `TOK${index}`,
+      amount: index + 1,
+      valueUsd: index + 1,
+      chain: 'pulsechain',
+    }));
+
+    render(
+      <TransactionList
+        transactions={transactions}
+        assets={[]}
+        initialVisibleCount={2}
+        loadMoreCount={2}
+      />,
+    );
+
+    expect(screen.getByText(/showing 2 of 5 transactions/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open source details for tok0 amount/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open source details for tok1 amount/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open source details for tok2 amount/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /load 2 more/i }));
+
+    expect(screen.getByText(/showing 4 of 5 transactions/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open source details for tok3 amount/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /load 1 more/i }));
+
+    expect(screen.getByRole('button', { name: /open source details for tok4 amount/i })).toBeInTheDocument();
+    expect(screen.queryByText(/showing 4 of 5 transactions/i)).not.toBeInTheDocument();
+  });
 });

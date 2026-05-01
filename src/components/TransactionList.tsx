@@ -19,13 +19,14 @@
  *   - Filter-by-asset shortcut button
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   ArrowDownLeft, ArrowUpRight, RefreshCcw,
   ExternalLink, EyeOff, Eye,
   ChevronDown, ChevronUp,
   Filter, TrendingUp, TrendingDown,
   ArrowLeftRight,
+  Workflow,
 } from 'lucide-react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import type { Transaction } from '../types';
@@ -80,6 +81,16 @@ function fmtPnl(n: number): string {
   return `${n >= 0 ? '+' : ''}$${Math.abs(n).toFixed(dp)}`;
 }
 
+/**
+ * Determines the best-estimate USD value for a transaction.
+ *
+ * Attempts sources in priority order: explicit `tx.valueUsd` if > 0, historical asset price at transaction time multiplied by amounts (`assetPriceUsdAtTx * amount` or `counterPriceUsdAtTx * counterAmount`), then current `coinAsset.price * amount`, then `counterAsset.price * counterAmount`. Returns the first usable computed value.
+ *
+ * @param tx - The transaction to evaluate.
+ * @param coinAsset - Optional asset metadata for the transaction's primary asset; used as a fallback with current price when historical data is absent.
+ * @param counterAsset - Optional asset metadata for the transaction's counter asset; used as a fallback with current price when historical data is absent.
+ * @returns The resolved USD value for the transaction, or `undefined` if no usable data is available.
+ */
 function resolveTransactionUsdValue(
   tx: Transaction,
   coinAsset?: Asset,
@@ -106,11 +117,18 @@ function resolveTransactionUsdValue(
   return undefined;
 }
 
+/**
+ * Provide visual metadata (icon component, background color, foreground color, and label) for a transaction type.
+ *
+ * @param type - Transaction type: `deposit`, `withdraw`, `swap`, or `interaction`
+ * @returns An object with `Icon` (React icon component), `bg` (CSS background color), `color` (CSS foreground color), and `label` (short display label)
+ */
 function txVisual(type: Transaction['type']) {
   switch (type) {
     case 'deposit':  return { Icon: ArrowDownLeft, bg: 'rgba(0,255,159,.10)', color: 'var(--accent)',  label: 'Received' } as const;
     case 'withdraw': return { Icon: ArrowUpRight,  bg: 'rgba(239,68,68,.10)',  color: '#ef4444',        label: 'Sent'     } as const;
     case 'swap':     return { Icon: RefreshCcw,    bg: 'rgba(139,92,246,.10)', color: '#8b5cf6',        label: 'Swap'     } as const;
+    case 'interaction': return { Icon: Workflow, bg: 'rgba(59,130,246,.10)', color: '#3b82f6', label: 'Call' } as const;
   }
 }
 
@@ -138,6 +156,10 @@ export interface TransactionListProps {
   onFilterByAsset?: (symbol: string) => void;
   /** Shown when the list is empty */
   emptyMessage?: string;
+  /** Render only the first N rows initially and progressively reveal more. */
+  initialVisibleCount?: number;
+  /** Number of rows to reveal per click when initialVisibleCount is set. */
+  loadMoreCount?: number;
 }
 
 // -- Liberty Swap chain names --------------------------------------------------
@@ -151,6 +173,15 @@ const LS_CHAIN_NAMES: Record<number, string> = {
   10:    'Optimism',
 };
 
+/**
+ * Renders a compact Liberty Swap Bridge summary panel showing destination chain and shortened order ID.
+ *
+ * Displays the destination chain name (looked up from known LibertySwap chain names, falling back to `Chain {id}`) and a truncated order ID when longer than 14 characters, plus a link to libertyswap.finance and a short explanatory note.
+ *
+ * @param dstChainId - Numeric LibertySwap destination chain ID used to derive the displayed chain name.
+ * @param orderId - LibertySwap order identifier (displayed truncated if longer than 14 characters).
+ * @returns A JSX element containing the Liberty Swap Bridge UI panel.
+ */
 function LibertySwapPanel({ dstChainId, orderId }: { dstChainId: number; orderId: string }) {
   const dstChainName = LS_CHAIN_NAMES[dstChainId] ?? `Chain ${dstChainId}`;
   const shortOrder = orderId.length > 14 ? `${orderId.slice(0, 8)}...${orderId.slice(-6)}` : orderId;
@@ -201,7 +232,27 @@ function LibertySwapPanel({ dstChainId, orderId }: { dstChainId: number; orderId
   );
 }
 
-// --- Component ----------------------------------------------------------------
+/**
+ * Render a configurable list of transaction cards with expandable detail panels and per-asset controls.
+ *
+ * Renders each transaction as a row that can show a condensed or full amount line, USD/value metadata, optional asset logo filter button, hide/unhide control, and an expandable detail area (SwapDetail, InteractionDetail, or TransferDetail). Supports labeling tracked wallet addresses as "You", resolving asset metadata/logos, estimating entry USD value, marking LibertySwap entries, and progressive "load more" pagination.
+ *
+ * @param transactions - Array of transactions to display.
+ * @param viewAsYou - When true, known wallet addresses are labeled with wallet names or "You" instead of shortened addresses.
+ * @param wallets - Tracked wallets used to resolve ownership and display names.
+ * @param compact - When true, use a compact row layout that hides some metadata and USD values.
+ * @param assets - Asset metadata (price, symbol, chain) used to resolve logos and compute USD estimates.
+ * @param getTokenLogoUrl - Optional callback that returns a logo URL for a given Asset.
+ * @param tokenLogos - Fallback map of token symbol → logo URL used when `getTokenLogoUrl` or asset lookup is unavailable.
+ * @param hideIds - Transaction IDs that should be rendered in a hidden state.
+ * @param onToggleHide - Optional callback invoked with a transaction ID to toggle its hidden state.
+ * @param showHidden - When true, include transactions whose IDs appear in `hideIds` in the visible list.
+ * @param onFilterByAsset - Optional callback invoked with a token symbol when the user requests filtering by that asset.
+ * @param emptyMessage - Message to display when there are no visible transactions.
+ * @param initialVisibleCount - Optional initial number of transactions to show; when omitted all visible transactions are shown.
+ * @param loadMoreCount - Number of additional transactions to reveal when the "Load more" control is clicked.
+ * @returns The React element tree for the transaction list.
+ */
 export function TransactionList({
   transactions,
   viewAsYou = false,
@@ -215,14 +266,26 @@ export function TransactionList({
   showHidden = false,
   onFilterByAsset,
   emptyMessage = 'No transactions found.',
+  initialVisibleCount,
+  loadMoreCount = 100,
 }: TransactionListProps) {
   // Internal expansion state - no parent needed
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState<number>(initialVisibleCount ?? Number.POSITIVE_INFINITY);
 
-  const walletSet = useMemo(
-    () => new Set(wallets.map(w => w.address.toLowerCase())),
+  const walletMap = useMemo(
+    () => new Map(wallets.map(w => [w.address.toLowerCase(), w])),
     [wallets],
   );
+  const walletSet = useMemo(() => new Set(walletMap.keys()), [walletMap]);
+
+  const assetMap = useMemo(() => {
+    const next = new Map<string, Asset>();
+    for (const asset of assets) {
+      next.set(`${asset.chain}:${normalizeSymbol(asset.symbol, asset.chain)}`, asset);
+    }
+    return next;
+  }, [assets]);
 
   const isOwn = useCallback(
     (addr: string | undefined): boolean =>
@@ -236,18 +299,18 @@ export function TransactionList({
       if (!viewAsYou) return shortAddr(addr);
       const lower = addr.toLowerCase();
       if (walletSet.has(lower)) {
-        const w = wallets.find(w => w.address.toLowerCase() === lower);
+        const w = walletMap.get(lower);
         return w?.name || 'You';
       }
       return shortAddr(addr);
     },
-    [viewAsYou, wallets, walletSet],
+    [viewAsYou, walletMap, walletSet],
   );
 
   const findAsset = useCallback(
     (symbol: string, chain: string): Asset | undefined =>
-      assets.find(a => normalizeSymbol(a.symbol, a.chain) === normalizeSymbol(symbol, chain) && a.chain === chain),
-    [assets],
+      assetMap.get(`${chain}:${normalizeSymbol(symbol, chain)}`),
+    [assetMap],
   );
 
   const getLogoUrl = useCallback(
@@ -268,6 +331,15 @@ export function TransactionList({
   }, []);
 
   const visible = transactions.filter(tx => showHidden || !hideIds.includes(tx.id));
+  const paginatedTransactions = useMemo(() => {
+    return Number.isFinite(visibleCount)
+      ? visible.slice(0, visibleCount)
+      : visible;
+  }, [visible, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(initialVisibleCount ?? Number.POSITIVE_INFINITY);
+  }, [initialVisibleCount, transactions, showHidden]);
 
   if (visible.length === 0) {
     return <div className="tx-list-empty">{emptyMessage}</div>;
@@ -275,15 +347,14 @@ export function TransactionList({
 
   return (
     <div className="tx-list">
-      {transactions.map(tx => {
+      {paginatedTransactions.map(tx => {
         const isHidden = hideIds.includes(tx.id);
-        if (isHidden && !showHidden) return null;
-
         const isExpanded  = expandedIds.has(tx.id);
         const isDeposit   = tx.type === 'deposit';
         const isSwapLegOnly = !!tx.swapLegOnly;
         const isWithdraw  = tx.type === 'withdraw' && !isSwapLegOnly;
         const isSwap      = tx.type === 'swap';
+        const isInteraction = tx.type === 'interaction';
         const { Icon, bg, color, label } = txVisual(isSwapLegOnly ? 'swap' : tx.type);
 
         const coinAsset = findAsset(tx.asset, tx.chain);
@@ -343,6 +414,13 @@ export function TransactionList({
                         <span>to</span>
                         <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg-muted)' }}>{toLabel}</strong>
                       </>
+                    ) : isInteraction ? (
+                      <>
+                        <span>contract call from</span>
+                        <strong style={{ color: isOwn(tx.from) ? 'var(--accent)' : 'var(--fg-muted)' }}>{fromLabel}</strong>
+                        <span>to</span>
+                        <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg-muted)' }}>{toLabel}</strong>
+                      </>
                     ) : isDeposit ? (
                       <>
                         <span>from</span>
@@ -360,7 +438,7 @@ export function TransactionList({
                   {(!compact || isSwap || isSwapLegOnly) && (
                   <div
                     className="tx-card__amount"
-                    style={{ color: isDeposit ? 'var(--accent)' : (isSwap || isSwapLegOnly) ? 'var(--fg)' : '#ef4444' }}
+                    style={{ color: isDeposit ? 'var(--accent)' : (isSwap || isSwapLegOnly) ? 'var(--fg)' : isInteraction ? '#3b82f6' : '#ef4444' }}
                   >
                     <ProvenanceTrigger
                       descriptor={buildTransactionAmountDescriptor(tx, {
@@ -381,6 +459,8 @@ export function TransactionList({
                               </span>
                             </span>
                           )
+                          : isInteraction
+                            ? `Contract call to ${shortAddr(tx.to)}`
                           : isSwapLegOnly
                             ? `Paid ${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`
                             : `${tx.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tx.asset}`}
@@ -454,6 +534,8 @@ export function TransactionList({
               <div className="tx-card__detail-panel" style={{ padding: '0 18px 14px', background: 'var(--bg-inset, var(--bg-elevated))' }}>
                 {isSwap || isSwapLegOnly
                   ? <SwapDetail tx={tx} coinAsset={coinAsset} counterAsset={counterAsset} coinLogo={coinLogo} getLogoUrl={getLogoUrl} displayAddr={displayAddr} isOwn={isOwn} explorerBase={explorerBase} onFilterByAsset={onFilterByAsset} resolvedUsdValue={resolvedUsdValue} />
+                  : isInteraction
+                    ? <InteractionDetail tx={tx} displayAddr={displayAddr} isOwn={isOwn} explorerBase={explorerBase} />
                   : <TransferDetail tx={tx} isDeposit={isDeposit} coinAsset={coinAsset} displayAddr={displayAddr} isOwn={isOwn} explorerBase={explorerBase} resolvedUsdValue={resolvedUsdValue} />
                 }
               </div>
@@ -461,6 +543,104 @@ export function TransactionList({
           </div>
         );
       })}
+      {paginatedTransactions.length < visible.length && (
+        <div
+          className="tx-list-load-more"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '16px 18px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--bg-elevated)',
+          }}
+        >
+          <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
+            Showing {paginatedTransactions.length.toLocaleString('en-US')} of {visible.length.toLocaleString('en-US')} transactions
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibleCount((current) => {
+              if (!Number.isFinite(current)) return current;
+              return Math.min(current + loadMoreCount, visible.length);
+            })}
+            style={{
+              border: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+              color: 'var(--fg)',
+              borderRadius: 999,
+              padding: '8px 14px',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            Load {Math.min(loadMoreCount, visible.length - paginatedTransactions.length).toLocaleString('en-US')} more
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Render detailed information for a contract interaction transaction.
+ *
+ * Renders a contextual line describing the call sender and recipient, a grid of stat cards
+ * (Type, Chain, From, To, Date) and an external explorer link for the transaction hash.
+ *
+ * @param tx - The transaction to describe (interaction/call)
+ * @param displayAddr - Function that returns a display-friendly string for an address or undefined
+ * @param isOwn - Predicate that returns `true` when the given address belongs to a tracked wallet
+ * @param explorerBase - Base URL for the chain explorer used to build the transaction link
+ * @returns A JSX element containing the interaction detail panel with stats and an explorer link
+ */
+function InteractionDetail({
+  tx,
+  displayAddr,
+  isOwn,
+  explorerBase,
+}: {
+  tx: Transaction;
+  displayAddr: (addr: string | undefined) => string;
+  isOwn: (addr: string | undefined) => boolean;
+  explorerBase: string;
+}) {
+  const stats = [
+    { label: 'Type', val: 'Contract interaction', sub: 'Zero-value on-chain call preserved from the raw ledger.' },
+    { label: 'Chain', val: tx.chain === 'pulsechain' ? 'PulseChain' : tx.chain === 'ethereum' ? 'Ethereum' : 'Base', sub: `Hash ${shortAddr(tx.hash)}` },
+    { label: 'From', val: displayAddr(tx.from), sub: isOwn(tx.from) ? 'Tracked wallet' : 'External sender' },
+    { label: 'To', val: displayAddr(tx.to), sub: isOwn(tx.to) ? 'Tracked wallet' : 'Contract or destination' },
+    { label: 'Date', val: format(tx.timestamp, 'MMM d, yyyy'), sub: format(tx.timestamp, 'HH:mm:ss') },
+  ];
+
+  return (
+    <div className="tx-transfer-detail" style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <div className="tx-detail-context" style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 10 }}>
+        Contract call from <strong style={{ color: isOwn(tx.from) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.from)}</strong>
+        <span> to </span>
+        <strong style={{ color: isOwn(tx.to) ? 'var(--accent)' : 'var(--fg)' }}>{displayAddr(tx.to)}</strong>
+      </div>
+      <div className="tx-transfer-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+        {stats.map(({ label, val, sub }) => (
+          <div key={label} className="tx-transfer-stat" style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg)' }}>{val}</div>
+            <div style={{ fontSize: 12, color: 'var(--fg-subtle)', marginTop: 1 }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <a
+          href={`${explorerBase}/tx/${tx.hash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}
+        >
+          <ExternalLink size={11} /> View on Explorer
+        </a>
+      </div>
     </div>
   );
 }

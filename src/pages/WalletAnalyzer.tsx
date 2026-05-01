@@ -5,6 +5,7 @@ import { MyInvestmentsFilters } from '../components/my-investments/MyInvestments
 import { MyInvestmentsTable } from '../components/my-investments/MyInvestmentsTable';
 import { AllocationBreakdownCard } from '../components/wallet-analyzer/AllocationBreakdownCard';
 import { ChainMixCard } from '../components/wallet-analyzer/ChainMixCard';
+import { CoreRotationCard } from '../components/wallet-analyzer/CoreRotationCard';
 import { PortfolioPerformanceChart } from '../components/wallet-analyzer/PortfolioPerformanceChart';
 import { RiskMetricsPanel } from '../components/wallet-analyzer/RiskMetricsPanel';
 import { TopContributorsCard } from '../components/wallet-analyzer/TopContributorsCard';
@@ -41,11 +42,31 @@ function formatSignedPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${percent}%`;
 }
 
+/**
+ * Formats a USD amount as a currency string prefixed with a sign.
+ *
+ * @param value - The numeric USD amount; may be positive, negative, or zero.
+ * @returns A USD-formatted string with a leading `+` for values greater than or equal to zero, or `-` for values less than zero.
+ */
 function formatSignedUsd(value: number): string {
   const formatted = fmtUsd(Math.abs(value));
   return `${value >= 0 ? '+' : '-'}${formatted}`;
 }
 
+/**
+ * Render the Wallet Analyzer user interface showing portfolio performance, attribution, risk, behavior, holdings, and related drilldowns.
+ *
+ * The page includes range selection, chain and holding filters, highlights (alpha, chain driver, behavior), performance and chain attribution charts, risk/rotation panels, holdings table with expandable rows, allocation and contributors cards, and an optional asset detail panel. Action callbacks are exposed for opening transaction views and the Profit Planner.
+ *
+ * @param model - Analyzer model containing performance, nav, chainMix, contributors, alerts, behavior, allocation, rotation, and risk data used to populate the page
+ * @param investmentRows - Array of investment/holding rows displayed in the holdings table and used for counts and selections
+ * @param plsUsdPrice - Current PLS-to-USD price used for valuation displays
+ * @param onOpenTransactions - Callback invoked with a transaction intent to open a transaction history view
+ * @param onOpenTransactionsForHolding - Callback invoked with an investment row to open transactions for a specific holding
+ * @param onOpenTransactionsForChain - Callback invoked with a chain identifier to open transactions filtered by chain
+ * @param onOpenPlanner - Callback triggered when the hero "Open Profit Planner" action is clicked
+ * @returns The rendered Wallet Analyzer page as a React element
+ */
 export function WalletAnalyzerPage({
   model,
   investmentRows,
@@ -53,6 +74,7 @@ export function WalletAnalyzerPage({
   onOpenTransactions,
   onOpenTransactionsForHolding,
   onOpenTransactionsForChain,
+  onOpenPlanner,
 }: WalletAnalyzerPageProps) {
   const [performanceRange, setPerformanceRange] = useState<PerformanceRange>('1M');
   const [holdingChainFilter, setHoldingChainFilter] = useState<InvestmentChainFilter>('all');
@@ -157,6 +179,11 @@ export function WalletAnalyzerPage({
           <p className="wa-kicker">Analyzer</p>
           <h1 className="wa-hero__title">Wallet Analyzer</h1>
           <p className="wa-hero__copy">Performance, risk, and behavior analytics across the tracked portfolio.</p>
+          <div className="wa-hero__actions">
+            <button type="button" className="wa-action-button" onClick={onOpenPlanner}>
+              Open Profit Planner
+            </button>
+          </div>
         </div>
         <div className="wa-hero__stats">
           <article className="wa-hero__stat">
@@ -288,29 +315,38 @@ export function WalletAnalyzerPage({
         </article>
       </section>
 
-      <div className="wa-layout">
-        <PortfolioPerformanceChart
-          performance={filteredPerformance}
-          summary={rangeSummary}
-          controls={
-            <div className="wa-segmented-control" aria-label="Performance range">
-              {(['1W', '1M', 'ALL'] as const).map((range) => (
-                <button
-                  key={range}
-                  type="button"
-                  className="wa-segmented-control__button"
-                  aria-pressed={performanceRange === range}
-                  onClick={() => setPerformanceRange(range)}
-                >
-                  {range === 'ALL' ? 'All' : range}
-                </button>
-              ))}
-            </div>
-          }
-        />
-        <div className="wa-side-stack">
+      <div className="wa-main-grid">
+        <div className="wa-main-grid__primary">
+          <PortfolioPerformanceChart
+            performance={filteredPerformance}
+            summary={rangeSummary}
+            controls={
+              <div className="wa-segmented-control" aria-label="Performance range">
+                {(['1W', '1M', 'ALL'] as const).map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    className="wa-segmented-control__button"
+                    aria-pressed={performanceRange === range}
+                    onClick={() => setPerformanceRange(range)}
+                  >
+                    {range === 'ALL' ? 'All' : range}
+                  </button>
+                ))}
+              </div>
+            }
+          />
+          <ChainMixCard
+            chainMix={model.chainMix}
+            rangeLabel={rangeSummary.label}
+            attribution={chainAttribution}
+            onOpenTransactions={onOpenTransactionsForChain}
+          />
+        </div>
+        <div className="wa-main-grid__secondary">
           <RiskMetricsPanel nav={model.nav} risk={model.risk} />
           <TradeBehaviorCard behavior={model.behavior} />
+          <CoreRotationCard rotation={model.rotation} onOpenTransactions={onOpenTransactions} />
         </div>
       </div>
 
@@ -447,45 +483,37 @@ export function WalletAnalyzerPage({
         </div>
       </section>
 
-      <div className="wa-layout wa-layout--bottom">
-        <AllocationBreakdownCard
-          allocation={model.allocation}
-          onOpenTransactions={onOpenTransactionsForHolding}
-        />
-        <TopContributorsCard
-          contributors={model.contributors}
-          onOpenTransactions={onOpenTransactionsForHolding}
-        />
-      </div>
-
-      <div className="wa-layout wa-layout--bottom">
-        <ChainMixCard
-          chainMix={model.chainMix}
-          rangeLabel={rangeSummary.label}
-          attribution={chainAttribution}
-          onOpenTransactions={onOpenTransactionsForChain}
-        />
-      </div>
-
-      <div className="wa-layout wa-layout--bottom">
-        <section className="wa-panel wa-panel--holdings">
-          <div className="wa-holdings-shell">
-            <MyInvestmentsFilters
-              activeFilter={holdingChainFilter}
-              counts={holdingChainCounts}
-              onChange={setHoldingChainFilter}
-            />
-            <MyInvestmentsTable
-              rows={filteredHoldingRows}
-              plsUsdPrice={plsUsdPrice}
-              portfolioValue={model.nav.totalValue}
-              expandedId={expandedHoldingId}
-              onToggleRow={(id) => setExpandedHoldingId((current) => current === id ? null : id)}
-              onOpenAsset={setSelectedHolding}
-              onOpenTransactions={(row) => onOpenTransactions(buildAssetHistoryIntent(row))}
-            />
-          </div>
-        </section>
+      <div className="wa-main-grid wa-main-grid--lower">
+        <div className="wa-main-grid__primary">
+          <section className="wa-panel wa-panel--holdings">
+            <div className="wa-holdings-shell">
+              <MyInvestmentsFilters
+                activeFilter={holdingChainFilter}
+                counts={holdingChainCounts}
+                onChange={setHoldingChainFilter}
+              />
+              <MyInvestmentsTable
+                rows={filteredHoldingRows}
+                plsUsdPrice={plsUsdPrice}
+                portfolioValue={model.nav.totalValue}
+                expandedId={expandedHoldingId}
+                onToggleRow={(id) => setExpandedHoldingId((current) => current === id ? null : id)}
+                onOpenAsset={setSelectedHolding}
+                onOpenTransactions={(row) => onOpenTransactions(buildAssetHistoryIntent(row))}
+              />
+            </div>
+          </section>
+        </div>
+        <div className="wa-main-grid__secondary">
+          <AllocationBreakdownCard
+            allocation={model.allocation}
+            onOpenTransactions={onOpenTransactionsForHolding}
+          />
+          <TopContributorsCard
+            contributors={model.contributors}
+            onOpenTransactions={onOpenTransactionsForHolding}
+          />
+        </div>
       </div>
       {selectedHolding ? (
         <MyInvestmentsAssetPanel

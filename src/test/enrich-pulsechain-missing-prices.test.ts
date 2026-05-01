@@ -41,6 +41,8 @@ describe('enrichPulsechainMissingPrices', () => {
 
     const logos = await enrichPulsechainMissingPrices(assetMap, walletAssetMap, fetchMock as any);
 
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('https://api.dexscreener.com/tokens/v1/pulsechain/0xabc');
     expect(assetMap['pulsechain-ABC']).toMatchObject({
       symbol: 'ABX',
       name: 'Alpha',
@@ -83,5 +85,37 @@ describe('enrichPulsechainMissingPrices', () => {
 
     expect(assetMap.x.price).toBe(0);
     expect(logos).toEqual({});
+  });
+
+  it('batches up to 30 PulseChain token lookups into one DexScreener request', async () => {
+    const assetMap: Record<string, Asset> = Object.fromEntries(
+      Array.from({ length: 31 }, (_, index) => {
+        const address = `0x${(index + 1).toString(16).padStart(40, '0')}`;
+        return [
+          `asset-${index}`,
+          {
+            id: `asset-${index}`,
+            symbol: `TOK${index}`,
+            name: `Token ${index}`,
+            address,
+            balance: 1,
+            price: 0,
+            value: 0,
+            chain: 'pulsechain',
+          } satisfies Asset,
+        ];
+      }),
+    );
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ([]),
+    });
+
+    await enrichPulsechainMissingPrices(assetMap, {}, fetchMock as any);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('https://api.dexscreener.com/tokens/v1/pulsechain/');
+    expect(String(fetchMock.mock.calls[0]?.[0]).split('/').at(-1)?.split(',')).toHaveLength(30);
+    expect(String(fetchMock.mock.calls[1]?.[0]).split('/').at(-1)?.split(',')).toHaveLength(1);
   });
 });

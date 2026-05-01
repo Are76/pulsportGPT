@@ -38,6 +38,12 @@ function isStableAsset(asset: string): boolean {
     || u.includes('DAI');
 }
 
+/**
+ * Map an asset symbol or token name to a canonical category string for grouping.
+ *
+ * @param asset - The asset symbol or token name (case-insensitive)
+ * @returns `'USDC'`, `'USDT'`, `'DAI'`, `'ETH'` for recognized tokens; otherwise the uppercased input string
+ */
 function assetCategory(asset: string): string {
   const u = asset.toUpperCase();
   if (u.includes('USDC') || u.includes('USD COIN') || u.includes('USDBC')) return 'USDC';
@@ -47,6 +53,17 @@ function assetCategory(asset: string): string {
   return u;
 }
 
+/**
+ * Compute a comprehensive portfolio summary from assets, stakes, transactions, prices, and wallets.
+ *
+ * @param args - Arguments required to compute the summary:
+ *   - `currentAssets`: current asset positions with value, balance, symbol, chain, price, and 24h PnL
+ *   - `currentStakes`: staking positions with on-chain quantities, remaining days and estimated USD value
+ *   - `currentTransactions`: transaction history used to qualify inflows and compute cost-basis / realized PnL
+ *   - `prices`: lookup table for USD prices keyed by token and chain
+ *   - `wallets`: wallet records used to determine which addresses are considered "own"
+ * @returns An AppPortfolioSummary containing aggregate values (total and liquid value, staking USD), 24h PnL and percent, per-chain distribution and PnL, PLS-native splits (native value, native balance, staked and token PLS value), net investment, unified PnL, and realized PnL.
+ */
 export function calculatePortfolioSummary({
   currentAssets,
   currentStakes,
@@ -96,11 +113,16 @@ export function calculatePortfolioSummary({
   ), 0);
   const tokenPlsValue = nativeValue - nativePlsBalance - stakedPlsValue;
 
-  const ownAddrs = new Set(wallets.map((wallet) => wallet.address.toLowerCase()));
+  const ownAddrs = new Set(
+    wallets
+      .map((wallet) => wallet.address?.toLowerCase?.())
+      .filter((address): address is string => Boolean(address)),
+  );
 
   const qualifiedInflows = currentTransactions.filter((tx) => {
     if (tx.type !== 'deposit') return false;
     if (tx.chain === 'pulsechain') return false;
+    if (!tx.asset || !tx.from || !tx.to) return false;
     const assetUpper = tx.asset.toUpperCase();
     const isEth = assetUpper === 'ETH';
     const isStable = isStableAsset(tx.asset);
@@ -146,6 +168,7 @@ export function calculatePortfolioSummary({
 
   const netInvestment = qualifiedInflows.reduce((acc, tx) => {
     if (deduped.has(tx.id)) return acc;
+    if (!tx.asset) return acc;
     const assetUpper = tx.asset.toUpperCase();
     const isEth = assetUpper === 'ETH';
     if (isStableAsset(tx.asset)) return acc + tx.amount;
