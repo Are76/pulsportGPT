@@ -197,9 +197,9 @@ async function batchRpcRequestWithFallback(
   body: RpcBatchRequest[],
 ): Promise<RpcBatchResponse[]> {
   try {
-    return await batchRpcRequest(body, PRIMARY_RPC);
+    return await batchRpcCall(body, PRIMARY_RPC, fetch);
   } catch {
-    return await batchRpcRequest(body, FALLBACK_RPC);
+    return await batchRpcCall(body, FALLBACK_RPC, fetch);
   }
 }
 
@@ -270,7 +270,7 @@ async function queryPulsechainTokenSearchSubgraph(
       'Content-Type': 'application/json',
     },
     body: buildTokenSearchQuery(term),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]) : AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT)]) : AbortSignal.timeout(FETCH_TIMEOUT),
   });
 
   if (response.ok === false) {
@@ -806,7 +806,7 @@ async function getCoinGeckoPriceSourceMap(tokenAddresses: string[]): Promise<Rec
 
   const response = await fetch(
     `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoIds.join(',')}&vs_currencies=usd`,
-    { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
+    { signal: AbortSignal.timeout(FETCH_TIMEOUT) },
   );
 
   if (response.ok === false) {

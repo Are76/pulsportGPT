@@ -304,8 +304,8 @@ function resolveTokenAsset(token: TokenRef | null | undefined): { asset: string;
   };
 }
 
-async function fetchPagedJson<T>(url: string, fetchImpl: FetchLike): Promise<PagedResponse<T>> {
-  const response = await fetchImpl(url, { signal: AbortSignal.timeout(BLOCKSCOUT_PAGE_TIMEOUT) });
+async function fetchPagedJson<T>(url: string, fetchImpl: FetchLike, timeoutMs = BLOCKSCOUT_PAGE_TIMEOUT): Promise<PagedResponse<T>> {
+  const response = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) });
 
   if (!response.ok) {
     throw new Error(`Blockscout transaction request failed for ${url}: ${response.status}`);
