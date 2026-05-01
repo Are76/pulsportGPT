@@ -293,12 +293,13 @@ function applySecondPassEnrichments(
  * `bridged: true` and `bridge.originChain`.
  */
 function correlateBridgeLegs(txs: Transaction[]): Transaction[] {
-  // Only consider transactions that are not already tagged as bridged
+  // Only consider genuine withdraw/deposit transactions — internal-transfers are
+  // same-chain own-wallet moves and must never act as bridge exit or entry legs.
   const withdraws = txs.filter(
-    tx => (tx.type === 'withdraw' || tx.type === 'internal-transfer') && !tx.bridged && (tx.valueUsd ?? 0) > 0,
+    tx => tx.type === 'withdraw' && !tx.bridged && (tx.valueUsd ?? 0) > 0,
   );
   const deposits = txs.filter(
-    tx => (tx.type === 'deposit' || tx.type === 'internal-transfer') && !tx.bridged && (tx.valueUsd ?? 0) > 0,
+    tx => tx.type === 'deposit' && !tx.bridged && (tx.valueUsd ?? 0) > 0,
   );
 
   // Map id → mutable copy for annotation
